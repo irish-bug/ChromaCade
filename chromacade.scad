@@ -11,8 +11,8 @@ case_w = 7 * in2mm;        // 177.8mm
 case_d = 4.5 * in2mm;      // 165.1mm
 wall = 5;                  // Chunky 5mm walls
 
-front_h = 1.75 * in2mm;       // 76.2mm
-shelf_d = 1.5 * in2mm;       // 50.8mm
+front_h = 1.75 * in2mm;    // 76.2mm
+shelf_d = 1.5 * in2mm;     // 50.8mm
 shelf_a = 8;               // Degrees tilted forward (down towards front)
 panel_l = 2.5 * in2mm;     // 63.5mm
 panel_a = 45;              // Degrees slope
@@ -59,7 +59,6 @@ module main_chassis() {
         offset(delta = -wall) outer_profile();
         
         // Chop off the back wall to leave the cavity open
-        // A block at Y=0 cuts from -wall to +wall
         translate([0, 0, case_h/2])
         cube([case_w * 1.5, wall * 2, case_h * 1.5], center=true);
     }
@@ -69,22 +68,22 @@ module main_chassis() {
     boss_z_top = case_h - wall - 15;
     boss_z_bot = wall + 15;
     
-    // Left side bosses (attached to inner left wall)
-    translate([-(case_w/2 - wall - boss_len/2), wall + 5, 0]) {
-        translate([0, 0, boss_z_top]) rotate([0, 90, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([0, 90, 0]) mounting_boss(boss_len);
+    // Left side bosses (attached to inner left wall: +X)
+    // Placed at Y = wall + boss_len/2 so they span perfectly to the back panel
+    translate([(case_w/2 - wall - 5), wall + boss_len/2, 0]) {
+        translate([0, 0, boss_z_top]) rotate([90, 0, 0]) mounting_boss(boss_len);
+        translate([0, 0, boss_z_bot]) rotate([90, 0, 0]) mounting_boss(boss_len);
     }
     
-    // Right side bosses (attached to inner right wall)
-    translate([(case_w/2 - wall - boss_len/2), wall + 5, 0]) {
-        translate([0, 0, boss_z_top]) rotate([0, -90, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([0, -90, 0]) mounting_boss(boss_len);
+    // Right side bosses (attached to inner right wall: -X)
+    translate([-(case_w/2 - wall - 5), wall + boss_len/2, 0]) {
+        translate([0, 0, boss_z_top]) rotate([90, 0, 0]) mounting_boss(boss_len);
+        translate([0, 0, boss_z_bot]) rotate([90, 0, 0]) mounting_boss(boss_len);
     }
 }
 
 module outer_profile() {
     pts = [p0, p1, p2, p3, p4, p5];
-    // Double offset slightly rounds sharp corners without losing structural math
     offset(r=6) offset(r=-6) polygon(pts);
 }
 
@@ -106,12 +105,17 @@ module back_panel() {
         // USB-C Port Cutout
         translate([0, 0, -h/2 + 20])
         cube([15, wall*4, 7], center=true);
+        
+        // Power Switch Cutout (12mm standard toggle/rocker)
+        // Offset 25mm to the side of the USB-C port
+        translate([-25, 0, -h/2 + 20])
+        rotate([90, 0, 0])
+        cylinder(h=wall*4, d=12, center=true);
     }
 }
 
 module hardware_cutouts() {
     // 1. Front Wall Cutouts (Speakers)
-    // Front wall normal points to +Y, so rotate Z axis by 90 on X
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
         translate([-45, 0, 0]) hex_grill(30);
@@ -119,47 +123,51 @@ module hardware_cutouts() {
     }
 
     // 2. Shelf Panel Cutouts
-    // Midpoint of the shelf
     shelf_my = (p2[0] + p3[0]) / 2;
     shelf_mz = (p2[1] + p3[1]) / 2;
     
     translate([0, shelf_my, shelf_mz])
-    // Shelf slopes UP towards the back, so normal faces UP and FRONT.
-    // Negative X rotation tilts the cutting cylinder forward perfectly.
     rotate([-shelf_a, 0, 0]) {
-        // Font & Pitch (Right)
+        // Font & Pitch (Right: -X)
         translate([-70, 0, 0]) cylinder(h=wall*4, d=10, center=true); // Joystick
         translate([-50, 0, 0]) cylinder(h=wall*4, d=16, center=true); // Radial dial
         
-        // Octave & Rocker (Left)
+        // Octave & Rocker (Left: +X)
         translate([50, 0, 0]) cylinder(h=wall*4, d=8, center=true);  // Rocker
         translate([70, 0, 0]) cylinder(h=wall*4, d=16, center=true); // Radial dial
     }
 
     // 3. Sloped Panel Cutouts
-    // Midpoint of the sloped panel
     panel_my = (p3[0] + p4[0]) / 2;
     panel_mz = (p3[1] + p4[1]) / 2;
     
     translate([0, panel_my, panel_mz])
-    // Negative X rotation to cut perpendicular into the 45 deg slope
     rotate([-panel_a, 0, 0]) {
         
         // 7 Note Buttons (Cherry MX cutouts)
+        // Local +Y moves them DOWN the slope toward the user
         for(i = [-3:3]) {
-            // Local Y offset moves them down the slope toward the user
-            translate([i * 19.05, -12, 0]) 
+            translate([i * 19.05, 15, 0]) 
             cube([14, 14, wall*4], center=true);
         }
         
-        // OLED (Top Right - local Y offset moves it up the slope)
-        translate([30, 15, 0])
+        // OLED (Top Right)
+        // -X is Right, -Y is UP the slope
+        translate([-30, -15, 0])
         cube([28, 15, wall*4], center=true);
         
         // LED Ring (Top Left)
-        translate([-30, 15, 0])
+        // +X is Left, -Y is UP the slope
+        translate([30, -15, 0])
         cylinder(h=wall*4, d=24, center=true);
     }
+    
+    // 4. Side Panel Cutouts
+    // Volume Potentiometer located on the Right Side Panel (-X)
+    // Placed vertically out of the way of the internal shelf
+    translate([-case_w/2, case_d/3, case_h/1.5])
+    rotate([0, 90, 0])
+    cylinder(h=wall*4, d=8, center=true);
 }
 
 // Toddler-safe Hex Grill - limits hole sizes to 4mm to prevent finger pinching
