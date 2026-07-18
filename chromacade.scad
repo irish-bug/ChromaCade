@@ -168,8 +168,8 @@ module hardware_cutouts() {
     // Portrait stadium (1"×1.5") matched to cone area. Hex grid inside.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) stadium_hex_grill(spk_grille_w, spk_grille_h);
-        translate([ spk_cx, 0, 0]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([-spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([ spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
     }
 
     // 2. Shelf Panel Cutouts
@@ -187,9 +187,9 @@ module hardware_cutouts() {
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,   center=true); // EC11 octave encoder (M7 bushing)
         translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true); // XINYIELE rocker (0.8" = 20.5mm)
 
-        // EC11 encoder bushing countersinks — back of shelf, 1mm deep, clears threads
-        translate([-45, 0, -(wall-1)/2]) cube([14.3, 14.3, 1], center=true);
-        translate([ 45, 0, -(wall-1)/2]) cube([14.3, 14.3, 1], center=true);
+        // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
+        translate([-45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
+        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
     }
 
     // 3. Sloped Panel Cutouts
@@ -211,8 +211,8 @@ module hardware_cutouts() {
         translate([-60, -15, 0])
         cube([28, 15, wall*4], center=true);
 
-        // OLED back countersink — seats module PCB (~27mm sq); adjust 30×30 if needed
-        translate([-60, -15, -(wall-2)/2])
+        // OLED back countersink — interior face, 2mm deep; adjust 30×30 to match your PCB
+        translate([-60, -15, -(wall - 1)])
         cube([30, 30, 2], center=true);
 
         // LED ring — d=24 exposes full 23mm LED circle (0.5mm margin each side).
@@ -220,8 +220,8 @@ module hardware_cutouts() {
         translate([65, -15, 0])
         cylinder(h=wall*4, d=24, center=true);
 
-        // LED ring back recess — d=28 gives ~1.3mm glue gap around 25.4mm PCB, 1mm deep
-        translate([65, -15, -(wall-1)/2])
+        // LED ring back recess — interior face, 1mm deep; d=28 gives ~1.3mm glue gap
+        translate([65, -15, -(wall - 0.5)])
         cylinder(h=1, d=28, center=true);
     }
 
