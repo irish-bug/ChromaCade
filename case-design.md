@@ -1,4 +1,4 @@
-# Case Design — Toddler Synth
+# Case Design — ChromaCade
 
 ## Overall shape: arcade-cabinet profile
 Chosen because it naturally solves the problem of putting several control types at different, ergonomically-appropriate hand angles on one small device — flat-facing controls (speakers), a near-horizontal control surface (encoders, switch, joystick), and an angled display/note surface (buttons, OLED, LED ring), without forcing everything onto one flat plane.
