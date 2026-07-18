@@ -7,10 +7,12 @@
 // ─────────────────────────────────────────────────────
 //   A    Outemu MX switch        14.3 × 14.3mm square
 //   B    KY-023 joystick         ø30mm circle
-//   C    XINYIELE 3-way rocker   ø12mm circle
+//   C    XINYIELE 3-way rocker   ø20.32mm circle
 //   D    EC11 rotary encoder     ø7mm circle
 //   E    USB-C port              10 × 4mm rectangle
 //   F    Fender 500K pot         ø8mm circle
+//   G    WS2812 7-LED ring       ø24mm circle
+//   H    0.96" OLED display      28 × 15mm rectangle
 //
 // NOTE — plate A (MX) uses a 1.5mm engagement layer + 4mm frame.
 // This is intentional — MX switch clips require exactly ~1.5mm plate
@@ -101,11 +103,12 @@ module test_mx() {
 }
 
 // =============================================================================
-// LAYOUT  —  2 rows × 3 columns, all flat on Z=0
+// LAYOUT  —  3 rows × 3 columns, all flat on Z=0
 // =============================================================================
 //
 //   [A: MX sw]   [B: Joystick]   [C: Rocker]
 //   [D: Encoder] [E: USB-C]      [F: Pot]
+//   [G: LED Rng] [H: OLED]
 
 // Row 0
 translate([0 * row_pitch,  0,  0]) test_mx();
@@ -116,6 +119,10 @@ translate([2 * row_pitch,  0,  0]) test_round("RCKR", 20.32); // C: XINYIELE roc
 translate([0 * row_pitch,  row_pitch,  0]) test_round("ENC",  7);   // D: EC11 encoder
 translate([1 * row_pitch,  row_pitch,  0]) test_rect("USBC", 10, 4); // E: USB-C
 translate([2 * row_pitch,  row_pitch,  0]) test_round("POT",  8);   // F: Fender 500K
+
+// Row 2
+translate([0 * row_pitch,  2 * row_pitch,  0]) test_round("LED",  24);    // G: WS2812 7-LED ring
+translate([1 * row_pitch,  2 * row_pitch,  0]) test_rect("OLED", 28, 15); // H: 0.96" OLED display
 
 // =============================================================================
 // WHAT TO CHECK ON EACH PRINTED PLATE
@@ -129,7 +136,7 @@ translate([2 * row_pitch,  row_pitch,  0]) test_round("POT",  8);   // F: Fender
 //             If tight: increase 30 → 31mm.
 //
 // C (RCKR)  — XINYIELE body drops through cleanly, retaining flange catches.
-//             If too tight: increase 12 → 12.5mm.
+//             If too tight: increase 20.32 → 20.5mm.
 //
 // D (ENC)   — EC11 bushing passes through, nut tightens flush on panel face.
 //             If bushing threads won't start: increase 7 → 7.2mm.
@@ -139,4 +146,11 @@ translate([2 * row_pitch,  row_pitch,  0]) test_round("POT",  8);   // F: Fender
 //
 // F (POT)   — Fender 500K bushing and shaft pass through. Nut tightens flush.
 //             Same check as encoder; increase 8 → 8.5mm if bushing binds.
+//
+// G (LED)   — Ring fits within cutout, halo visible.
+//             If you want the full ring face exposed, increase 24 → 38mm.
+//             If too tight: increase 24 → 24.5mm.
+//
+// H (OLED)  — Viewable area is completely unobstructed.
+//             If screen is blocked: increase 28 → 29mm or 15 → 16mm.
 // =============================================================================
