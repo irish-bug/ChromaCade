@@ -57,10 +57,7 @@ module test_encoder_mk2() {
 module test_joystick_mk2() {
     pw = 40; ph = 40;
     difference() {
-        union() {
-            linear_extrude(wall) square([pw, ph], center=true);
-            top_label("JOY", pw, ph);
-        }
+        linear_extrude(wall) square([pw, ph], center=true);
         translate([0, 0, wall/2])
             cylinder(h=wall*3, d=28, center=true);
     }
@@ -70,10 +67,7 @@ module test_joystick_mk2() {
 module test_led_ring_mk2() {
     pw = 40; ph = 40;
     difference() {
-        union() {
-            linear_extrude(wall) square([pw, ph], center=true);
-            top_label("LED", pw, ph);
-        }
+        linear_extrude(wall) square([pw, ph], center=true);
         // Front aperture — d=24 exposes full 23mm LED circle (0.5mm margin)
         translate([0, 0, wall/2])
             cylinder(h=wall*3, d=24, center=true);
@@ -87,10 +81,7 @@ module test_led_ring_mk2() {
 module test_oled_mk2() {
     pw = 44; ph = 44;
     difference() {
-        union() {
-            linear_extrude(wall) square([pw, ph], center=true);
-            top_label("OLED", pw, ph);
-        }
+        linear_extrude(wall) square([pw, ph], center=true);
         // Front window — 28×15mm viewable area
         translate([0, 0, wall/2])
             cube([28, 15, wall*3], center=true);
