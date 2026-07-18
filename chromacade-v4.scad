@@ -188,8 +188,8 @@ module hardware_cutouts() {
         // Octave & Rocker cluster (Left side: +X)
         // FIX: encoder was d=16; now d=7
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // EC11 octave encoder (M7 bushing)
-        // FIX: rocker was d=8 (too small — XINYIELE body is 12mm round); now d=12
-        translate([70, 0, 0]) cylinder(h=wall*4, d=12, center=true); // XINYIELE 3-way rocker (12mm)
+        // FIX: rocker corrected to 0.8" = 20.32mm (was d=8 in original, then wrong 12mm)
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.32, center=true); // XINYIELE 3-way rocker (0.8" body)
     }
 
     // 3. Sloped Panel Cutouts

@@ -110,7 +110,7 @@ module test_mx() {
 // Row 0
 translate([0 * row_pitch,  0,  0]) test_mx();
 translate([1 * row_pitch,  0,  0]) test_round("JOY",  30);    // B: KY-023 joystick
-translate([2 * row_pitch,  0,  0]) test_round("RCKR", 12);    // C: XINYIELE rocker
+translate([2 * row_pitch,  0,  0]) test_round("RCKR", 20.32); // C: XINYIELE rocker (0.8" = 20.32mm)
 
 // Row 1
 translate([0 * row_pitch,  row_pitch,  0]) test_round("ENC",  7);   // D: EC11 encoder
