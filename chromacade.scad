@@ -1,6 +1,8 @@
 /*
- * ChromaCade Synthesizer - V3 Structural Model
- * Fixed booleans, exact trigonometry alignment, and proper hollowing.
+ * ChromaCade Synthesizer - V4 Structural Model
+ * - Back wall hollowed via inset punch to preserve outer corner rounding.
+ * - Mounting bosses sunk by 5mm to accommodate flush back panel.
+ * - Back panel upgraded with aligned screw holes.
  */
 
 $fn = 60;
@@ -8,11 +10,11 @@ $fn = 60;
 // --- Global Dimensions (Converted from inches) ---
 in2mm = 25.4;
 case_w = 7 * in2mm;        // 177.8mm
-case_d = 4.5 * in2mm;      // 165.1mm
+case_d = 4.5 * in2mm;      // 114.3mm
 wall = 5;                  // Chunky 5mm walls
 
-front_h = 1.75 * in2mm;    // 76.2mm
-shelf_d = 1.5 * in2mm;     // 50.8mm
+front_h = 1.75 * in2mm;    // 44.45mm
+shelf_d = 1.5 * in2mm;     // 38.1mm
 shelf_a = 8;               // Degrees tilted forward (down towards front)
 panel_l = 2.5 * in2mm;     // 63.5mm
 panel_a = 45;              // Degrees slope
@@ -28,6 +30,12 @@ p5 = [0, p4[1]];
 
 case_h = p4[1]; // Overall height derived from math (~128mm)
 
+// --- Boss Placement Coordinates ---
+boss_x = case_w/2 - wall - 5;
+boss_z_top = case_h - wall - 15;
+boss_z_bot = wall + 15;
+boss_len = 10;
+
 // --- Assembly ---
 assembly();
 
@@ -38,7 +46,8 @@ module assembly() {
     }
     
     // Back panel pulled out slightly for visual verification
-    translate([0, -10, 0]) 
+    // Change -15 to 0 to see it slide flush against the bosses
+    translate([0, -15, 0]) 
     color("darkslategrey") 
     back_panel();
 }
@@ -58,27 +67,24 @@ module main_chassis() {
         linear_extrude(case_w - (wall * 2), center=true)
         offset(delta = -wall) outer_profile();
         
-        // Chop off the back wall to leave the cavity open
-        translate([0, 0, case_h/2])
-        cube([case_w * 1.5, wall * 2, case_h * 1.5], center=true);
+        // Punch hole for back panel
+        // This preserves the outer 5mm lip, saving the rounded corners
+        back_hole();
     }
     
     // Internal Mounting Bosses for Back Panel
-    boss_len = 10;
-    boss_z_top = case_h - wall - 15;
-    boss_z_bot = wall + 15;
+    // Positioned starting at Y = wall to leave exactly enough room for the back panel
     
-    // Left side bosses (attached to inner left wall: +X)
-    // Placed at Y = wall + boss_len/2 so they span perfectly to the back panel
-    translate([(case_w/2 - wall - 5), wall + boss_len/2, 0]) {
-        translate([0, 0, boss_z_top]) rotate([90, 0, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([90, 0, 0]) mounting_boss(boss_len);
+    // Left side bosses (+X)
+    translate([boss_x, wall, 0]) { 
+        translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
+        translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
     }
     
-    // Right side bosses (attached to inner right wall: -X)
-    translate([-(case_w/2 - wall - 5), wall + boss_len/2, 0]) {
-        translate([0, 0, boss_z_top]) rotate([90, 0, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([90, 0, 0]) mounting_boss(boss_len);
+    // Right side bosses (-X)
+    translate([-boss_x, wall, 0]) { 
+        translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
+        translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
     }
 }
 
@@ -87,30 +93,53 @@ module outer_profile() {
     offset(r=6) offset(r=-6) polygon(pts);
 }
 
+module back_hole() {
+    w = case_w - wall*2; 
+    h = case_h - wall*2;
+    
+    translate([0, 0, case_h/2])
+    rotate([90, 0, 0])
+    linear_extrude(wall * 3, center=true)
+    offset(r=3) offset(r=-3) square([w, h], center=true);
+}
+
 module mounting_boss(len) {
     difference() {
-        cylinder(h=len, d=10, center=true);
-        cylinder(h=len+2, d=3, center=true); // M3 pilot hole
+        // cylinder center=false means it grows from Z=0 to Z=len
+        // when rotated -90 on X, it grows from Y=0 to Y=len
+        cylinder(h=len, d=10, center=false);
+        translate([0, 0, -1])
+        cylinder(h=len+2, d=3, center=false); // M3 pilot hole
     }
 }
 
 module back_panel() {
-    w = case_w - (wall * 2) - 1; // 1mm clearance tolerance
-    h = case_h - (wall * 2) - 1;
+    w = case_w - wall*2 - 1; // 1mm clearance tolerance
+    h = case_h - wall*2 - 1; 
     
+    // Put in place: flush at Y=0, extending to Y=wall
     translate([0, wall/2, case_h/2])
     difference() {
-        cube([w, wall, h], center=true);
+        // Main Plate
+        rotate([90, 0, 0])
+        linear_extrude(wall, center=true)
+        offset(r=2.5) offset(r=-2.5) square([w, h], center=true);
         
         // USB-C Port Cutout
-        translate([0, 0, -h/2 + 20])
+        translate([0, 0, -h/2 + 15])
         cube([15, wall*4, 7], center=true);
         
         // Power Switch Cutout (12mm standard toggle/rocker)
-        // Offset 25mm to the side of the USB-C port
-        translate([-25, 0, -h/2 + 20])
+        translate([-25, 0, -h/2 + 15])
         rotate([90, 0, 0])
         cylinder(h=wall*4, d=12, center=true);
+        
+        // Screw holes (Aligned to the boss coordinates)
+        // Offset Z by -case_h/2 because the panel is translated up by case_h/2
+        translate([boss_x, 0, boss_z_top - case_h/2]) rotate([90,0,0]) cylinder(h=wall*4, d=3.5, center=true);
+        translate([boss_x, 0, boss_z_bot - case_h/2]) rotate([90,0,0]) cylinder(h=wall*4, d=3.5, center=true);
+        translate([-boss_x, 0, boss_z_top - case_h/2]) rotate([90,0,0]) cylinder(h=wall*4, d=3.5, center=true);
+        translate([-boss_x, 0, boss_z_bot - case_h/2]) rotate([90,0,0]) cylinder(h=wall*4, d=3.5, center=true);
     }
 }
 
@@ -145,26 +174,22 @@ module hardware_cutouts() {
     rotate([-panel_a, 0, 0]) {
         
         // 7 Note Buttons (Cherry MX cutouts)
-        // Local +Y moves them DOWN the slope toward the user
         for(i = [-3:3]) {
             translate([i * 19.05, 15, 0]) 
             cube([14, 14, wall*4], center=true);
         }
         
         // OLED (Top Right)
-        // -X is Right, -Y is UP the slope
         translate([-30, -15, 0])
         cube([28, 15, wall*4], center=true);
         
         // LED Ring (Top Left)
-        // +X is Left, -Y is UP the slope
         translate([30, -15, 0])
         cylinder(h=wall*4, d=24, center=true);
     }
     
     // 4. Side Panel Cutouts
-    // Volume Potentiometer located on the Right Side Panel (-X)
-    // Placed vertically out of the way of the internal shelf
+    // Volume Potentiometer (Right Side Panel: -X)
     translate([-case_w/2, case_d/3, case_h/1.5])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=8, center=true);
