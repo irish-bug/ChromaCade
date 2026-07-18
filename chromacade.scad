@@ -1,7 +1,6 @@
 /*
  * ChromaCade Synthesizer - V3 Structural Model
  * Fixed booleans, exact trigonometry alignment, and proper hollowing.
- * Changed all face sizes and increased rounding of edges.
  */
 
 $fn = 60;
@@ -128,11 +127,11 @@ module hardware_cutouts() {
     // Shelf slopes UP towards the back, so normal faces UP and FRONT.
     // Negative X rotation tilts the cutting cylinder forward perfectly.
     rotate([-shelf_a, 0, 0]) {
-        // Octave & Rocker (Right)
+        // Font & Pitch (Right)
         translate([-70, 0, 0]) cylinder(h=wall*4, d=10, center=true); // Joystick
         translate([-50, 0, 0]) cylinder(h=wall*4, d=16, center=true); // Radial dial
         
-        // Font & Pitch (Left)
+        // Octave & Rocker (Left)
         translate([50, 0, 0]) cylinder(h=wall*4, d=8, center=true);  // Rocker
         translate([70, 0, 0]) cylinder(h=wall*4, d=16, center=true); // Radial dial
     }
