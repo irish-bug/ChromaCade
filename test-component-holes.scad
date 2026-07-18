@@ -6,8 +6,8 @@
 // Plate  Component               Hole
 // ─────────────────────────────────────────────────────
 //   A    Outemu MX switch        14.3 × 14.3mm square
-//   B    KY-023 joystick         ø30mm circle
-//   C    XINYIELE 3-way rocker   ø20.32mm circle
+//   B    KY-023 joystick         ø28mm circle
+//   C    XINYIELE 3-way rocker   ø20.5mm circle
 //   D    EC11 rotary encoder     ø7mm circle
 //   E    USB-C port              10 × 4mm rectangle
 //   F    Fender 500K pot         ø8mm circle
@@ -112,8 +112,8 @@ module test_mx() {
 
 // Row 0
 translate([0 * row_pitch,  0,  0]) test_mx();
-translate([1 * row_pitch,  0,  0]) test_round("JOY",  30);    // B: KY-023 joystick
-translate([2 * row_pitch,  0,  0]) test_round("RCKR", 20.32); // C: XINYIELE rocker (0.8" = 20.32mm)
+translate([1 * row_pitch,  0,  0]) test_round("JOY",  28);    // B: KY-023 joystick (d=28)
+translate([2 * row_pitch,  0,  0]) test_round("RCKR", 20.5);  // C: XINYIELE rocker (confirmed snug fit)
 
 // Row 1
 translate([0 * row_pitch,  row_pitch,  0]) test_round("ENC",  7);   // D: EC11 encoder
@@ -133,10 +133,10 @@ translate([1 * row_pitch,  2 * row_pitch,  0]) test_rect("OLED", 28, 15); // H: 
 //
 // B (JOY)   — KY-023 thumb cap passes fully through from behind.
 //             Full range of joystick motion with no rubbing on the panel edge.
-//             If tight: increase 30 → 31mm.
+//             If tight: increase 28 → 29mm.
 //
 // C (RCKR)  — XINYIELE body drops through cleanly, retaining flange catches.
-//             If too tight: increase 20.32 → 20.5mm.
+//             If too tight: increase 20.5 → 21mm.
 //
 // D (ENC)   — EC11 bushing passes through, nut tightens flush on panel face.
 //             If bushing threads won't start: increase 7 → 7.2mm.

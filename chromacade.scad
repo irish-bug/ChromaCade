@@ -5,14 +5,17 @@
  * - Back panel upgraded with aligned screw holes.
  *
  * BOM-verified cutout corrections (vs. original V4 paste):
- *   - MX switch holes:   14 → 14.3mm  (FDM tolerance, per three-key-test-mount.scad)
- *   - KY-023 joystick:   d=10 → d=30  (thumb cap is ~27mm — 10mm blocked the cap entirely)
- *   - XINYIELE rocker:   d=8  → d=12  (12mm round body per part spec)
- *   - EC11 encoders:     d=16 → d=7   (M7 bushing OD; 16mm left a sloppy 4.5mm gap)
- *   - USB-C port:        15×7 → 10×4  (standard USB-C receptacle is 9.5×3.5mm)
- *   - Speaker grilles:   circular hex_grill(30) → rect_hex_grill(65, 30)
- *                        Speakers are rectangular enclosures (69.9×34.9mm).
- *                        Grille sized to cone area (~38×25mm) + margin = 65×30mm.
+ *   - MX switch holes:   14 → 14.3mm   (FDM tolerance, per three-key-test-mount.scad)
+ *   - KY-023 joystick:   d=10 → d=28   (thumb cap ~27mm; d=30 printed, reduced 1mm radius)
+ *   - XINYIELE rocker:   d=8  → d=20.5 (0.8" body; printed and confirmed snug fit)
+ *   - EC11 encoders:     d=16 → d=7    (M7 bushing OD) + 14.3×14.3 back countersink 1mm deep
+ *   - USB-C port:        10×4 → 14×10  (fits cable sheath; metal receptacle is 9.5×3.5mm)
+ *   - Speaker grilles:   rect_hex_grill(65,30) → stadium_hex_grill(25.4, 38.1)
+ *                        Portrait stadium (1"×1.5") matched to cone area, hex grid inside.
+ *   - OLED:              28×15 front window kept; 30×30 back countersink 2mm deep added
+ *                        (adjust 30×30 if your Hosyond PCB differs from ~27mm square)
+ *   - LED ring:          d=24 front aperture (exposes full 23mm LED circle); d=28 back recess 1mm
+ *                        deep (glue gap around ~25.4mm PCB; mounting holes plugged)
  */
 
 $fn = 60;
@@ -32,9 +35,9 @@ panel_a = 45;              // Degrees slope
 // Speaker enclosure & cone dims (measured, converted from inches)
 // Enclosure: 1-3/8" × 2-3/4"  =  34.9mm × 69.9mm  (oriented landscape on front wall)
 // Cone area: 1" × 1-1/2"      =  25.4mm × 38.1mm
-// Grille covers cone + ~5mm margin each side  →  65mm wide × 30mm tall
-spk_grille_w = 65;   // grille width  (cone 38.1 + ~13mm margin)
-spk_grille_h = 30;   // grille height (cone 25.4 + ~5mm margin)
+// Grille is a portrait stadium (pill) matched exactly to the cone area.
+spk_grille_w = 1.0 * in2mm;  // 25.4mm = 1"   (stadium width  = cone width)
+spk_grille_h = 1.5 * in2mm;  // 38.1mm = 1.5" (stadium height = cone height)
 spk_cx       = 45;   // speaker centre offset from case centreline (±45mm)
 
 // --- Profile Coordinate Math (Y = depth, Z = height) ---
@@ -141,10 +144,9 @@ module back_panel() {
         linear_extrude(wall, center=true)
         offset(r=2.5) offset(r=-2.5) square([w, h], center=true);
 
-        // USB-C Port Cutout
-        // FIX: was 15×7 — standard USB-C receptacle is 9.5×3.5mm; 10×4 gives 0.5mm margin
+        // USB-C Port Cutout — 14×10 fits cable sheath (metal receptacle is 9.5×3.5mm)
         translate([0, 0, -h/2 + 15])
-        cube([10, wall*4, 4], center=true);
+        cube([14, wall*4, 10], center=true);
 
         // Power Switch Cutout (12mm standard toggle/rocker)
         translate([-25, 0, -h/2 + 15])
@@ -163,13 +165,11 @@ module back_panel() {
 module hardware_cutouts() {
 
     // 1. Front Wall Cutouts — Speakers
-    // Enclosures are rectangular (69.9×34.9mm), oriented landscape.
-    // Grille covers cone area (38.1×25.4mm) + ~5mm margin = 65×30mm.
-    // FIX: was circular hex_grill(30) — replaced with rect_hex_grill sized to cone area.
+    // Portrait stadium (1"×1.5") matched to cone area. Hex grid inside.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) rect_hex_grill(spk_grille_w, spk_grille_h);
-        translate([ spk_cx, 0, 0]) rect_hex_grill(spk_grille_w, spk_grille_h);
+        translate([-spk_cx, 0, 0]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([ spk_cx, 0, 0]) stadium_hex_grill(spk_grille_w, spk_grille_h);
     }
 
     // 2. Shelf Panel Cutouts
@@ -180,16 +180,16 @@ module hardware_cutouts() {
     rotate([-shelf_a, 0, 0]) {
 
         // Font & Pitch cluster (Right side: -X)
-        // FIX: joystick was d=10 (blocked thumb cap — KY-023 cap is ~27mm); now d=30
-        translate([-70, -2, 0]) cylinder(h=wall*4, d=30, center=true); // KY-023 joystick thumb cap
-        // FIX: encoder was d=16 (too large — EC11 M7 bushing OD is 7mm); now d=7
+        translate([-70, 0, 0]) cylinder(h=wall*4, d=28, center=true); // KY-023 joystick (d=28, centred)
         translate([-45, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // EC11 font encoder (M7 bushing)
 
         // Octave & Rocker cluster (Left side: +X)
-        // FIX: encoder was d=16; now d=7
-        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // EC11 octave encoder (M7 bushing)
-        // FIX: rocker was d=8 (too small — XINYIELE body is 12mm round); now d=12
-        translate([70, 0, 0]) cylinder(h=wall*4, d=12, center=true); // XINYIELE 3-way rocker (12mm)
+        translate([45, 0, 0]) cylinder(h=wall*4, d=7,   center=true); // EC11 octave encoder (M7 bushing)
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true); // XINYIELE rocker (0.8" = 20.5mm)
+
+        // EC11 encoder bushing countersinks — back of shelf, 1mm deep, clears threads
+        translate([-45, 0, -(wall-1)/2]) cube([14.3, 14.3, 1], center=true);
+        translate([ 45, 0, -(wall-1)/2]) cube([14.3, 14.3, 1], center=true);
     }
 
     // 3. Sloped Panel Cutouts
@@ -208,15 +208,21 @@ module hardware_cutouts() {
         }
 
         // OLED display window — Hosyond 0.96" 128×64 SSD1306
-        // Cutout sized to viewable area with small margin (26×14mm bezel fits within)
         translate([-60, -15, 0])
         cube([28, 15, wall*4], center=true);
 
-        // LED Ring passthrough — WS2812 7-LED ring
-        // d=24 matches ring inner diameter: halo visible, PCB rim hidden behind panel.
-        // Increase to 38mm if you want the full ring face exposed.
+        // OLED back countersink — seats module PCB (~27mm sq); adjust 30×30 if needed
+        translate([-60, -15, -(wall-2)/2])
+        cube([30, 30, 2], center=true);
+
+        // LED ring — d=24 exposes full 23mm LED circle (0.5mm margin each side).
+        // Ring PCB is ~1" (25.4mm); mounting holes straddle d=24 edge — glue in place.
         translate([65, -15, 0])
         cylinder(h=wall*4, d=24, center=true);
+
+        // LED ring back recess — d=28 gives ~1.3mm glue gap around 25.4mm PCB, 1mm deep
+        translate([65, -15, -(wall-1)/2])
+        cylinder(h=1, d=28, center=true);
     }
 
     // 4. Side Panel Cutouts
@@ -237,6 +243,32 @@ module rect_hex_grill(gw, gh) {
 
     intersection() {
         cube([gw, gh, wall*4], center=true);
+        union() {
+            for (x = [-gw/2 : spacing : gw/2]) {
+                for (y = [-gh/2 : spacing*0.866 : gh/2]) {
+                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
+                    translate([x_offset, y, 0])
+                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
+                }
+            }
+        }
+    }
+}
+
+// Toddler-safe portrait stadium hex grill.
+// gw = total width (= semicircle diameter); gh = total height.
+// Two semicircular caps (r = gw/2) joined by a rectangle gh-gw tall.
+module stadium_hex_grill(gw, gh) {
+    r          = gw / 2;
+    cap_offset = (gh - gw) / 2;
+    hole_radius = 2.7;
+    spacing     = 6;
+
+    intersection() {
+        hull() {
+            translate([0,  cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
+            translate([0, -cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
+        }
         union() {
             for (x = [-gw/2 : spacing : gw/2]) {
                 for (y = [-gh/2 : spacing*0.866 : gh/2]) {
