@@ -28,15 +28,13 @@ difference() {
     linear_extrude(wall)
     offset(r=2.5) offset(r=-2.5) square([w, h], center=true);
 
-    translate([0, -h/2 + 15, -1]) cube([10, 4, wall*3], center=true);
-    translate([-25, -h/2 + 15, -1]) cylinder(h=wall*3, d=12, center=false);
+    // USB-C port — 14x10mm fits cable sheath (bare receptacle is 9.5x3.5mm)
+    translate([0, -h/2 + 15, -1]) cube([14, 10, wall*3], center=true);
+    // Power switch — snap-in miniature rocker, 0.756"x0.5" (19.2x12.7mm) panel cutout
+    translate([-25, -h/2 + 15, -1]) cube([19.2, 12.7, wall*3], center=true);
 
     translate([ boss_x, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([ boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([-boss_x, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([-boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
-    
-    // Top and bottom center screws
-    translate([0, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
-    translate([0, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
 }

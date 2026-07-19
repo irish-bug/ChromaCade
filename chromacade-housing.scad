@@ -13,8 +13,10 @@ shelf_a = 8;
 panel_l = 2.5  * in2mm;
 panel_a = 45;
 
-spk_grille_w = 65;
-spk_grille_h = 30;
+// Grille is a portrait stadium (pill) matched exactly to the cone area;
+// rotated 90° at the cut site to sit landscape on the (landscape) front wall enclosure.
+spk_grille_w = 1.0 * in2mm;  // 25.4mm = 1"   (stadium width  = cone width)
+spk_grille_h = 1.5 * in2mm;  // 38.1mm = 1.5" (stadium height = cone height)
 spk_cx       = 45;
 
 p0 = [0, 0];
@@ -59,11 +61,6 @@ module main_chassis() {
         translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
         translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
     }
-    // Center bosses for top and bottom edges
-    translate([0, wall, 0]) {
-        translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-    }
 }
 
 module outer_profile() {
@@ -89,30 +86,23 @@ module mounting_boss(len) {
 }
 
 module hardware_cutouts() {
+    // Speaker grilles — hex-hole pattern cut straight into the front wall
+    // (no separate insert). Stadium shape is portrait-native in the module;
+    // rotated 90° here so it sits landscape on the landscape enclosure.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        for (sx = [-spk_cx, spk_cx]) {
-            translate([sx, 0, 0]) {
-                cube([spk_grille_w, spk_grille_h, wall*4], center=true);
-                // Pilot holes on the LEFT and RIGHT flanges only
-                for (cx = [-(spk_grille_w/2 + 4), (spk_grille_w/2 + 4)]) {
-                    for (cy = [-10, 10]) {
-                        translate([cx, cy, 2])
-                        cylinder(h=wall*2, d=2, center=false);
-                    }
-                }
-            }
-        }
+        translate([-spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([ spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
     }
 
     shelf_my = (p2[0] + p3[0]) / 2;
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        translate([-65, -2, 0]) cylinder(h=wall*4, d=30, center=true);
+        translate([-65, 0, 0]) cylinder(h=wall*4, d=28, center=true);
         translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20.32, center=true);
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
 
         // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
         translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
@@ -148,4 +138,30 @@ module hardware_cutouts() {
     translate([-case_w/2, case_d/3, case_h/1.5])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=8, center=true);
+}
+
+// Toddler-safe portrait stadium hex grill — validated on test-mk2.scad's plate E.
+// gw = total width (= semicircle diameter); gh = total height.
+// Two semicircular caps (r = gw/2) joined by a rectangle gh-gw tall.
+module stadium_hex_grill(gw, gh) {
+    r          = gw / 2;
+    cap_offset = (gh - gw) / 2;
+    hole_radius = 2.7;
+    spacing     = 6;
+
+    intersection() {
+        hull() {
+            translate([0,  cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
+            translate([0, -cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
+        }
+        union() {
+            for (x = [-gw/2 : spacing : gw/2]) {
+                for (y = [-gh/2 : spacing*0.866 : gh/2]) {
+                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
+                    translate([x_offset, y, 0])
+                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
+                }
+            }
+        }
+    }
 }

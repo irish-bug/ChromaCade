@@ -13,13 +13,13 @@
 
 **Side panel:**
 - Volume pot (Fender 500K) — deliberately less convenient than shelf/panel controls
-- Power switch — same deliberate-friction placement
 
 **Front wall:**
 - Two speaker grilles (small hex hole pattern, sized to keep toddler fingers out)
 
 **Back wall:**
 - USB-C charging port — out of reach during normal play
+- Power switch (miniature snap-in rocker, 19.2×12.7mm panel cutout) — moved here from the side panel; same deliberate-friction reasoning, and grouping it with the charging port keeps both "parent-only" power-path controls out of reach during play
 
 ## Normal play behavior
 - Direct GPIO wiring (no button matrix) — full chord support, no ghosting, any combination of the 7 note buttons can be held simultaneously

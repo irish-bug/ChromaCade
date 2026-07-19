@@ -25,7 +25,7 @@ Color coding throughout the device (button caps, LED ring) is meant to teach mus
 ## Parent-friction by design
 Placement of certain controls is a deliberate usability lever aimed at parents, not just the child:
 - Volume lives on the side panel — less convenient to reach than the front controls, discouraging constant cranking. A software volume ceiling backs this up regardless of pot position.
-- Power switch is also side-mounted.
+- Power switch is on the back wall, next to the charging port — moved here from the side panel specifically to make it less accessible to a toddler during play.
 - Charging port is on the back wall — physically out of reach during normal play, so a toddler can't interrupt or fiddle with a plugged-in cable.
 - The idea: excessive volume/frequent changes are the most likely reason a parent "forgets" to leave the toy out. Reducing friction-free access to the loudest, most disruptive controls protects the toy's long-term place in the household.
 
