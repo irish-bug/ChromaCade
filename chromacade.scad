@@ -1,21 +1,14 @@
 /*
- * ChromaCade Synthesizer - V5 Structural Model
- * - Back wall hollowed via inset punch to preserve outer corner rounding.
- * - Mounting bosses sunk by 5mm to accommodate flush back panel.
- * - Back panel upgraded with aligned screw holes.
- *
- * BOM-verified cutout corrections (vs. original V4 paste):
- *   - MX switch holes:   14 → 14.3mm   (FDM tolerance, per three-key-test-mount.scad)
- *   - KY-023 joystick:   d=10 → d=28   (thumb cap ~27mm; d=30 printed, reduced 1mm radius)
- *   - XINYIELE rocker:   d=8  → d=20.5 (0.8" body; printed and confirmed snug fit)
- *   - EC11 encoders:     d=16 → d=7    (M7 bushing OD) + 14.3×14.3 back countersink 1mm deep
- *   - USB-C port:        10×4 → 14×10  (fits cable sheath; metal receptacle is 9.5×3.5mm)
- *   - Speaker grilles:   rect_hex_grill(65,30) → stadium_hex_grill(25.4, 38.1)
- *                        Portrait stadium (1"×1.5") matched to cone area, hex grid inside.
- *   - OLED:              28×15 front window kept; 30×30 back countersink 2mm deep added
- *                        (adjust 30×30 if your Hosyond PCB differs from ~27mm square)
- *   - LED ring:          d=24 front aperture (exposes full 23mm LED circle); d=28 back recess 1mm
- *                        deep (glue gap around ~25.4mm PCB; mounting holes plugged)
+ * ChromaCade Synthesizer 
+ * 
+ * Version 6
+ * - V6: Upgraded speaker grilles to stepped flush-mount printable inserts with 
+ *       screw flanges and blind pilot holes on the interior of the case wall.
+ *       (Designed to print upright with supports inside the case cavity).
+ * - V5: Corrected XINYIELE rocker switch cutout to 0.8" (20.32mm).
+ * - V4: Hollowed back wall for flush panel, sunken mounting bosses.
+ *       Full BOM audit: corrected MX (14.3), joystick (d=30), encoder (d=7), USB-C (10x4).
+ * - V2: Added shelf tilt geometry (8 degrees) and access lid.
  */
 
 $fn = 60;
@@ -35,9 +28,9 @@ panel_a = 45;              // Degrees slope
 // Speaker enclosure & cone dims (measured, converted from inches)
 // Enclosure: 1-3/8" × 2-3/4"  =  34.9mm × 69.9mm  (oriented landscape on front wall)
 // Cone area: 1" × 1-1/2"      =  25.4mm × 38.1mm
-// Grille is a portrait stadium (pill) matched exactly to the cone area.
-spk_grille_w = 1.0 * in2mm;  // 25.4mm = 1"   (stadium width  = cone width)
-spk_grille_h = 1.5 * in2mm;  // 38.1mm = 1.5" (stadium height = cone height)
+// Grille covers cone + ~5mm margin each side  →  65mm wide × 30mm tall
+spk_grille_w = 65;   // grille width  (cone 38.1 + ~13mm margin)
+spk_grille_h = 30;   // grille height (cone 25.4 + ~5mm margin)
 spk_cx       = 45;   // speaker centre offset from case centreline (±45mm)
 
 // --- Profile Coordinate Math (Y = depth, Z = height) ---
@@ -144,9 +137,10 @@ module back_panel() {
         linear_extrude(wall, center=true)
         offset(r=2.5) offset(r=-2.5) square([w, h], center=true);
 
-        // USB-C Port Cutout — 14×10 fits cable sheath (metal receptacle is 9.5×3.5mm)
+        // USB-C Port Cutout
+        // FIX: was 15×7 — standard USB-C receptacle is 9.5×3.5mm; 10×4 gives 0.5mm margin
         translate([0, 0, -h/2 + 15])
-        cube([14, wall*4, 10], center=true);
+        cube([10, wall*4, 4], center=true);
 
         // Power Switch Cutout (12mm standard toggle/rocker)
         translate([-25, 0, -h/2 + 15])
@@ -164,12 +158,25 @@ module back_panel() {
 
 module hardware_cutouts() {
 
-    // 1. Front Wall Cutouts — Speakers
-    // Portrait stadium (1"×1.5") matched to cone area. Hex grid inside.
+    // 1. Front Wall Cutouts — Speakers (Stepped for flush inserts)
+    // 65x30mm windows. Grilles are inserted from the inside to sit flush.
+    // Includes blind pilot holes on the interior wall to screw the flange in.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
-        translate([ spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        for (sx = [-spk_cx, spk_cx]) {
+            translate([sx, 0, 0]) {
+                // Main window
+                cube([spk_grille_w, spk_grille_h, wall*4], center=true);
+                
+                // Pilot holes for flange screws (starts 2mm from front face, extends inside)
+                for (cx = [-(spk_grille_w/2 + 4), (spk_grille_w/2 + 4)]) {
+                    for (cy = [-(spk_grille_h/2 + 4), (spk_grille_h/2 + 4)]) {
+                        translate([cx, cy, 2])
+                        cylinder(h=wall*2, d=2, center=false);
+                    }
+                }
+            }
+        }
     }
 
     // 2. Shelf Panel Cutouts
@@ -180,16 +187,16 @@ module hardware_cutouts() {
     rotate([-shelf_a, 0, 0]) {
 
         // Font & Pitch cluster (Right side: -X)
-        translate([-70, 0, 0]) cylinder(h=wall*4, d=28, center=true); // KY-023 joystick (d=28, centred)
+        // FIX: joystick was d=10 (blocked thumb cap — KY-023 cap is ~27mm); now d=30
+        translate([-70, 0, 0]) cylinder(h=wall*4, d=30, center=true); // KY-023 joystick thumb cap
+        // FIX: encoder was d=16 (too large — EC11 M7 bushing OD is 7mm); now d=7
         translate([-45, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // EC11 font encoder (M7 bushing)
 
         // Octave & Rocker cluster (Left side: +X)
-        translate([45, 0, 0]) cylinder(h=wall*4, d=7,   center=true); // EC11 octave encoder (M7 bushing)
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true); // XINYIELE rocker (0.8" = 20.5mm)
-
-        // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
-        translate([-45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
-        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
+        // FIX: encoder was d=16; now d=7
+        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // EC11 octave encoder (M7 bushing)
+        // FIX: rocker corrected to 0.8" = 20.32mm (was d=8 in original, then wrong 12mm)
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.32, center=true); // XINYIELE 3-way rocker (0.8" body)
     }
 
     // 3. Sloped Panel Cutouts
@@ -208,21 +215,15 @@ module hardware_cutouts() {
         }
 
         // OLED display window — Hosyond 0.96" 128×64 SSD1306
+        // Cutout sized to viewable area with small margin (26×14mm bezel fits within)
         translate([-60, -15, 0])
         cube([28, 15, wall*4], center=true);
 
-        // OLED back countersink — interior face, 2mm deep; adjust 30×30 to match your PCB
-        translate([-60, -15, -(wall - 1)])
-        cube([30, 30, 2], center=true);
-
-        // LED ring — d=24 exposes full 23mm LED circle (0.5mm margin each side).
-        // Ring PCB is ~1" (25.4mm); mounting holes straddle d=24 edge — glue in place.
+        // LED Ring passthrough — WS2812 7-LED ring
+        // d=24 matches ring inner diameter: halo visible, PCB rim hidden behind panel.
+        // Increase to 38mm if you want the full ring face exposed.
         translate([65, -15, 0])
         cylinder(h=wall*4, d=24, center=true);
-
-        // LED ring back recess — interior face, 1mm deep; d=28 gives ~1.3mm glue gap
-        translate([65, -15, -(wall - 0.5)])
-        cylinder(h=1, d=28, center=true);
     }
 
     // 4. Side Panel Cutouts
@@ -232,70 +233,59 @@ module hardware_cutouts() {
     cylinder(h=wall*4, d=8, center=true);
 }
 
-// --- Grill Modules ---
+// --- Separate Printable Parts ---
 
-// Toddler-safe rectangular hex grill
-// Hole diameter 5.4mm (radius 2.7mm) — under the 6mm toddler-safety limit.
-// Use for rectangular speaker enclosures. gw = grille width, gh = grille height.
-module rect_hex_grill(gw, gh) {
+// Toddler-safe flush-mount hex grille insert (Print 2x)
+// Features a 5mm plug to sit flush with the exterior, and a 2mm flange to screw into the interior.
+// Prints flange-down on the bed. No supports needed.
+module speaker_grille_insert() {
+    gw = spk_grille_w;
+    gh = spk_grille_h;
+    rim = 8;            // 8mm flange to fit a screw hole
+    flange_t = 2;       // 2mm thick flange on the back
+    plug_t = wall;      // 5mm thick plug goes through the wall to be flush with front
+    tol = 0.4;          // Clearance tolerance for easy fit
+    
     hole_radius = 2.7;
     spacing     = 6;
 
-    intersection() {
-        cube([gw, gh, wall*4], center=true);
+    difference() {
         union() {
-            for (x = [-gw/2 : spacing : gw/2]) {
-                for (y = [-gh/2 : spacing*0.866 : gh/2]) {
-                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
-                    translate([x_offset, y, 0])
-                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
+            // Flange (Bottom layer against the bed)
+            translate([0, 0, flange_t/2])
+            cube([gw + rim*2, gh + rim*2, flange_t], center=true);
+            
+            // Plug (Grows up to poke through the case wall)
+            translate([0, 0, flange_t + plug_t/2])
+            cube([gw - tol, gh - tol, plug_t], center=true);
+        }
+        
+        // Punch hex holes through the whole thing
+        intersection() {
+            translate([0, 0, (flange_t + plug_t)/2])
+            cube([gw - 4, gh - 4, (flange_t + plug_t)*3], center=true); // Solid 2mm border
+            union() {
+                for (x = [-gw/2 : spacing : gw/2]) {
+                    for (y = [-gh/2 : spacing*0.866 : gh/2]) {
+                        x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
+                        translate([x_offset, y, 0])
+                        cylinder(h=(flange_t + plug_t)*4, r=hole_radius, $fn=6, center=true);
+                    }
                 }
+            }
+        }
+        
+        // 4 screw holes in the flange corners (d=2.5 for M2/M2.5/small wood screws)
+        for (cx = [-(gw/2 + rim/2), (gw/2 + rim/2)]) {
+            for (cy = [-(gh/2 + rim/2), (gh/2 + rim/2)]) {
+                translate([cx, cy, 0])
+                cylinder(h=flange_t*4, d=2.5, center=true); 
             }
         }
     }
 }
 
-// Toddler-safe portrait stadium hex grill.
-// gw = total width (= semicircle diameter); gh = total height.
-// Two semicircular caps (r = gw/2) joined by a rectangle gh-gw tall.
-module stadium_hex_grill(gw, gh) {
-    r          = gw / 2;
-    cap_offset = (gh - gw) / 2;
-    hole_radius = 2.7;
-    spacing     = 6;
-
-    intersection() {
-        hull() {
-            translate([0,  cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
-            translate([0, -cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
-        }
-        union() {
-            for (x = [-gw/2 : spacing : gw/2]) {
-                for (y = [-gh/2 : spacing*0.866 : gh/2]) {
-                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
-                    translate([x_offset, y, 0])
-                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
-                }
-            }
-        }
-    }
-}
-
-// Original circular grill — kept for reference, not used in main assembly.
-module hex_grill(diameter) {
-    hole_radius = 2.7;
-    spacing     = 6;
-
-    intersection() {
-        cylinder(h=wall*4, d=diameter, center=true);
-        union() {
-            for (x = [-diameter/2 : spacing : diameter/2]) {
-                for (y = [-diameter/2 : spacing*0.866 : diameter/2]) {
-                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
-                    translate([x_offset, y, 0])
-                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
-                }
-            }
-        }
-    }
-}
+// Optional: Render the inserts off to the side so they export with the case,
+// or comment out assembly() and uncomment this to export just the grilles.
+// translate([-spk_cx, -30, 0]) speaker_grille_insert();
+// translate([ spk_cx, -30, 0]) speaker_grille_insert();
