@@ -19,6 +19,8 @@ case_h = p3_z + panel_l*sin(panel_a);
 boss_x     = case_w/2 - wall - 5;
 boss_z_top = case_h - wall - 15;
 boss_z_bot = wall + 15;
+boss_z_top_ctr = case_h - wall - 5;
+boss_z_bot_ctr = wall + 5;
 
 // --- Back Panel ---
 w = case_w - wall*2 - 1;
@@ -37,4 +39,7 @@ difference() {
     translate([ boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([-boss_x, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([-boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
+    // Center top/bottom screws — match housing's center anti-bowing bosses
+    translate([0, boss_z_top_ctr - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
+    translate([0, boss_z_bot_ctr - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
 }

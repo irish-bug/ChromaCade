@@ -33,6 +33,15 @@ boss_z_top = case_h - wall - 15;
 boss_z_bot = wall + 15;
 boss_len   = 10;
 
+// Center top/bottom bosses (back-panel anti-bowing support). Unlike boss_z_top/
+// boss_z_bot above, these aren't inset for X-flush contact with a side wall —
+// there's no side wall at x=0. Instead they're offset 5mm in from the ceiling/
+// floor's inner surface so the *square* boss (see mounting_boss) sits Z-flush
+// against the ceiling/floor. (A previous attempt reused boss_z_top/boss_z_bot
+// unchanged at x=0, which touched nothing on any side — floating, unprintable.)
+boss_z_top_ctr = case_h - wall - 5;
+boss_z_bot_ctr = wall + 5;
+
 // --- Assembly ---
 difference() {
     main_chassis();
@@ -60,6 +69,10 @@ module main_chassis() {
     translate([-boss_x, wall, 0]) {
         translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
         translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
+    }
+    translate([0, wall, 0]) {
+        translate([0, 0, boss_z_top_ctr]) rotate([-90, 0, 0]) mounting_boss(boss_len);
+        translate([0, 0, boss_z_bot_ctr]) rotate([-90, 0, 0]) mounting_boss(boss_len);
     }
 }
 
