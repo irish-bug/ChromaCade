@@ -162,13 +162,25 @@ module back_panel() {
 
 module hardware_cutouts() {
 
-    // 1. Front Wall Cutouts — Speakers (Open windows)
-    // Grilles are now printed separately to avoid support material clogging the holes.
-    // Cutouts are 65x30mm windows. The grille inserts mount from the inside.
+    // 1. Front Wall Cutouts — Speakers (Stepped for flush inserts)
+    // 65x30mm windows. Grilles are inserted from the inside to sit flush.
+    // Includes blind pilot holes on the interior wall to screw the flange in.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) cube([spk_grille_w, spk_grille_h, wall*4], center=true);
-        translate([ spk_cx, 0, 0]) cube([spk_grille_w, spk_grille_h, wall*4], center=true);
+        for (sx = [-spk_cx, spk_cx]) {
+            translate([sx, 0, 0]) {
+                // Main window
+                cube([spk_grille_w, spk_grille_h, wall*4], center=true);
+                
+                // Pilot holes for flange screws (starts 2mm from front face, extends inside)
+                for (cx = [-(spk_grille_w/2 + 4), (spk_grille_w/2 + 4)]) {
+                    for (cy = [-(spk_grille_h/2 + 4), (spk_grille_h/2 + 4)]) {
+                        translate([cx, cy, 2])
+                        cylinder(h=wall*2, d=2, center=false);
+                    }
+                }
+            }
+        }
     }
 
     // 2. Shelf Panel Cutouts
@@ -227,33 +239,51 @@ module hardware_cutouts() {
 
 // --- Separate Printable Parts ---
 
-// Toddler-safe rectangular hex grill insert (Print 2x)
-// Prints flat on the bed. Hole diameter 5.4mm (under 6mm toddler-safety limit).
-// Mounts to the inside of the front wall (glue or double-sided tape).
+// Toddler-safe flush-mount hex grille insert (Print 2x)
+// Features a 5mm plug to sit flush with the exterior, and a 2mm flange to screw into the interior.
+// Prints flange-down on the bed. No supports needed.
 module speaker_grille_insert() {
     gw = spk_grille_w;
     gh = spk_grille_h;
-    rim = 5;            // 5mm mounting flange around the outside
-    thick = 2;          // 2mm thick (thinner than 5mm wall for better acoustics)
+    rim = 8;            // 8mm flange to fit a screw hole
+    flange_t = 2;       // 2mm thick flange on the back
+    plug_t = wall;      // 5mm thick plug goes through the wall to be flush with front
+    tol = 0.4;          // Clearance tolerance for easy fit
     
     hole_radius = 2.7;
     spacing     = 6;
 
     difference() {
-        // Main body (grille area + mounting rim)
-        cube([gw + rim*2, gh + rim*2, thick], center=true);
+        union() {
+            // Flange (Bottom layer against the bed)
+            translate([0, 0, flange_t/2])
+            cube([gw + rim*2, gh + rim*2, flange_t], center=true);
+            
+            // Plug (Grows up to poke through the case wall)
+            translate([0, 0, flange_t + plug_t/2])
+            cube([gw - tol, gh - tol, plug_t], center=true);
+        }
         
-        // Punch hex holes only in the central grille area
+        // Punch hex holes through the whole thing
         intersection() {
-            cube([gw, gh, thick*4], center=true);
+            translate([0, 0, (flange_t + plug_t)/2])
+            cube([gw - 4, gh - 4, (flange_t + plug_t)*3], center=true); // Solid 2mm border
             union() {
                 for (x = [-gw/2 : spacing : gw/2]) {
                     for (y = [-gh/2 : spacing*0.866 : gh/2]) {
                         x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
                         translate([x_offset, y, 0])
-                        cylinder(h=thick*5, r=hole_radius, $fn=6, center=true);
+                        cylinder(h=(flange_t + plug_t)*4, r=hole_radius, $fn=6, center=true);
                     }
                 }
+            }
+        }
+        
+        // 4 screw holes in the flange corners (d=2.5 for M2/M2.5/small wood screws)
+        for (cx = [-(gw/2 + rim/2), (gw/2 + rim/2)]) {
+            for (cy = [-(gh/2 + rim/2), (gh/2 + rim/2)]) {
+                translate([cx, cy, 0])
+                cylinder(h=flange_t*4, d=2.5, center=true); 
             }
         }
     }
