@@ -25,11 +25,10 @@ module assembly() {
         hardware_cutouts();
     }
 
-    // Back panel pulled out slightly for visual verification.
-    // Change -15 to 0 to see it slide flush against the bosses.
-    translate([0, -15, 0])
-    color("darkslategrey")
-    back_panel_assembled();
+    // Uncomment the lines below to preview the back panel sliding into place
+    // translate([0, -15, 0])
+    // color("darkslategrey")
+    // back_panel_assembled();
 }
 
 // --- Core Modules ---
