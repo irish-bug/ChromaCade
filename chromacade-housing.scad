@@ -78,8 +78,12 @@ module back_hole() {
 }
 
 module mounting_boss(len) {
+    // Square cross-section (not round) so the boss meets the side wall on a
+    // flush 10x10mm face instead of being tangent to it along a single line —
+    // a round boss here only ever line-contacts the flat wall, which is a weak
+    // bond and a real risk of a barely-fused, snap-off connection when printed.
     difference() {
-        cylinder(h=len, d=10, center=false);
+        translate([-5, -5, 0]) cube([10, 10, len]);
         translate([0, 0, -1])
         cylinder(h=len+2, d=3, center=false);
     }
