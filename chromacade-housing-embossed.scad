@@ -197,16 +197,25 @@ module wordmark_emboss() {
     // outer face in this frame — see the interior-face recesses above, all
     // negative z), centered in the gap between the OLED cutout (x=-60, right
     // edge -46) and LED ring cutout (x=65, left edge 53): (-46+53)/2 = 3.5.
-    // font/size chosen to fit ~84x11mm inside that ~95mm-wide gap without
-    // reaching the note-button row above (bottom edge at z=+7.85 in this frame).
-    // Comfortaa ships no italic face here, so the source wordmark's slant is
-    // faked with a manual shear instead of a font style.
+    // Imports the real traced bold-italic outline (ChromaCade-wordmark-paths.svg,
+    // same directory) rather than reconstructing it via text() — an earlier
+    // text()-based version printed in a plain, non-bold, non-italic font because
+    // Comfortaa wasn't installed on the machine that actually rendered/sliced it.
+    // Note: this SVG has no glyph for the source wordmark's music-note flourish —
+    // still missing here, same as the text() version.
+    // The imported paths measure ~204.3x21.5mm; scaled down to fit the ~95mm-wide
+    // gap without reaching the note-button row above.
     emboss_h  = 1;
     embed     = 0.3; // sinks the letters' base 0.3mm into the wall so the union
                       // is a true volumetric overlap, not a coplanar face-touch
                       // (a flush z=0 base produced 10 near-disconnected letters —
                       // same failure mode as the tangent-boss bug, just for glyphs)
-    italic_shear = 0.21; // ~12 degrees
+    svg_w  = 204.26;
+    svg_cx = 182.03;
+    svg_cy = 51.51; // bounding-box center, measured from an extruded STL export —
+                     // *not* from SVG-export round-tripping, which silently negates
+                     // Y on the way back out and cost an hour chasing a phantom bug
+    s      = 84 / svg_w;
 
     panel_my = (p3[0] + p4[0]) / 2;
     panel_mz = (p3[1] + p4[1]) / 2;
@@ -214,6 +223,7 @@ module wordmark_emboss() {
     rotate([-panel_a, 0, 0])
     translate([3.5, -15, -embed])
     linear_extrude(emboss_h + embed)
-    multmatrix([[1, italic_shear, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
-    text("ChromaCade", font="Comfortaa:style=Bold", size=9, halign="center", valign="center");
+    scale([s, s, 1])
+    translate([-svg_cx, -svg_cy, 0])
+    import("ChromaCade-wordmark-paths.svg");
 }
