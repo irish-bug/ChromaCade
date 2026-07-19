@@ -103,13 +103,13 @@ module hardware_cutouts() {
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        translate([-70, 0, 0]) cylinder(h=wall*4, d=30, center=true);
-        translate([-45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
+        translate([-65, -2, 0]) cylinder(h=wall*4, d=30, center=true);
+        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([70, 0, 0]) cylinder(h=wall*4, d=20.32, center=true);
 
         // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
-        translate([-45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
+        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
         translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
     }
 
