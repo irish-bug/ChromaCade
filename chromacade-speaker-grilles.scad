@@ -22,7 +22,8 @@ module speaker_grille_insert() {
 
     difference() {
         union() {
-            translate([0, 0, flange_t/2]) cube([gw + rim*2, gh + rim*2, flange_t], center=true);
+            // Flange only extends on the left and right, flush with top/bottom
+            translate([0, 0, flange_t/2]) cube([gw + rim*2, gh, flange_t], center=true);
             translate([0, 0, flange_t + plug_t/2]) cube([gw - tol, gh - tol, plug_t], center=true);
         }
         
@@ -39,7 +40,7 @@ module speaker_grille_insert() {
         }
         
         for (cx = [-(gw/2 + rim/2), (gw/2 + rim/2)]) {
-            for (cy = [-(gh/2 + rim/2), (gh/2 + rim/2)]) {
+            for (cy = [-10, 10]) {
                 translate([cx, cy, 0]) cylinder(h=flange_t*4, d=2.5, center=true); 
             }
         }

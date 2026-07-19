@@ -35,4 +35,8 @@ difference() {
     translate([ boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([-boss_x, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([-boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
+    
+    // Top and bottom center screws
+    translate([0, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
+    translate([0, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
 }

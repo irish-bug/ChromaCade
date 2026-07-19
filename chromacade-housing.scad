@@ -59,6 +59,11 @@ module main_chassis() {
         translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
         translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
     }
+    // Center bosses for top and bottom edges
+    translate([0, wall, 0]) {
+        translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
+        translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
+    }
 }
 
 module outer_profile() {
@@ -89,8 +94,9 @@ module hardware_cutouts() {
         for (sx = [-spk_cx, spk_cx]) {
             translate([sx, 0, 0]) {
                 cube([spk_grille_w, spk_grille_h, wall*4], center=true);
+                // Pilot holes on the LEFT and RIGHT flanges only
                 for (cx = [-(spk_grille_w/2 + 4), (spk_grille_w/2 + 4)]) {
-                    for (cy = [-(spk_grille_h/2 + 4), (spk_grille_h/2 + 4)]) {
+                    for (cy = [-10, 10]) {
                         translate([cx, cy, 2])
                         cylinder(h=wall*2, d=2, center=false);
                     }
