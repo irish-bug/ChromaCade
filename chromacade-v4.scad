@@ -162,14 +162,13 @@ module back_panel() {
 
 module hardware_cutouts() {
 
-    // 1. Front Wall Cutouts — Speakers
-    // Enclosures are rectangular (69.9×34.9mm), oriented landscape.
-    // Grille covers cone area (38.1×25.4mm) + ~5mm margin = 65×30mm.
-    // FIX: was circular hex_grill(30) — replaced with rect_hex_grill sized to cone area.
+    // 1. Front Wall Cutouts — Speakers (Open windows)
+    // Grilles are now printed separately to avoid support material clogging the holes.
+    // Cutouts are 65x30mm windows. The grille inserts mount from the inside.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) rect_hex_grill(spk_grille_w, spk_grille_h);
-        translate([ spk_cx, 0, 0]) rect_hex_grill(spk_grille_w, spk_grille_h);
+        translate([-spk_cx, 0, 0]) cube([spk_grille_w, spk_grille_h, wall*4], center=true);
+        translate([ spk_cx, 0, 0]) cube([spk_grille_w, spk_grille_h, wall*4], center=true);
     }
 
     // 2. Shelf Panel Cutouts
@@ -226,44 +225,41 @@ module hardware_cutouts() {
     cylinder(h=wall*4, d=8, center=true);
 }
 
-// --- Grill Modules ---
+// --- Separate Printable Parts ---
 
-// Toddler-safe rectangular hex grill
-// Hole diameter 5.4mm (radius 2.7mm) — under the 6mm toddler-safety limit.
-// Use for rectangular speaker enclosures. gw = grille width, gh = grille height.
-module rect_hex_grill(gw, gh) {
+// Toddler-safe rectangular hex grill insert (Print 2x)
+// Prints flat on the bed. Hole diameter 5.4mm (under 6mm toddler-safety limit).
+// Mounts to the inside of the front wall (glue or double-sided tape).
+module speaker_grille_insert() {
+    gw = spk_grille_w;
+    gh = spk_grille_h;
+    rim = 5;            // 5mm mounting flange around the outside
+    thick = 2;          // 2mm thick (thinner than 5mm wall for better acoustics)
+    
     hole_radius = 2.7;
     spacing     = 6;
 
-    intersection() {
-        cube([gw, gh, wall*4], center=true);
-        union() {
-            for (x = [-gw/2 : spacing : gw/2]) {
-                for (y = [-gh/2 : spacing*0.866 : gh/2]) {
-                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
-                    translate([x_offset, y, 0])
-                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
+    difference() {
+        // Main body (grille area + mounting rim)
+        cube([gw + rim*2, gh + rim*2, thick], center=true);
+        
+        // Punch hex holes only in the central grille area
+        intersection() {
+            cube([gw, gh, thick*4], center=true);
+            union() {
+                for (x = [-gw/2 : spacing : gw/2]) {
+                    for (y = [-gh/2 : spacing*0.866 : gh/2]) {
+                        x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
+                        translate([x_offset, y, 0])
+                        cylinder(h=thick*5, r=hole_radius, $fn=6, center=true);
+                    }
                 }
             }
         }
     }
 }
 
-// Original circular grill — kept for reference, not used in main assembly.
-module hex_grill(diameter) {
-    hole_radius = 2.7;
-    spacing     = 6;
-
-    intersection() {
-        cylinder(h=wall*4, d=diameter, center=true);
-        union() {
-            for (x = [-diameter/2 : spacing : diameter/2]) {
-                for (y = [-diameter/2 : spacing*0.866 : diameter/2]) {
-                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
-                    translate([x_offset, y, 0])
-                    cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
-                }
-            }
-        }
-    }
-}
+// Optional: Render the inserts off to the side so they export with the case,
+// or comment out assembly() and uncomment this to export just the grilles.
+// translate([-spk_cx, -30, 0]) speaker_grille_insert();
+// translate([ spk_cx, -30, 0]) speaker_grille_insert();
