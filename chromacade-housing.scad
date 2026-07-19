@@ -107,6 +107,10 @@ module hardware_cutouts() {
         translate([-45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([70, 0, 0]) cylinder(h=wall*4, d=20.32, center=true);
+
+        // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
+        translate([-45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
+        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
     }
 
     panel_my = (p3[0] + p4[0]) / 2;
@@ -117,8 +121,22 @@ module hardware_cutouts() {
             translate([i * 19.05, 15, 0])
             cube([14.3, 14.3, wall*4], center=true);
         }
+        
+        // MX switch engagement trench — interior face, 3.5mm deep, leaves exactly 1.5mm front wall for clips
+        translate([0, 15, -3.25])
+        cube([140, 20, 3.5], center=true);
+
         translate([-60, -15, 0]) cube([28, 15, wall*4], center=true);
+        
+        // OLED back countersink — interior face, 2mm deep; adjust 30x30 to match your PCB
+        translate([-60, -15, -(wall - 1)])
+        cube([30, 30, 2], center=true);
+
         translate([65, -15, 0]) cylinder(h=wall*4, d=24, center=true);
+        
+        // LED back recess — interior face, 1mm deep (d=28 allows ring to sit flush)
+        translate([65, -15, -(wall - 0.5)])
+        cylinder(h=1, d=28, center=true);
     }
 
     translate([-case_w/2, case_d/3, case_h/1.5])
