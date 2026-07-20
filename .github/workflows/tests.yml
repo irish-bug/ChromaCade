@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Run tests
+        # exit 5 = "no tests collected" -- expected until real application tests
+        # exist (see CLAUDE.md); still fails on actual collection errors or
+        # test failures, just not on there being nothing to run yet.
+        run: pytest || [ "$?" -eq 5 ]
