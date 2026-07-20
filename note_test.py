@@ -52,7 +52,7 @@ import pygame
 from gpiozero import Button
 
 SAMPLE_RATE = 44100
-AMPLITUDE = 0.3  # matches audio_test.py -- conservative, hardware test not a volume check
+AMPLITUDE = 0.9  # raised from 0.3 for a deliberate loudness check; GAIN pin wired to GND next as a result -- see "Audio hardware" in open-questions.md
 RELEASE_FADE_MS = 15  # short fadeout on release to avoid a click
 
 # BCM pin -> (note name, frequency Hz)
