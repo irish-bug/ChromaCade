@@ -3,8 +3,11 @@
 // panel exterior, centered in the gap between the OLED and LED ring. Kept as
 // a separate standalone file rather than a toggle in chromacade-housing.scad,
 // matching this repo's file-per-variant convention (see decision-log.md).
-// Requires the Comfortaa font (Debian/Ubuntu: `sudo apt install fonts-comfortaa`) —
-// falls back to a default system font if missing, which will look different.
+// The wordmark is embedded as traced polygon path data (see wordmark_points
+// below, converted from ChromaCade-wordmark-paths.svg) — no font or external
+// file needed to render this file. An earlier text()-based version needed the
+// Comfortaa font, which OpenSCAD couldn't reliably reproduce; see the comment
+// above wordmark_emboss() for why that approach was dropped.
 $fn = 60;
 
 // --- Global Dimensions ---

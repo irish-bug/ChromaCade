@@ -11,22 +11,25 @@ The repo currently holds **design documents and the OpenSCAD case model**. No Py
 ## Repo state (read this before assuming code exists)
 
 - No `.py` files, no `requirements.txt` yet. The audio engine, color system, and menu state machine described in the design docs are all still unwritten.
-- The only buildable artifacts today are the OpenSCAD case files and the exported `chromacade.stl`.
+- The only buildable artifacts today are the OpenSCAD case files and the exported `chromacade-housing.stl`. `printsettings` at the repo root is a trimmed settings-diff from the Cura-generated G-code for an ELEGOO Neptune 3 Pro print (not the full ~80MB toolpath — GitHub rejects that size), not a portable slicer profile for other printers/materials.
 - If asked to implement a software track (audio, color-chord blending, menu state machine), there is no existing code to extend — start fresh per the relevant spec doc below, and keep logic in plain, hardware-free/testable functions (GPIO/hardware calls should be a thin layer on top) so it fits the `pytest` CI gate in `CONTRIBUTING.md`.
 
 ## Commands
 
 **OpenSCAD** (installed at `/usr/bin/openscad`, v2021.01):
 ```bash
-# Render the main housing to STL
-openscad -o chromacade.stl chromacade-housing.scad
+# Render the current housing (wordmark-embossed variant) to STL
+openscad -o chromacade-housing-embossed.stl chromacade-housing-embossed.scad
+
+# Render the plain (no-wordmark) housing, kept until the embossed print is validated
+openscad -o chromacade-housing.stl chromacade-housing.scad
 
 # Render a specific file (e.g. test plates, back panel, grille inserts) to check syntax/geometry
 openscad -o /tmp/out.stl chromacade-back-panel.scad
 openscad -o /tmp/out.stl test-mk2.scad
 
 # Open the GUI preview for interactive iteration
-openscad chromacade-housing.scad
+openscad chromacade-housing-embossed.scad
 ```
 There's no build script — each `.scad` file is a standalone entry point (see Architecture below); render the specific file you're working on.
 
@@ -41,9 +44,9 @@ Main is protected. For every task: branch off `main` as `yourname/short-task-des
 The case is an **arcade-cabinet profile**: a 2D cross-section (front-to-back) is extruded across the case width, then hollowed out and cut with hardware openings. Each `.scad` file is independently renderable (not `include`d by one another) — they share the same dimension constants by copy-paste, which is a known deliberate tradeoff, not an oversight (see git history: "Completely unlinked standalone files", "Revert to monolithic file with export toggles"). **When changing a shared dimension (`case_w`, `case_d`, `wall`, `front_h`, `shelf_d`, `shelf_a`, `panel_l`, `panel_a`), update it in every file that redeclares it** — currently `chromacade-housing.scad` and `chromacade-back-panel.scad` both carry the full dimension block.
 
 Files:
-- `chromacade-housing.scad` — the main chassis: builds the 2D profile (`p0`..`p5`) from the dimension constants, extrudes it across `case_w`, shells it by `wall` thickness, cuts the back opening, adds corner/center mounting bosses, and cuts all hardware openings (speaker grilles, shelf controls, panel controls, side-panel hole) via `hardware_cutouts()`.
+- `chromacade-housing.scad` — the main chassis: builds the 2D profile (`p0`..`p5`) from the dimension constants, extrudes it across `case_w`, shells it by `wall` thickness, cuts the back opening, adds corner/center mounting bosses, and cuts all hardware openings (speaker grilles, shelf controls, panel controls, side-panel hole) via `hardware_cutouts()`. Kept around only until the embossed variant's wordmark print is validated on real hardware — `chromacade-housing-embossed.scad` below is the current, actively-developed model.
 - `chromacade-back-panel.scad` — the separate back cover plate that screws into the mounting bosses; recomputes the same profile geometry to derive its own outline and boss-hole positions.
-- `chromacade-housing-embossed.scad` — wordmark variant of the main housing: identical geometry plus a raised "ChromaCade" emboss on the panel exterior between the OLED and LED ring. Kept as a separate standalone file rather than a toggle, same rationale as the rest of this file split (see decision-log.md). The letter outlines are embedded as literal polygon data (converted from `ChromaCade-wordmark-paths.svg`, kept in-repo as the source asset) rather than `import()`-ed at render time, so this file needs no external file access or fonts to render.
+- `chromacade-housing-embossed.scad` — **the current primary housing model.** Wordmark variant of the main housing: identical geometry plus a raised "ChromaCade" emboss on the panel exterior between the OLED and LED ring. Kept as a separate standalone file rather than a toggle, same rationale as the rest of this file split (see decision-log.md). The letter outlines are embedded as literal polygon data (converted from `ChromaCade-wordmark-paths.svg`, kept in-repo as the source asset) rather than `import()`-ed at render time, so this file needs no external file access or fonts to render — an earlier `text()`-based emboss needed the Comfortaa font, which OpenSCAD couldn't reliably reproduce, hence the switch to traced polygon paths.
 - `test-component-holes.scad` / `test-mk2.scad` — small multi-plate fit-test files for validating individual hardware cutout dimensions (encoder bushing, joystick, rocker switch, OLED, LED ring, MX switch clip depth, speaker grille) on real hardware *before* committing to a full-case print. `test-mk2.scad` supersedes the cutouts revised since `test-component-holes.scad` — check its header comment for which plates are newer. Print these when changing any hole dimension; don't assume a dimension is correct without a fit test noted in the file's comments or `decision-log.md`.
 
 The cross-section is built from six points (`p0`..`p5`) computed via trig off the angle/length constants (`shelf_a`, `panel_a`, `panel_l`, `shelf_d`, `front_h`) — front foot → vertical front wall → tilted shelf → 45°-angled main panel → vertical back wall. `case_h` is *derived* from this chain (it's `p4[1]`), not set directly — changing any upstream angle/length shifts the overall case height. `hardware_cutouts()` locates each control by re-deriving the same segment midpoints (e.g. `shelf_my`/`shelf_mz`, `panel_my`/`panel_mz`) and rotating into that segment's local frame before placing holes — this is how holes stay correctly positioned on sloped/angled faces as dimensions change.
