@@ -18,7 +18,7 @@ Living list of decisions not yet finalized. Move items out of this file (into th
 - Exact refresh rate for the OLED live-updating pitch-bend readout (suggested ~10–20Hz as a starting point, not tested)
 
 ## Audio hardware
-- **Amp GAIN pin: floating (9dB, chip default) for now — undecided between wiring to GND (12dB) or through a 100kΩ resistor to GND (15dB, max) for more volume.** All Pi GND pins are one internal net, so either option can land on the existing ground bus regardless of which physical GND pin is used elsewhere — this is purely a loudness call, not a wiring constraint. Decide once amp #2 is soldered and the pair can be listened to together.
+- **Amp GAIN pin now wired directly to GND (12dB) as of 2026-07-20 — still not as loud as wanted.** Started floating (9dB, chip default); moved to GND after a deliberate loudness check (`note_test.py`'s `AMPLITUDE` bumped to 0.9) still wasn't loud enough on its own. Next candidate: a 100kΩ resistor from GAIN to GND instead (15dB, max per datasheet) — not yet tried, pending confirming a 100kΩ resistor is on hand. If 15dB still isn't sufficient, the plan is to revisit amp/speaker hardware selection rather than keep pushing software gain.
 
 ## Hardware / case
 - Final case dimensions are working estimates from trigonometry, not yet validated against actual component footprints (encoder bushing clearance, joystick module mounting depth, button+cap stack height, LiPo cell thickness). Confirm once parts are physically in hand and before finalizing the OpenSCAD model.
