@@ -40,7 +40,7 @@ openscad enclosure/chromacade-housing-embossed.scad
 ```
 There's no build script — each `.scad` file under `enclosure/` is a standalone entry point (see Architecture below); render the specific file you're working on.
 
-**Tests**: no `pytest` suite exists yet — the scripts under `testing/` are manual hardware bring-up tools (require real GPIO/amp hardware, not CI-safe), not what CI runs. Once Python application code is added under a testable package, `pytest` (bare, no args) is what CI runs — see `.github/workflows/tests.yml`.
+**Tests**: no `pytest` suite exists yet — the scripts under `testing/` are manual hardware bring-up tools (require real GPIO/amp hardware, not CI-safe), not what CI runs. `pytest.ini` excludes `testing/` from collection so those scripts' `gpiozero`/`pygame` imports don't break CI on a runner with no hardware libs installed; the workflow also tolerates pytest's exit code 5 ("no tests collected") so CI can stay green with zero application tests, without masking real failures or collection errors. Once Python application code is added under a testable package, `pytest` (bare, no args) is what CI runs — see `.github/workflows/tests.yml`.
 
 ## Branching & PR workflow
 
