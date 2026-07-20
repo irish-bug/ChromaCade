@@ -17,6 +17,9 @@ Living list of decisions not yet finalized. Move items out of this file (into th
 - Font-encoder push-button is overloaded (modifier-hold during play, short-click during menu) — needs an explicit state machine; not yet designed
 - Exact refresh rate for the OLED live-updating pitch-bend readout (suggested ~10–20Hz as a starting point, not tested)
 
+## Audio hardware
+- **Amp GAIN pin: floating (9dB, chip default) for now — undecided between wiring to GND (12dB) or through a 100kΩ resistor to GND (15dB, max) for more volume.** All Pi GND pins are one internal net, so either option can land on the existing ground bus regardless of which physical GND pin is used elsewhere — this is purely a loudness call, not a wiring constraint. Decide once amp #2 is soldered and the pair can be listened to together.
+
 ## Hardware / case
 - Final case dimensions are working estimates from trigonometry, not yet validated against actual component footprints (encoder bushing clearance, joystick module mounting depth, button+cap stack height, LiPo cell thickness). Confirm once parts are physically in hand and before finalizing the OpenSCAD model.
 - Speaker firing direction/grille placement finalized (front wall) but exact grille hole pattern/size not yet modeled
