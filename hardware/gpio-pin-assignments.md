@@ -8,6 +8,17 @@ Locked in against the current BOM. Bus/protocol-fixed pins were assigned first (
 | I2C bus (SDA/SCL) | GPIO2, GPIO3 | Shared by ADS1115 (volume pot + joystick axis) and OLED, different addresses |
 | I2S (BCLK, LRCLK, DOUT) | GPIO18, GPIO19, GPIO21 | Shared by both MAX98357A amps (same stream, mono to both channels) |
 
+### ADS1115 (single chip per unit — see hardware-bom.md)
+| Function | Connection | Notes |
+|---|---|---|
+| ADDR | GND | Sets I2C address 0x48 (default). Don't tie to VDD/SDA/SCL — those give 0x49/0x4A/0x4B, only needed if a second ADS1115 is ever added to the same bus. |
+| A0 | Fender 500K volume pot wiper | Pot's outer two legs across 3.3V/GND. |
+| A1 | KY-023 joystick axis output | Joystick module's VCC/GND at 3.3V/GND; only one axis wired (pitch bend is single-axis). |
+| VDD | 3.3V (physical pin 1 or 17) | |
+| GND | any Pi GND | |
+
+OLED (SSD1306) is typically address 0x3C — different chip family from the ADS1115, no address collision expected on the shared bus, but confirm both show up with `sudo i2cdetect -y 1` once wired.
+
 ### WS2812 LED ring
 | Function | Pin | Notes |
 |---|---|---|
