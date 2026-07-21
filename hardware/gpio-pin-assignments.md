@@ -12,8 +12,8 @@ Locked in against the current BOM. Bus/protocol-fixed pins were assigned first (
 | Function | Connection | Notes |
 |---|---|---|
 | ADDR | GND | Sets I2C address 0x48 (default). Don't tie to VDD/SDA/SCL — those give 0x49/0x4A/0x4B, only needed if a second ADS1115 is ever added to the same bus. |
-| A0 | Fender 500K volume pot wiper | Pot's outer two legs across 3.3V/GND. |
-| A1 | KY-023 joystick axis output | Joystick module's VCC/GND at 3.3V/GND; only one axis wired (pitch bend is single-axis). |
+| A0 | KY-023 joystick axis output | Joystick module's VCC/GND at 3.3V/GND; only one axis wired (pitch bend is single-axis). Matches `hardware_poller.py`'s `joystick_chan = AnalogIn(ads, ADS.P0)` — the library's `P0`/`P1` constants are just names for physical A0/A1, not a separate channel numbering. |
+| A1 | Fender 500K volume pot wiper | Pot's outer two legs across 3.3V/GND. Matches `hardware_poller.py`'s `volume_chan = AnalogIn(ads, ADS.P1)`. |
 | VDD | 3.3V (physical pin 1 or 17) | |
 | GND | any Pi GND | |
 

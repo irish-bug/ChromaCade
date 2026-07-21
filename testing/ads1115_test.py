@@ -11,8 +11,13 @@ one ADS1115 per unit, not two), wired as:
     SCL  -> GPIO3 (physical pin 5)  -- shared bus with the OLED
     ADDR -> GND    -- gives I2C address 0x48 (default); no conflict with
                        the OLED's 0x3C/0x3D
-    A0   -> Fender 500K volume pot wiper (outer legs across 3.3V/GND)
-    A1   -> KY-023 joystick axis output (module's VCC/GND at 3.3V/GND)
+    A0   -> KY-023 joystick axis output (module's VCC/GND at 3.3V/GND)
+    A1   -> Fender 500K volume pot wiper (outer legs across 3.3V/GND)
+
+Channel assignment matches hardware_poller.py's
+joystick_chan = AnalogIn(ads, ADS.P0) / volume_chan = AnalogIn(ads, ADS.P1)
+-- the library's P0/P1 constants just name physical A0/A1, not a separate
+channel numbering, so this has to match his code, not the other way around.
 
 Prerequisites:
     pip3 install adafruit-circuitpython-ads1x15 --break-system-packages
@@ -46,8 +51,8 @@ POLL_INTERVAL = 0.2  # seconds
 FLAT_SPAN_THRESHOLD = 0.3  # volts -- below this over the whole run, flag as likely stuck/unwired
 
 CHANNELS = {
-    "pot": ("Volume pot (A0)", ADS.P0),
-    "joy": ("Joystick axis (A1)", ADS.P1),
+    "joy": ("Joystick axis (A0)", ADS.P0),
+    "pot": ("Volume pot (A1)", ADS.P1),
 }
 
 
@@ -70,7 +75,7 @@ def main():
     readers = {key: AnalogIn(ads, chan) for key, (_, chan) in CHANNELS.items()}
     seen = {key: {"min": None, "max": None} for key in CHANNELS}
 
-    print("ChromaCade ADS1115 test -- A0 (volume pot) / A1 (joystick axis)")
+    print("ChromaCade ADS1115 test -- A0 (joystick axis) / A1 (volume pot)")
     print("=" * 70)
     print("Turn the pot through its full range; swing the joystick to both")
     print("extremes and let it re-center. Ctrl+C to quit and see a summary.")
