@@ -211,9 +211,12 @@ module hardware_cutouts() {
         cylinder(h=1, d=28, center=true);
     }
 
+    // Side-panel hole for the Fender 500K volume pot -- needs its 3/8" (9.525mm)
+    // mounting bushing, not a bare 8mm hole (regression; unit #1 was hand-drilled
+    // out to fit -- fixed here so future prints don't need that workaround).
     translate([-case_w/2, case_d/3, case_h/1.5])
     rotate([0, 90, 0])
-    cylinder(h=wall*4, d=8, center=true);
+    cylinder(h=wall*4, d=9.525, center=true);
 }
 
 // Toddler-safe portrait stadium hex grill — validated on test-mk2.scad's plate E.
