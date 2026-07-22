@@ -13,7 +13,7 @@ Locked in against the current BOM. Bus/protocol-fixed pins were assigned first (
 |---|---|---|
 | ADDR | GND | Sets I2C address 0x48 (default). Don't tie to VDD/SDA/SCL — those give 0x49/0x4A/0x4B, only needed if a second ADS1115 is ever added to the same bus. |
 | A0 | KY-023 joystick axis output | Joystick module's VCC/GND at 3.3V/GND; only one axis wired (pitch bend is single-axis). Matches `hardware_poller.py`'s `joystick_chan = AnalogIn(ads, ADS.P0)` — the library's `P0`/`P1` constants are just names for physical A0/A1, not a separate channel numbering. |
-| A1 | Fender 500K volume pot wiper | Pot's outer two legs across 3.3V/GND. Matches `hardware_poller.py`'s `volume_chan = AnalogIn(ads, ADS.P1)`. |
+| A1 | Fender 500K volume pot wiper | Pot's outer two legs across 3.3V/GND. Matches `hardware_poller.py`'s `volume_chan = AnalogIn(ads, ADS.P1)`. **Confirmed 2026-07-22 via bring-up test: raw voltage direction is inverted from desired volume direction** (clockwise turn decreases voltage) — as-wired, not worth re-wiring for. Whichever code eventually converts this reading into a volume level should invert the normalization (e.g. `volume = 1.0 - (voltage / 3.3)`, not `voltage / 3.3`) rather than assuming raw voltage tracks volume directly. |
 | VDD | 3.3V (physical pin 1 or 17) | |
 | GND | any Pi GND | |
 
