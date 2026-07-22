@@ -35,7 +35,7 @@ import wave
 from pathlib import Path
 
 SAMPLE_RATE = 44100
-AMPLITUDE = 0.3  # conservative on purpose -- hardware smoke test, not a max-volume check
+AMPLITUDE = 0.9  # bumped from 0.3 for a louder bench smoke test -- see note_test.py for the same bump's history
 
 
 def check_aplay_available():
