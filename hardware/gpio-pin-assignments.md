@@ -34,9 +34,9 @@ Address is typically 0x3C, different chip family from the ADS1115's 0x48 — no 
 | 5V | Pi 5V rail | |
 | GND | any Pi GND | |
 
-Ring boards typically break out 6 pads (an input triad — DIN/5V/GND — and an output triad — DOUT/5V/GND — for daisy-chaining another ring/strip downstream). This build uses a single ring with nothing chained after it, so **only wire the input triad**; leave DOUT and its paired 5V/GND unconnected.
+Ring boards typically break out 6 pads (an input triad — DIN/5V/GND — and an output triad — DOUT/5V/GND — for daisy-chaining another ring/strip downstream). This build's ring is confirmed **Jewel-style** (6 outer LEDs + 1 center, not 7 evenly spaced around a circle — bring-up test 2026-07-21 showed the chain walking the 6 outer positions then lighting the center pixel last). For now, **only the input triad is wired**; the output triad is reserved for a planned interior NeoPixel strip (case backlighting through the translucent PLA shell — see `hardware-bom.md`), not yet sourced. Once that strip exists, wire ring OUT → strip IN — still one GPIO12 chain, no new pin needed.
 
-Logic-level note: WS2812 data is normally driven at ~5V logic, while the Pi's GPIO is 3.3V — technically under spec for a 5V-powered chain. In practice a short chain like this (7 LEDs, short wire run) very often works driven directly with no level shifter, especially on newer WS2812B-clone chips. Try direct first; if the first LED shows wrong/flickery color while the rest look correct, that's the classic symptom, and the standard fix is a logic-level shifter (e.g. 74AHCT125) between GPIO12 and DIN.
+Logic-level note: WS2812 data is normally driven at ~5V logic, while the Pi's GPIO is 3.3V — technically under spec for a 5V-powered chain. In practice a short chain like this (7 LEDs, short wire run) very often works driven directly with no level shifter, especially on newer WS2812B-clone chips. Try direct first; if the first LED shows wrong/flickery color while the rest look correct, that's the classic symptom, and the standard fix is a logic-level shifter (e.g. 74AHCT125) between GPIO12 and DIN. Adding the interior strip downstream will extend the total chain length, worth re-testing this once it's wired since a longer chain is more likely to need the level shifter than the ring alone.
 
 ### Note buttons (7, direct GPIO, no matrix)
 | Note | Pin |

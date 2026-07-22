@@ -34,7 +34,8 @@ Fender pots are audio-taper (logarithmic), not linear — actually ideal for vol
 | Part | Notes | Status |
 |---|---|---|
 | Hosyond 0.96" 128x64 SSD1306 I2C OLED | 5-pack — replaces original PiOLED plan, same driver/library, more resolution | Cart |
-| WS2812 7-LED RGB ring | 5-pack — unified color display near OLED (not per-button) | Cart |
+| WS2812 7-LED RGB ring | 5-pack — **Jewel-style layout** (6 outer LEDs + 1 center, not 7 evenly spaced around a circle — confirmed via bring-up test 2026-07-21, chain order walks the 6 outer positions then lights the center pixel last); unified color display near OLED (not per-button) | Cart |
+| WS2812 strip (interior case backlighting) | Planned 2026-07-21, not yet sourced — length/LED count TBD. Unit #1 is printed in translucent PLA, so an interior strip lights the whole case shell, not just the ring. Chains off the ring's spare OUT triad (same GPIO12 data line, no new GPIO — see `gpio-pin-assignments.md`). For Learn-mode/Simon-mode visual feedback plus general kid appeal. **Recheck the power budget once a length is chosen** — the DWEII boost board is rated 2A, and a long strip at full white brightness could add meaningfully on top of the two amps' worst-case draw. | Planned |
 
 ## Buttons (note keys)
 | Part | Notes | Status |

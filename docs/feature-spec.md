@@ -34,6 +34,8 @@ Two distinct sub-modes, both worth building eventually:
 
 **OLED role during the mode:** likely song title + current note being asked for + a progress indicator (e.g. "3 of 7") — not finalized.
 
+**Interior case backlighting (planned):** unit #1's translucent PLA shell plus a planned interior NeoPixel strip (see `decision-log.md`, `hardware-bom.md`) opens up a second lighting channel beyond the ring's unified note-color — e.g. a whole-case glow/pulse for correct-sequence celebration in Simon mode, or a progress-style fill during Tutor mode, distinct from the ring's per-note color cue. Exact behavior not designed yet — see `open-questions.md`.
+
 See control-layout.md for the menu entry/exit/navigation interaction grammar (font-encoder-hold + A/G long-press combo).
 
 ## Not in scope (by design)
