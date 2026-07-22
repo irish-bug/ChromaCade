@@ -7,7 +7,12 @@ pin3, SCL->GPIO3/pin5, VCC->3.3V, GND->any GND), confirmed present at
 I2C address 0x3C via `sudo i2cdetect -y 1`.
 
 Prerequisites:
-    pip3 install adafruit-circuitpython-ssd1306 --break-system-packages
+    pip3 install adafruit-circuitpython-ssd1306 Pillow --break-system-packages
+
+Uses Pillow for the border/text drawing rather than adafruit_framebuf's
+built-in .text() -- that method needs a separate font5x8.bin bitmap
+file pip doesn't bundle, which fails with a bare FileNotFoundError.
+Pillow's default font sidesteps that extra asset entirely.
 
 Usage:
     python3 oled_test.py
@@ -30,9 +35,10 @@ try:
     import board
     import busio
     import adafruit_ssd1306
+    from PIL import Image, ImageDraw
 except ImportError:
     print("Missing dependency. Install with:")
-    print("    pip3 install adafruit-circuitpython-ssd1306 --break-system-packages")
+    print("    pip3 install adafruit-circuitpython-ssd1306 Pillow --break-system-packages")
     sys.exit(1)
 
 WIDTH = 128
@@ -58,9 +64,11 @@ def main():
     print("ChromaCade OLED test -- 128x64 SSD1306 @ 0x3C")
     print("=" * 60)
 
-    oled.fill(0)
-    oled.rect(0, 0, WIDTH, HEIGHT, 1)
-    oled.text(args.text, 8, 28, 1)
+    image = Image.new("1", (WIDTH, HEIGHT))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, WIDTH - 1, HEIGHT - 1), outline=255, fill=0)
+    draw.text((8, 28), args.text, fill=255)
+    oled.image(image)
     oled.show()
     print(f'Displaying: "{args.text}" with a full-panel border rectangle.')
     print("Confirm: border visible on all 4 edges (catches a partially")
