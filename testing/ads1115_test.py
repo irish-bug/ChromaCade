@@ -55,7 +55,7 @@ POLL_INTERVAL = 0.2  # seconds
 FLAT_SPAN_THRESHOLD = 0.3  # volts -- below this over the whole run, flag as likely stuck/unwired
 
 CHANNELS = {
-    # "joy": ("Joystick axis (A0)", 0),  # temporarily disabled -- not wired yet, just noise for now
+    "joy": ("Joystick axis (A0)", 0),
     "pot": ("Volume pot (A1)", 1),
 }
 
