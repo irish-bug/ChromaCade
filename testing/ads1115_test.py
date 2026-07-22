@@ -14,10 +14,14 @@ one ADS1115 per unit, not two), wired as:
     A0   -> KY-023 joystick axis output (module's VCC/GND at 3.3V/GND)
     A1   -> Fender 500K volume pot wiper (outer legs across 3.3V/GND)
 
-Channel assignment matches hardware_poller.py's
-joystick_chan = AnalogIn(ads, ADS.P0) / volume_chan = AnalogIn(ads, ADS.P1)
--- the library's P0/P1 constants just name physical A0/A1, not a separate
-channel numbering, so this has to match his code, not the other way around.
+Channel assignment matches hardware_poller.py's intent (joystick on
+physical A0, volume pot on physical A1) -- his code spells channels as
+ADS.P0/ADS.P1, but adafruit-circuitpython-ads1x15 3.0.5 (the version a
+fresh `pip install` currently pulls) dropped those named constants in
+favor of plain integers 0-3 for AnalogIn's positive_pin argument. His
+code will hit the same AttributeError this script did if run against
+this library version -- worth a heads-up if/when hardware_poller.py
+actually gets run rather than just reviewed.
 
 Prerequisites:
     pip3 install adafruit-circuitpython-ads1x15 --break-system-packages
@@ -51,8 +55,8 @@ POLL_INTERVAL = 0.2  # seconds
 FLAT_SPAN_THRESHOLD = 0.3  # volts -- below this over the whole run, flag as likely stuck/unwired
 
 CHANNELS = {
-    "joy": ("Joystick axis (A0)", ADS.P0),
-    "pot": ("Volume pot (A1)", ADS.P1),
+    "joy": ("Joystick axis (A0)", 0),
+    "pot": ("Volume pot (A1)", 1),
 }
 
 
