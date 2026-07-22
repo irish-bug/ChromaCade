@@ -113,12 +113,36 @@ def play_wav(path: Path, device: str | None):
         print("    python3 audio_test.py --device hw:0,0")
 
 
+def confirm_speakers():
+    """Interactive pass/fail check -- meaningful now that amp #2 exists:
+    both amps get identical mono content, so "which speaker(s) played"
+    is the actual verification, not just whether aplay exited cleanly.
+    """
+    print()
+    try:
+        answer = input("Did you hear the tone from BOTH speakers? [y/n/one]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print("(no input available -- skipping confirmation)")
+        return
+    if answer.startswith("y"):
+        print("PASS -- both amps confirmed audible.")
+    elif answer.startswith("o"):
+        print("PARTIAL -- only one speaker heard. Since both amps share the same")
+        print("BCLK/LRC/DIN pins (12/35/40), the shared bus is presumably fine --")
+        print("check the silent amp's own SD_MODE resistor, VIN/GND, and speaker")
+        print("wire polarity first.")
+    else:
+        print("FAIL -- no sound confirmed. Re-check `aplay -l` above, SD_MODE")
+        print("voltage on each amp, and BCLK/LRC/DIN continuity to pins 12/35/40.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="ChromaCade amp tone test")
     parser.add_argument("--freq", type=float, default=440.0, help="tone frequency in Hz (default 440 = A4)")
     parser.add_argument("--seconds", type=float, default=1.5, help="tone duration in seconds")
     parser.add_argument("--device", type=str, default=None, help="ALSA device, e.g. hw:0,0 (default: system default)")
     parser.add_argument("--skip-list", action="store_true", help="skip the aplay -l device listing")
+    parser.add_argument("--skip-confirm", action="store_true", help="skip the interactive both-speakers y/n check")
     args = parser.parse_args()
 
     check_aplay_available()
@@ -135,17 +159,18 @@ def main():
     play_wav(tone_path, args.device)
 
     print()
-    print("Expected right now (amp #1 only): a clean tone from that one")
-    print("speaker. When amp #2 is soldered and wired to the same three")
-    print("pins, re-run this and both speakers should play together --")
-    print("no code or config changes needed for the second amp.")
+    print("With both amps wired (they share BCLK/LRC/DIN -- pins 12/35/40),")
+    print("expect the identical mono tone from both speakers at once.")
     print("If you get silence:")
     print("  1. Re-check `aplay -l` output above for the hifiberry card.")
-    print("  2. Check SD_MODE voltage on amp #1 with a multimeter --")
+    print("  2. Check SD_MODE voltage on the silent amp with a multimeter --")
     print("     should read ~0.16-0.77V (mono-mix band per datasheet).")
     print("  3. Re-check BCLK/LRC/DIN continuity to pins 12/35/40.")
     print("If you get a click/pop but no sustained tone, that's usually")
     print("SD_MODE sitting in the wrong voltage band rather than a data-line issue.")
+
+    if not args.skip_confirm:
+        confirm_speakers()
 
 
 if __name__ == "__main__":
