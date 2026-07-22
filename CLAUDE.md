@@ -46,6 +46,12 @@ There's no build script — each `.scad` file under `enclosure/` is a standalone
 
 Main is protected. For every task: branch off `main` as `yourname/short-task-description`, commit there, open a PR into `main`. Keep PRs scoped to one task. See `CONTRIBUTING.md` for full details — this is a hard rule for this repo, not a suggestion.
 
+## Syncing the physical board after a push
+
+`chromacade` is an SSH host alias (see `~/.ssh/config`) for the physical Pi running this build; it has its own separate git checkout of this repo at `/home/shane/ChromaCade/`. After pushing commits to GitHub (a branch push, a merge, etc.), SSH there and `git pull` to keep that checkout in sync — but only if it's safe:
+- Check `git status --short` on `chromacade` first — if the working tree there is dirty (e.g. uncommitted bench-test edits), stop and flag it rather than pulling over local changes.
+- Confirm the branch checked out there is actually meant to track what was just pushed (`git status --branch` / `git rev-parse --abbrev-ref HEAD`) before assuming `git pull` is a no-op-safe fast-forward — don't assume it's on `main` or on whatever branch the push was to.
+
 ## Architecture: the OpenSCAD case model
 
 The case is an **arcade-cabinet profile**: a 2D cross-section (front-to-back) is extruded across the case width, then hollowed out and cut with hardware openings. Each `.scad` file (all under `enclosure/`) is independently renderable (not `include`d by one another) — they share the same dimension constants by copy-paste, which is a known deliberate tradeoff, not an oversight (see git history: "Completely unlinked standalone files", "Revert to monolithic file with export toggles"). **When changing a shared dimension (`case_w`, `case_d`, `wall`, `front_h`, `shelf_d`, `shelf_a`, `panel_l`, `panel_a`), update it in every file that redeclares it** — currently `enclosure/chromacade-housing.scad`, `enclosure/chromacade-back-panel.scad`, and `enclosure/chromacade-housing-embossed.scad` all carry the full dimension block.
