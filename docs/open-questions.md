@@ -24,6 +24,7 @@ Living list of decisions not yet finalized. Move items out of this file (into th
 ## Hardware / case
 - Final case dimensions are working estimates from trigonometry, not yet validated against actual component footprints (encoder bushing clearance, joystick module mounting depth, button+cap stack height, LiPo cell thickness). Confirm once parts are physically in hand and before finalizing the OpenSCAD model.
 - Speaker firing direction/grille placement finalized (front wall) but exact grille hole pattern/size not yet modeled
+- **Speaker-vs-shelf clearance fix, needed before the next print** (see decision-log.md "Case geometry" for the full writeup): right speaker's physical depth collides with the right-side shelf cluster (joystick especially, at shelf x=-65). Unit #1 worked around it by trimming the speaker by hand — not a CAD fix. Next print needs: (1) an actual caliper depth measurement of the speaker, (2) a decision between repositioning the joystick's shelf x-position, locally recessing the shelf underside, or increasing shelf depth. Left side (rocker/octave encoder) had a milder version of the same issue, worked around with a sideways rocker orientation + trimmed encoder mounting corners.
 - Whether the case needs a lid/access panel for battery replacement or SD card access down the line — not yet discussed
 
 ## Future / stretch
