@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Third-party copyrighted sound assets (e.g. downloaded game audio for boot
+# chimes/notifications) -- never commit these to this public repo, including
+# the fetch script itself (kept local-only out of an abundance of caution
+# about anything tooling-related to redistributing copyrighted assets).
+audio/*.wav
+audio/grab_navi_sounds.sh
