@@ -34,12 +34,15 @@ except ImportError:
 SOUNDFONT_PATH = "/usr/share/sounds/sf2/FluidR3_GM.sf2"
 
 # --- Fill this in yourself: list of (note, duration_in_beats) ---
-# note = MIDI number (60=middle C) or name like "F4", "C#5", "Bb3"
-# duration = length in beats (1.0 = quarter note at the given tempo)
+# note = MIDI number (60=middle C) or name like "F4", "C#5", "Bb3" --
+#        use None for a rest (silence for that duration, no note played)
+# duration = length in beats (1.0 = quarter note at the given tempo,
+#            0.5 = eighth note, 2.0 = half note, etc.)
 MELODY = [
     ("C4", 1.0),
     ("D4", 1.0),
     ("E4", 1.0),
+    (None, 0.5),  # example rest
     ("C4", 1.0),
 ]
 # ------------------------------------------------------------------
@@ -89,9 +92,15 @@ def main():
         sys.exit(1)
 
     fs.program_select(0, sfid, 0, args.program)
-    print(f"Playing {len(MELODY)} notes at {args.tempo} BPM...")
+    print(f"Playing {len(MELODY)} events at {args.tempo} BPM...")
 
     for note, duration in MELODY:
+        if note is None:
+            # Rest -- just wait, no noteon/noteoff. If pacing feels off
+            # against the original, check first whether there's a rest
+            # here that got skipped rather than encoded.
+            time.sleep(duration * seconds_per_beat)
+            continue
         midi_note = note_to_midi(note)
         fs.noteon(0, midi_note, 100)
         time.sleep(duration * seconds_per_beat)
