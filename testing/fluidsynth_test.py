@@ -54,6 +54,7 @@ def main():
     parser.add_argument("--program", type=int, default=0, help="GM program number 0-127 (default 0 = Acoustic Grand Piano)")
     parser.add_argument("--note", type=int, default=60, help="MIDI note number (default 60 = middle C)")
     parser.add_argument("--seconds", type=float, default=2.0, help="how long to hold the note (default 2.0)")
+    parser.add_argument("--gain", type=float, default=3.0, help="synth.gain (default 3.0, matching nektar-synth's proven `-g 3.0` -- pyfluidsynth's own default of 0.2 is very quiet)")
     args = parser.parse_args()
 
     print("ChromaCade FluidSynth smoke test")
@@ -61,6 +62,7 @@ def main():
 
     fs = fluidsynth.Synth()
     fs.setting("audio.driver", "alsa")
+    fs.setting("synth.gain", args.gain)
     if args.device:
         fs.setting("audio.alsa.device", args.device)
     fs.start()
