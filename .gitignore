@@ -223,3 +223,9 @@ __marimo__/
 # about anything tooling-related to redistributing copyrighted assets).
 audio/*.wav
 audio/grab_navi_sounds.sh
+
+# Personal song transcriptions for play_melody.py -- these encode a
+# specific copyrighted melody's actual notes, unlike the generic
+# player tool itself. Keep local-only, same reasoning as the audio/
+# rule above.
+testing/sarias-melody.py
