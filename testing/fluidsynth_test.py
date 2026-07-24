@@ -68,9 +68,19 @@ def main():
     try:
         sfid = fs.sfload(SOUNDFONT_PATH)
     except Exception as e:
-        print(f"ERROR: couldn't load soundfont at {SOUNDFONT_PATH} ({e})")
+        sfid = -1
+        print(f"ERROR: sfload() raised ({e})")
+
+    # pyfluidsynth's sfload() does NOT raise on failure -- the underlying C
+    # library just logs its own "fluidsynth: error: ..." lines and returns
+    # -1. Checking only for an exception silently treats a failed load as
+    # success (this bit us once already: the script printed "Done" after a
+    # load failure). -1 is the real failure signal to check.
+    if sfid == -1:
+        print(f"ERROR: couldn't load soundfont at {SOUNDFONT_PATH} (sfload returned -1)")
         print("Confirm `fluid-soundfont-gm` is installed (apt) and that path is correct --")
         print("check with: dpkg -L fluid-soundfont-gm | grep sf2")
+        fs.delete()
         sys.exit(1)
 
     fs.program_select(0, sfid, 0, args.program)
