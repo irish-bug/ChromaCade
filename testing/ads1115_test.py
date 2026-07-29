@@ -53,6 +53,7 @@ except ImportError:
 
 POLL_INTERVAL = 0.2  # seconds
 FLAT_SPAN_THRESHOLD = 0.3  # volts -- below this over the whole run, flag as likely stuck/unwired
+FULL_SCALE_V = 4.096  # matches ads.gain = 1 below (+/-4.096V full-scale)
 
 CHANNELS = {
     "joy": ("Joystick axis (A0)", 0),
@@ -89,11 +90,14 @@ def main():
         while True:
             parts = []
             for key, (label, _) in CHANNELS.items():
-                v = readers[key].voltage
+                raw = readers[key].value
+                v = raw * FULL_SCALE_V / 32767  # derive from the same read as raw,
+                                                 # not a second .voltage call, so the
+                                                 # two numbers can't drift apart
                 lo, hi = seen[key]["min"], seen[key]["max"]
                 seen[key]["min"] = v if lo is None else min(lo, v)
                 seen[key]["max"] = v if hi is None else max(hi, v)
-                parts.append(f"{label}: raw={readers[key].value:6d} {v:5.3f}V")
+                parts.append(f"{label}: raw={raw:6d} {v:5.3f}V")
             print("  ".join(parts))
             time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:
