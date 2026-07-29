@@ -14,7 +14,7 @@ First unit stays Pi Zero-based. A Pico or Teensy swap was considered (cheaper, i
 ## Audio
 | Part | Notes | Status |
 |---|---|---|
-| MAX98357A I2S 3W Class D amp | Mono — need one per speaker channel | Owned (2-pack, covers 2 speakers for unit #1) |
+| MAX98357A I2S 3W Class D amp | Mono. Originally one per speaker channel; as of 2026-07-28 unit #1 runs both speakers off a single amp instead (see `decision-log.md`) — second amp removed, kept as a spare | Owned (2-pack, 1 in use on unit #1) |
 | 3W 8Ω speakers, JST-PH2.0 connector | DWEII brand | Owned (4x) |
 
 Speaker JST-PH2.0 connectors won't plug into the MAX98357A's screw-terminal output — plan to strip/screw bare wire ends rather than expecting a plug-and-play connector match. 8Ω is within the amp's supported range (rated 4Ω+); expect roughly half the amp's 4Ω-rated power output at 8Ω, which is a fine match since the speakers themselves are only rated 3W anyway.

@@ -6,7 +6,7 @@ Locked in against the current BOM. Bus/protocol-fixed pins were assigned first (
 | Function | Pin(s) | Notes |
 |---|---|---|
 | I2C bus (SDA/SCL) | GPIO2, GPIO3 | Shared by ADS1115 (volume pot + joystick axis) and OLED, different addresses |
-| I2S (BCLK, LRCLK, DOUT) | GPIO18, GPIO19, GPIO21 | Shared by both MAX98357A amps (same stream, mono to both channels) |
+| I2S (BCLK, LRCLK, DOUT) | GPIO18, GPIO19, GPIO21 | Single MAX98357A amp now drives both speakers as of 2026-07-28 (second amp removed from the build — see `decision-log.md`); same I2S stream as before |
 
 ### ADS1115 (single chip per unit — see hardware-bom.md)
 | Function | Connection | Notes |
@@ -34,9 +34,18 @@ Address is typically 0x3C, different chip family from the ADS1115's 0x48 — no 
 | 5V | Pi 5V rail | |
 | GND | any Pi GND | |
 
-Ring boards typically break out 6 pads (an input triad — DIN/5V/GND — and an output triad — DOUT/5V/GND — for daisy-chaining another ring/strip downstream). This build's ring is confirmed **Jewel-style** (6 outer LEDs + 1 center, not 7 evenly spaced around a circle — bring-up test 2026-07-21 showed the chain walking the 6 outer positions then lighting the center pixel last). For now, **only the input triad is wired**; the output triad is reserved for a planned interior NeoPixel strip (case backlighting through the translucent PLA shell — see `hardware-bom.md`), not yet sourced. Once that strip exists, wire ring OUT → strip IN — still one GPIO12 chain, no new pin needed.
+Ring boards typically break out 6 pads (an input triad — DIN/5V/GND — and an output triad — DOUT/5V/GND — for daisy-chaining another ring/strip downstream). This build's ring is confirmed **Jewel-style** (6 outer LEDs + 1 center, not 7 evenly spaced around a circle — bring-up test 2026-07-21 showed the chain walking the 6 outer positions then lighting the center pixel last). **As of 2026-07-28, the ring is a standalone 7-pixel chain** — the output triad is unwired and has no planned use. See "WS2812 LED interior strip" below for why the strip isn't chained off it.
 
-Logic-level note: WS2812 data is normally driven at ~5V logic, while the Pi's GPIO is 3.3V — technically under spec for a 5V-powered chain. In practice a short chain like this (7 LEDs, short wire run) very often works driven directly with no level shifter, especially on newer WS2812B-clone chips. Try direct first; if the first LED shows wrong/flickery color while the rest look correct, that's the classic symptom, and the standard fix is a logic-level shifter (e.g. 74AHCT125) between GPIO12 and DIN. Adding the interior strip downstream will extend the total chain length, worth re-testing this once it's wired since a longer chain is more likely to need the level shifter than the ring alone.
+Logic-level note: WS2812 data is normally driven at ~5V logic, while the Pi's GPIO is 3.3V — technically under spec for a 5V-powered chain. In practice a short chain like this (7 LEDs, short wire run) very often works driven directly with no level shifter, especially on newer WS2812B-clone chips. Try direct first; if the first LED shows wrong/flickery color while the rest look correct, that's the classic symptom, and the standard fix is a logic-level shifter (e.g. 74AHCT125) between GPIO12 and DIN. **Still an open troubleshooting thread as of 2026-07-28** — the ring alone has shown multi-color corruption (not just a single bad pixel) even after resoldering the DIN joint, so a marginal ground reference and/or a needed level shifter are both still live theories, independent of the chain-splitting change below.
+
+### WS2812 LED interior strip
+| Function | Pin | Notes |
+|---|---|---|
+| Data (DIN) | GPIO13 | PWM1 alt function — a separate hardware PWM/DMA channel from the ring's GPIO12/PWM0, not a second pin on the same channel. Physical pin 33. |
+| 5V | Pi 5V rail | |
+| GND | any Pi GND | |
+
+**Independent 16-pixel chain, not daisy-chained off the ring, as of 2026-07-28** — superseding the original plan (see `decision-log.md`) to chain ring-OUT → strip-IN on one GPIO12 line. Reasons: (1) diagnostic isolation while the ring/strip combined chain was showing corruption — splitting them lets each be tested and fixed independently rather than the strip's symptoms being entangled with (or caused by) whatever the ring's problem turns out to be; (2) shorter individual runs, which reduces signal-degradation distance on each chain. GPIO13 was available for this because the octave encoder's push-button — previously on GPIO13 — was moved to GPIO25 (see "Octave encoder" below); that button's click has no assigned function yet (`open-questions.md`), so it was a better fit to relocate than to leave a PWM-capable pin tied up on a plain digital read.
 
 ### Note buttons (7, direct GPIO, no matrix)
 | Note | Pin |
@@ -57,8 +66,10 @@ GPIO9/10/11 are the SPI MISO/MOSI/SCLK pins — unused here since nothing on thi
 | A (quadrature) | GPIO5 |
 | B (quadrature) | GPIO6 |
 | Common | GND |
-| Push-button | GPIO13 |
+| Push-button | GPIO25 |
 | Push-button (other switch leg) | GND |
+
+Moved from GPIO13 to GPIO25 on 2026-07-28 to free GPIO13 (PWM1) for the LED strip's own independent data line — see "WS2812 LED interior strip" above. A plain digital push-button read doesn't need a PWM-capable pin, so this cost nothing functionally.
 
 ### Font encoder (EC11, shelf far right)
 | Function | Pin |
@@ -84,8 +95,8 @@ Wire each throw to ground through its own GPIO with internal pull-up enabled, ac
 Not assigned a GPIO. The DWEII boost/charge board's keypad connection point handles on/off inline on the power path — no Pi GPIO involved unless a future soft-shutdown feature is added later.
 
 ### Budget
-- Used: GPIO2,3,4,5,6,9,10,11,12,13,16,17,18,19,20,21,22,23,24,26,27 = **21 of 26 usable GPIO**
-- Spare: GPIO7, GPIO8, GPIO14, GPIO15, GPIO25 (5 pins) — GPIO14/15 are UART TX/RX, reclaimable as plain GPIO if serial console is disabled in `raspi-config`, but leave as spares for now rather than assuming that
+- Used: GPIO2,3,4,5,6,9,10,11,12,13,16,17,18,19,20,21,22,23,24,25,26,27 = **22 of 26 usable GPIO**
+- Spare: GPIO7, GPIO8, GPIO14, GPIO15 (4 pins) — GPIO14/15 are UART TX/RX, reclaimable as plain GPIO if serial console is disabled in `raspi-config`, but leave as spares for now rather than assuming that
 
 
 J8:
