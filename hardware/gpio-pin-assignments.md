@@ -66,10 +66,12 @@ GPIO9/10/11 are the SPI MISO/MOSI/SCLK pins — unused here since nothing on thi
 | A (quadrature) | GPIO5 |
 | B (quadrature) | GPIO6 |
 | Common | GND |
-| Push-button | GPIO25 |
+| Push-button (confirmed dead 2026-07-29) | GPIO25 |
 | Push-button (other switch leg) | GND |
 
 Moved from GPIO13 to GPIO25 on 2026-07-28 to free GPIO13 (PWM1) for the LED strip's own independent data line — see "WS2812 LED interior strip" above. A plain digital push-button read doesn't need a PWM-capable pin, so this cost nothing functionally.
+
+**Push-button confirmed dead 2026-07-29** — rotation/quadrature (A/B above) still works fine, only the click switch failed. Abandoned rather than repaired; see `decision-log.md`. GPIO25 is still physically wired to the dead switch and counted as used in the budget below — it can be reclaimed as a genuine spare if that leg is ever desoldered, but that hasn't been done.
 
 ### Font encoder (EC11, shelf far right)
 | Function | Pin |
