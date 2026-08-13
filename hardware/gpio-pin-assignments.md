@@ -62,6 +62,8 @@ Logic-level note: WS2812 data is normally driven at ~5V logic, while the Pi's GP
 
 GPIO9/10/11 are the SPI MISO/MOSI/SCLK pins — unused here since nothing on this build needs SPI, safe to repurpose as plain GPIO.
 
+**WM8960 Audio HAT shares GPIO17 with Note B — confirmed 2026-08-13.** The Waveshare WM8960's onboard tactile button is hardwired to GPIO17 on the board itself (per its published pinout), same pin as Note B. Confirmed via `note_buttons_test.py`: pressing the WM8960's own button registers as a B press. Purely two switches in parallel on the same net — no electrical conflict, driver doesn't touch GPIO17 at all (checked `wm8960-soundcard.dts`/`.c`, no reference). Functionally irrelevant since nothing intentionally presses the HAT's own button, but worth knowing during assembly — an accidental bump against it in the enclosure would read as a phantom B press.
+
 ### Octave encoder (EC11, shelf far left)
 | Function | Pin |
 |---|---|
