@@ -2,8 +2,8 @@
 """
 ChromaCade -- final 7-note button panel bring-up test.
 
-Tests the real note-button GPIO assignments (not the 3-key test mount --
-see key_test.py for that earlier, now-superseded bring-up test), per
+Tests the real note-button GPIO assignments (not the old 3-key test
+mount's GPIO14/15/25, which that mount's bring-up script covered), per
 gpio-pin-assignments.md:
 
     A -> GPIO4  (physical pin 7)

@@ -10,7 +10,7 @@ Tests the XINYIELE ON-OFF-ON rocker wired as:
 
 Identify Common/throw wires by continuity if not already done -- see
 gpio-pin-assignments.md. Active-low, internal pull-ups enabled (same
-convention as key_test.py) -- no external resistors needed.
+convention as note_buttons_test.py) -- no external resistors needed.
 
 Usage:
     python3 rocker_test.py
