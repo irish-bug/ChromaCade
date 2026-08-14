@@ -5,13 +5,21 @@ ChromaCade -- EC11 rotary encoder bring-up test (octave or font).
 Tests one EC11 encoder's A/B quadrature signals and pushbutton, wired
 per gpio-pin-assignments.md:
 
-    Octave encoder: A->GPIO5(pin29)  B->GPIO6(pin31)  Button->GPIO13(pin33)
+    Octave encoder: A->GPIO5(pin29)  B->GPIO6(pin31)  Button->GPIO25(pin22) (unconfirmed, see caveat below)
     Font encoder:   A->GPIO26(pin37) B->GPIO16(pin36) Button->GPIO20(pin38)
     (both: Common + button's other leg -> GND)
 
+Octave button's GPIO25 assignment is pending a retest on a clean spare
+(GPIO7 or GPIO8) -- it never registered on GPIO25, suspected solder
+damage on that pad from the old 3-key test mount, not necessarily a
+dead switch. Use --button-pin to test an alternate pin without editing
+this file, e.g.:
+
+    python3 encoder_test.py --which octave --button-pin 7
+
 Usage:
-    python3 encoder_test.py --which octave
-    python3 encoder_test.py --which font
+    python3 encoder_test.py --which octave [--button-pin N]
+    python3 encoder_test.py --which font [--button-pin N]
 
 Uses gpiozero's RotaryEncoder, which handles quadrature decoding and
 debouncing internally -- prints CW/CCW plus a running step count on
@@ -28,7 +36,7 @@ from gpiozero import RotaryEncoder, Button
 from signal import pause
 
 PINS = {
-    "octave": {"a": 5, "b": 6, "button": 13},
+    "octave": {"a": 5, "b": 6, "button": 25},
     "font": {"a": 26, "b": 16, "button": 20},
 }
 
@@ -42,9 +50,12 @@ def timestamp():
 def main():
     parser = argparse.ArgumentParser(description="ChromaCade EC11 encoder test")
     parser.add_argument("--which", required=True, choices=sorted(PINS.keys()), help="which encoder to test")
+    parser.add_argument("--button-pin", type=int, default=None, help="override the button GPIO, e.g. for retesting on a different pin")
     args = parser.parse_args()
 
-    pins = PINS[args.which]
+    pins = dict(PINS[args.which])
+    if args.button_pin is not None:
+        pins["button"] = args.button_pin
     print(f"ChromaCade encoder test -- {args.which} "
           f"(A=GPIO{pins['a']}, B=GPIO{pins['b']}, Button=GPIO{pins['button']})")
     print("=" * 70)
