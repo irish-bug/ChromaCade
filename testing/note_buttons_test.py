@@ -6,13 +6,17 @@ Tests the real note-button GPIO assignments (not the old 3-key test
 mount's GPIO14/15/25, which that mount's bring-up script covered), per
 gpio-pin-assignments.md:
 
-    A -> GPIO4  (physical pin 7)
-    B -> GPIO17 (physical pin 11)
-    C -> GPIO27 (physical pin 13)
-    D -> GPIO22 (physical pin 15)
-    E -> GPIO10 (physical pin 19)  -- repurposed SPI MISO, safe (no SPI on this build)
-    F -> GPIO9  (physical pin 21)  -- repurposed SPI MOSI
-    G -> GPIO11 (physical pin 23)  -- repurposed SPI SCLK
+    C -> GPIO4  (physical pin 7)
+    D -> GPIO17 (physical pin 11)
+    E -> GPIO27 (physical pin 13)
+    F -> GPIO22 (physical pin 15)
+    G -> GPIO10 (physical pin 19)  -- repurposed SPI MISO, safe (no SPI on this build)
+    A -> GPIO9  (physical pin 21)  -- repurposed SPI MOSI
+    B -> GPIO11 (physical pin 23)  -- repurposed SPI SCLK
+
+Letters relabeled 2026-08-15 (was A-G in physical order, now C-D-E-F-G-A-B
+matching the octave convention) -- same GPIO pins, same physical buttons,
+no rewiring.
 
 Direct GPIO wiring, no matrix -- deliberate, see decision-log.md (a
 matrix would ghost on chord combinations, which breaks chord support).
@@ -34,15 +38,15 @@ from datetime import datetime
 from gpiozero import Button
 from signal import pause
 
-# Note -> BCM pin, in letter order (per gpio-pin-assignments.md)
+# Note -> BCM pin, in physical left-to-right order (per gpio-pin-assignments.md)
 NOTES = {
-    "A": 4,
-    "B": 17,
-    "C": 27,
-    "D": 22,
-    "E": 10,
-    "F": 9,
-    "G": 11,
+    "C": 4,
+    "D": 17,
+    "E": 27,
+    "F": 22,
+    "G": 10,
+    "A": 9,
+    "B": 11,
 }
 NOTE_ORDER = list(NOTES.keys())
 

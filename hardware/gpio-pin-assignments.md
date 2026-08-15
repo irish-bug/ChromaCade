@@ -52,13 +52,15 @@ Logic-level note: WS2812 data is normally driven at ~5V logic, while the Pi's GP
 ### Note buttons (7, direct GPIO, no matrix)
 | Note | Pin |
 |---|---|
-| A | GPIO4 |
-| B | GPIO17 |
-| C | GPIO27 |
-| D | GPIO22 |
-| E | GPIO10 |
-| F | GPIO9 |
-| G | GPIO11 |
+| C | GPIO4 |
+| D | GPIO17 |
+| E | GPIO27 |
+| F | GPIO22 |
+| G | GPIO10 |
+| A | GPIO9 |
+| B | GPIO11 |
+
+**Letters relabeled 2026-08-15 — physical wiring unchanged.** Originally labeled A-G in physical left-to-right order; relabeled C-D-E-F-G-A-B (same GPIO pins, same physical buttons) to match the C-to-B octave-numbering convention decided in `feature-spec.md`. Confirmed via live `note_buttons_test.py` run, pressed strictly left to right: GPIO4, GPIO17, GPIO27, GPIO22, GPIO10, GPIO9, GPIO11 in that physical order — now C, D, E, F, G, A, B respectively.
 
 GPIO9/10/11 are the SPI MISO/MOSI/SCLK pins — unused here since nothing on this build needs SPI, safe to repurpose as plain GPIO.
 
