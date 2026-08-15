@@ -38,19 +38,29 @@ def main():
     audio = ChromaCadeAudio()
     ring = LedRing()
     held = []
-    state = {"bend": 0.0, "shown": None}
+    state = {"bend": 0.0, "shown": None, "shown_base": None}
 
     def update_ring():
         if not held:
             ring.clear()
             state["shown"] = None
+            state["shown_base"] = None
             return
-        letter = bent_letter(held[-1], state["bend"])
+        base = held[-1]
+        letter = bent_letter(base, state["bend"])
         if letter != state["shown"]:
-            if state["shown"] is not None:
+            # Only call this a bend-crossing if the underlying held note
+            # (base) is the same as last time -- if base changed, the
+            # display just switched to reflect a different held note
+            # (e.g. a second note got pressed), which isn't a bend event
+            # at all even though the shown letter also changed. Confirmed
+            # live 2026-08-15: chords were printing false "bend crossed"
+            # messages because this distinction was missing.
+            if state["shown"] is not None and base == state["shown_base"]:
                 print(f"COLOR   {state['shown']} -> {letter} (bend crossed the halfway point)")
             ring.show(letter)
             state["shown"] = letter
+        state["shown_base"] = base
 
     def note_on(letter):
         print(f"PRESS   {letter}")
