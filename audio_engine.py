@@ -117,29 +117,35 @@ LETTER_ORDER = ["C", "D", "E", "F", "G", "A", "B"]
 
 
 def bent_letter(letter, bend_fraction, max_semitones=MAX_BEND_SEMITONES):
-    """Which letter a bent note is now closer to -- crosses to the
-    neighboring letter once the bend passes halfway to it. Most letter
-    pairs are a full 2 semitones apart, but E-F and B-C are only 1
-    semitone apart (the diatonic scale's two half-steps, the "no black
-    key" pairs on a piano) -- so a modest bend can cross into neighbor
-    territory on E or B while the same bend leaves C/D/F/G/A
-    untouched. Deliberate, not a bug: it's real music theory showing up
-    as an audible/visible asymmetry."""
-    bend_semitones = bend_fraction * max_semitones
-    if bend_semitones == 0:
+    """Which letter a bent note is now closer to -- the actual bent
+    pitch's nearest natural letter, wrapping across the octave. Most
+    letter pairs are a full 2 semitones apart, but E-F and B-C are only
+    1 semitone apart (the diatonic scale's two half-steps, the "no
+    black key" pairs on a piano) -- so a modest bend crosses into
+    neighbor territory on E or B while the same bend leaves C/D/F/G/A
+    untouched. Deliberate, not a bug: real music theory showing up as
+    an audible/visible asymmetry.
+
+    Compares against the absolute bent pitch rather than only checking
+    the immediate neighbor, since a large enough bend can cross more
+    than one letter boundary -- e.g. G bent up the full 4 semitones
+    lands exactly on B's pitch, past A, not just at it."""
+    if bend_fraction == 0:
         return letter
+    bend_semitones = bend_fraction * max_semitones
+    target = (NOTE_SEMITONES[letter] + bend_semitones) % 12
 
-    idx = LETTER_ORDER.index(letter)
-    direction = 1 if bend_semitones > 0 else -1
-    neighbor = LETTER_ORDER[(idx + direction) % 7]
+    def circular_distance(pitch):
+        diff = (pitch - target) % 12
+        return min(diff, 12 - diff)
 
-    # semitone distance to the neighbor in the bend's direction,
-    # wrapping correctly across the octave boundary (B->C or C->B)
-    distance = ((NOTE_SEMITONES[neighbor] - NOTE_SEMITONES[letter]) * direction) % 12
-
-    if abs(bend_semitones) >= distance / 2:
-        return neighbor
-    return letter
+    # ties (exactly halfway between two letters) favor moving away
+    # from the original letter, matching the old ">= halfway crosses"
+    # rule this replaces
+    return min(
+        LETTER_ORDER,
+        key=lambda l: (circular_distance(NOTE_SEMITONES[l]), l == letter),
+    )
 
 
 class ChromaCadeAudio:

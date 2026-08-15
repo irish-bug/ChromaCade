@@ -149,3 +149,15 @@ def test_bent_letter_negative_bend_crosses_to_the_previous_letter():
 
 def test_bent_letter_stays_home_just_under_the_halfway_point():
     assert bent_letter("E", 0.49, max_semitones=1.0) == "E"
+
+
+def test_bent_letter_large_bend_crosses_two_boundaries_not_just_one():
+    # G bent up a full 4 semitones lands exactly on B's pitch (7+4=11),
+    # past A (9) -- must not stop at the first neighbor
+    assert bent_letter("G", 1.0, max_semitones=4.0) == "B"
+
+
+def test_bent_letter_large_bend_partway_between_two_boundaries_shows_middle_letter():
+    # G bent up exactly 2 semitones lands exactly on A -- confirms the
+    # multi-boundary walk stops at the right letter, not overshooting
+    assert bent_letter("G", 0.5, max_semitones=4.0) == "A"
