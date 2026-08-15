@@ -35,7 +35,7 @@ import wave
 from pathlib import Path
 
 SAMPLE_RATE = 44100
-AMPLITUDE = 0.3  # conservative on purpose -- hardware smoke test, not a max-volume check
+AMPLITUDE = 0.9  # bumped from 0.3 for a louder bench smoke test -- see note_test.py for the same bump's history
 
 
 def check_aplay_available():
@@ -139,7 +139,7 @@ def confirm_speakers():
 def main():
     parser = argparse.ArgumentParser(description="ChromaCade amp tone test")
     parser.add_argument("--freq", type=float, default=440.0, help="tone frequency in Hz (default 440 = A4)")
-    parser.add_argument("--seconds", type=float, default=1.5, help="tone duration in seconds")
+    parser.add_argument("--seconds", type=float, default=15, help="tone duration in seconds")
     parser.add_argument("--device", type=str, default=None, help="ALSA device, e.g. hw:0,0 (default: system default)")
     parser.add_argument("--skip-list", action="store_true", help="skip the aplay -l device listing")
     parser.add_argument("--skip-confirm", action="store_true", help="skip the interactive both-speakers y/n check")

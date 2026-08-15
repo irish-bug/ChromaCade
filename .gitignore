@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Third-party copyrighted sound assets (e.g. downloaded game audio for boot
+# chimes/notifications) -- never commit these to this public repo, including
+# the fetch script itself (kept local-only out of an abundance of caution
+# about anything tooling-related to redistributing copyrighted assets).
+audio/*.wav
+audio/grab_navi_sounds.sh
+
+# Personal song transcriptions for play_melody.py -- these encode a
+# specific copyrighted melody's actual notes, unlike the generic
+# player tool itself. Whole directory ignored (not filename-specific)
+# so moving/renaming a transcription file can't accidentally land it
+# somewhere trackable -- that happened once already with a filename
+# rule. Keep local-only, same reasoning as the audio/*.wav rule above.
+audio/songs/

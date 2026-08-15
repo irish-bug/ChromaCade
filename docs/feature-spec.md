@@ -9,6 +9,17 @@
 - OLED shows live status: note+accidental (large), font name, base frequency + signed bend offset in Hz, volume % — see control-layout.md for exact format
 - Software volume ceiling: even at max pot position, output should never exceed a level appropriate for a small room. This is a deliberate ceiling independent of the physical pot's range.
 
+## Note range
+Confirmed via live speaker test 2026-08-15 (a `fluidsynth_test.py`-style sweep, GM Acoustic Grand Piano, through the real WM8960/speaker hardware, not a simulation): **8 full octaves, C0 through C8 (MIDI 12–108), all sound acceptable** — audible, in-tune, and musically usable across the whole span. Below C0, quality drops noticeably (still audible, described as sounding "tired" — likely the speaker's bass limit and/or the ear's low-frequency sensitivity dropping off, not a hard cutoff). Didn't test above C8; the top octave (C7–C8) held up clean, just a bit quieter at the very top.
+
+Octave numbering follows standard scientific pitch notation/MIDI convention — the octave number increments at C, not A. So the 7 letter buttons should be grouped **C, D, E, F, G, A, B per octave** for octave-equivalence teaching to match real music theory, not alphabetical A–G. Firmware/mapping decision only — the physical keycaps are color-coded (Elacgap rainbow set), not letter-printed, so this implies no hardware change.
+
+**Per-instrument range/loudness varies, and that's fine — not a bug to engineer around.** Spot-checked 2026-08-15 with Tubular Bells and Acoustic Bass (GM 14/32) at the four range extremes (C0, C1, C7, C8): Tubular Bells held up clearly at all four, Acoustic Bass was inaudible at all four despite playing fine (if quieter than piano) at middle C. GM soundfont patches aren't loudness-normalized against each other — bass patches are conventionally mixed quieter to begin with, and that lower baseline drops below audible right where the "gets weaker at extreme registers" effect (see above) already eats into headroom piano had to spare. **Decided: no exhaustive per-instrument range testing needed.** A bass guitar realistically doesn't play a G7, a bell realistically doesn't have an F0 fundamental — an instrument voice having a narrower natural/comfortable range than the full C0–C8 is authentic to that instrument, not a defect, and arguably teaches something real (different instruments have different natural ranges) rather than something to hide. The 8-octave finding above is a system-level capability ceiling (confirmed instrument-agnostically via piano), not a promise every voice sounds equally full across all of it.
+
+**Still wanted, separately: per-instrument loudness normalization within each voice's own comfortable range.** Not testing every instrument's outer range limits doesn't mean ignoring the loudness gap entirely — switching fonts mid-play (e.g. Piano → Acoustic Bass at the same held note) shouldn't produce a jarring volume jump just because GM patches aren't mixed to a common level. Needs a per-instrument gain/velocity table (or similar normalization step) in the eventual audio engine — not designed yet, just confirmed necessary by tonight's bells-vs-bass gap.
+
+**Headroom requirement, not yet built:** the flat/sharp rocker and the joystick's continuous pitch-bend both need somewhere valid to land past the edges of whatever octave is currently selected — C + flat needs the previous octave's B, B + sharp needs the next octave's C, and pitch-bend needs continuous room beyond either extreme note. So the firmware's actual playable MIDI range needs a semitone-plus-bend-margin of headroom beyond both ends of the *selectable* range (C0–C8), not a hard stop at MIDI 12/108. Real headroom exists below C0 (down to MIDI 0/C-1, untested, but octave 0 was already confirmed acceptable-if-duller, so a little further down should be fine as brief bend/flat margin, not a home octave). Exact bend semitone budget still undecided — see `open-questions.md`.
+
 ## Color system (the harder design problem)
 Each of the 7 letters gets a fixed base hue. Sharp shifts that hue warmer; flat shifts it cooler; octave maps to brightness, not hue. Straightforward for single notes. The open problem is chords:
 
@@ -33,6 +44,8 @@ Two distinct sub-modes, both worth building eventually:
 **Wrong-press behavior:** leaning toward "gently don't advance, keep the current note's cue lit" for the tutor mode (toddler-friendly, non-punitive). Simon mode would more traditionally reset/game-over on a wrong press, since that's the point of a memory game.
 
 **OLED role during the mode:** likely song title + current note being asked for + a progress indicator (e.g. "3 of 7") — not finalized.
+
+**Interior case backlighting (planned):** unit #1's translucent PLA shell plus a planned interior NeoPixel strip (see `decision-log.md`, `hardware-bom.md`) opens up a second lighting channel beyond the ring's unified note-color — e.g. a whole-case glow/pulse for correct-sequence celebration in Simon mode, or a progress-style fill during Tutor mode, distinct from the ring's per-note color cue. Exact behavior not designed yet — see `open-questions.md`.
 
 See control-layout.md for the menu entry/exit/navigation interaction grammar (font-encoder-hold + A/G long-press combo).
 

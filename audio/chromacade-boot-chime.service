@@ -1,0 +1,11 @@
+[Unit]
+Description=ChromaCade boot-ready chime
+After=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/shane/ChromaCade/audio/boot_chime.sh
+User=shane
+
+[Install]
+WantedBy=multi-user.target

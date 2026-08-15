@@ -14,10 +14,14 @@ one ADS1115 per unit, not two), wired as:
     A0   -> KY-023 joystick axis output (module's VCC/GND at 3.3V/GND)
     A1   -> Fender 500K volume pot wiper (outer legs across 3.3V/GND)
 
-Channel assignment matches hardware_poller.py's
-joystick_chan = AnalogIn(ads, ADS.P0) / volume_chan = AnalogIn(ads, ADS.P1)
--- the library's P0/P1 constants just name physical A0/A1, not a separate
-channel numbering, so this has to match his code, not the other way around.
+Channel assignment matches hardware_poller.py's intent (joystick on
+physical A0, volume pot on physical A1) -- his code spells channels as
+ADS.P0/ADS.P1, but adafruit-circuitpython-ads1x15 3.0.5 (the version a
+fresh `pip install` currently pulls) dropped those named constants in
+favor of plain integers 0-3 for AnalogIn's positive_pin argument. His
+code will hit the same AttributeError this script did if run against
+this library version -- worth a heads-up if/when hardware_poller.py
+actually gets run rather than just reviewed.
 
 Prerequisites:
     pip3 install adafruit-circuitpython-ads1x15 --break-system-packages
@@ -49,10 +53,11 @@ except ImportError:
 
 POLL_INTERVAL = 0.2  # seconds
 FLAT_SPAN_THRESHOLD = 0.3  # volts -- below this over the whole run, flag as likely stuck/unwired
+FULL_SCALE_V = 4.096  # matches ads.gain = 1 below (+/-4.096V full-scale)
 
 CHANNELS = {
-    "joy": ("Joystick axis (A0)", ADS.P0),
-    "pot": ("Volume pot (A1)", ADS.P1),
+    "joy": ("Joystick axis (A0)", 0),
+    "pot": ("Volume pot (A1)", 1),
 }
 
 
@@ -85,11 +90,14 @@ def main():
         while True:
             parts = []
             for key, (label, _) in CHANNELS.items():
-                v = readers[key].voltage
+                raw = readers[key].value
+                v = raw * FULL_SCALE_V / 32767  # derive from the same read as raw,
+                                                 # not a second .voltage call, so the
+                                                 # two numbers can't drift apart
                 lo, hi = seen[key]["min"], seen[key]["max"]
                 seen[key]["min"] = v if lo is None else min(lo, v)
                 seen[key]["max"] = v if hi is None else max(hi, v)
-                parts.append(f"{label}: raw={readers[key].value:6d} {v:5.3f}V")
+                parts.append(f"{label}: raw={raw:6d} {v:5.3f}V")
             print("  ".join(parts))
             time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:
