@@ -2,6 +2,7 @@ import pytest
 
 from audio_engine import (
     NOTE_SEMITONES,
+    bent_letter,
     clamp_octave,
     joystick_bend_fraction,
     midi_note,
@@ -115,3 +116,36 @@ def test_pitch_bend_value_half_semitone_down_at_full_negative_bend():
 def test_pitch_bend_value_clamped_to_valid_synth_range():
     assert pitch_bend_value(1.0, max_semitones=10) == 8191
     assert pitch_bend_value(-1.0, max_semitones=10) == -8192
+
+
+def test_bent_letter_no_bend_stays_the_same_letter():
+    assert bent_letter("C", 0.0) == "C"
+
+
+def test_bent_letter_e_to_f_is_only_a_half_step():
+    # E-F is one of the two half-step pairs -- crosses with a small bend
+    # (0.6 semitones of actual bend clears the 0.5-semitone halfway point)
+    assert bent_letter("E", 0.6, max_semitones=1.0) == "F"
+
+
+def test_bent_letter_c_to_d_is_a_whole_step_needs_more_bend():
+    # same 0.6-semitone bend that flips E->F should NOT flip C->D
+    # (2 semitones apart, halfway point is 1.0 semitones)
+    assert bent_letter("C", 0.6, max_semitones=1.0) == "C"
+
+
+def test_bent_letter_c_to_d_does_flip_with_enough_bend():
+    assert bent_letter("C", 1.0, max_semitones=1.0) == "D"
+
+
+def test_bent_letter_b_to_c_wraps_the_octave_boundary_correctly():
+    # B-C is the other half-step pair, and it's the wraparound case
+    assert bent_letter("B", 0.6, max_semitones=1.0) == "C"
+
+
+def test_bent_letter_negative_bend_crosses_to_the_previous_letter():
+    assert bent_letter("C", -0.6, max_semitones=1.0) == "B"
+
+
+def test_bent_letter_stays_home_just_under_the_halfway_point():
+    assert bent_letter("E", 0.49, max_semitones=1.0) == "E"

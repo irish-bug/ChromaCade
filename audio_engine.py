@@ -20,6 +20,19 @@ except ImportError:
 
 SOUNDFONT_PATH = "/usr/share/sounds/sf2/FluidR3_GM.sf2"
 
+# MIDI velocity for every note -- there's no pressure/velocity-sensing
+# input on this build (buttons are just on/off), so there's no
+# expressiveness lost by always using max. Bumped from 100 to 127
+# (max) 2026-08-15 to test whether it helps the piano patch's natural
+# decay ring out longer/louder -- many multi-velocity-layer soundfonts
+# trigger a different, more sustained sample at high velocity. If this
+# doesn't meaningfully help, the fast decay is probably just authentic
+# to how the Acoustic Grand Piano sample was recorded (a real piano
+# note decays even while held -- the key just keeps the damper off the
+# string), and a genuinely sustained voice (organ, pad) would be the
+# real fix, not a velocity tweak.
+NOTE_VELOCITY = 127
+
 # Semitone offset from C, per letter -- physical button order is
 # C-D-E-F-G-A-B (gpio-pin-assignments.md), not alphabetical.
 NOTE_SEMITONES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -85,11 +98,12 @@ PITCH_BEND_UNITS_PER_SEMITONE = 2048
 PITCH_BEND_MIN = -8192
 PITCH_BEND_MAX = 8191
 
-# Starting guess per tonight's plan: bend approaches but never reaches
-# the neighboring sharp/flat, so a bent note is always closer to its
-# own pitch than to a different letter -- keeps the note-identity
-# teaching goal intact. Tune live.
-MAX_BEND_SEMITONES = 0.5
+# Started at 0.5 (bend approaches but never reaches the neighboring
+# sharp/flat); bumped to the full range pyfluidsynth supports 2026-08-15
+# to test how it feels. At this range a held note can bend all the way
+# into being its neighbor -- see bent_letter() below, which is exactly
+# why that matters for more than just pitch.
+MAX_BEND_SEMITONES = 4.0
 
 
 def pitch_bend_value(bend_fraction, max_semitones=MAX_BEND_SEMITONES):
@@ -97,6 +111,35 @@ def pitch_bend_value(bend_fraction, max_semitones=MAX_BEND_SEMITONES):
     expects, clamped to its valid range."""
     val = round(bend_fraction * max_semitones * PITCH_BEND_UNITS_PER_SEMITONE)
     return max(PITCH_BEND_MIN, min(PITCH_BEND_MAX, val))
+
+
+LETTER_ORDER = ["C", "D", "E", "F", "G", "A", "B"]
+
+
+def bent_letter(letter, bend_fraction, max_semitones=MAX_BEND_SEMITONES):
+    """Which letter a bent note is now closer to -- crosses to the
+    neighboring letter once the bend passes halfway to it. Most letter
+    pairs are a full 2 semitones apart, but E-F and B-C are only 1
+    semitone apart (the diatonic scale's two half-steps, the "no black
+    key" pairs on a piano) -- so a modest bend can cross into neighbor
+    territory on E or B while the same bend leaves C/D/F/G/A
+    untouched. Deliberate, not a bug: it's real music theory showing up
+    as an audible/visible asymmetry."""
+    bend_semitones = bend_fraction * max_semitones
+    if bend_semitones == 0:
+        return letter
+
+    idx = LETTER_ORDER.index(letter)
+    direction = 1 if bend_semitones > 0 else -1
+    neighbor = LETTER_ORDER[(idx + direction) % 7]
+
+    # semitone distance to the neighbor in the bend's direction,
+    # wrapping correctly across the octave boundary (B->C or C->B)
+    distance = ((NOTE_SEMITONES[neighbor] - NOTE_SEMITONES[letter]) * direction) % 12
+
+    if abs(bend_semitones) >= distance / 2:
+        return neighbor
+    return letter
 
 
 class ChromaCadeAudio:
@@ -126,7 +169,7 @@ class ChromaCadeAudio:
         if letter in self.playing:
             self.note_off(letter)
         note = midi_note(letter, self.octave, self.accidental)
-        self.fs.noteon(0, note, 100)
+        self.fs.noteon(0, note, NOTE_VELOCITY)
         self.playing[letter] = note
 
     def note_off(self, letter):
@@ -142,7 +185,7 @@ class ChromaCadeAudio:
         for letter, old_note in list(self.playing.items()):
             self.fs.noteoff(0, old_note)
             new_note = midi_note(letter, self.octave, self.accidental)
-            self.fs.noteon(0, new_note, 100)
+            self.fs.noteon(0, new_note, NOTE_VELOCITY)
             self.playing[letter] = new_note
 
     def octave_change(self, delta):

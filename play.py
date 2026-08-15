@@ -2,15 +2,18 @@
 """
 ChromaCade -- play notes with the real button panel via FluidSynth,
 LED ring lit per note, octave encoder / flat-sharp rocker / pitch-bend
-joystick all shift whatever's held live.
+joystick all shift whatever's held live. Bending far enough crosses
+the ring's color to the neighboring letter (see audio_engine.py's
+bent_letter() for why E/B cross with much less bend than the other
+five letters -- E-F and B-C are the diatonic scale's two half-steps).
 
 Current scope: 7 note buttons, Acoustic Grand Piano, octave encoder
 (debounced -- see octave_gesture.py), flat/sharp rocker, pitch-bend
-joystick (+-0.5 semitone starting range -- see audio_engine.py's
+joystick (+-4 semitone range -- see audio_engine.py's
 MAX_BEND_SEMITONES), ring shows whichever held note was pressed most
-recently -- a placeholder, not the real chord-blend behavior (see
-led_ring.py). No volume/font/OLED yet -- those come with their own
-firmware items.
+recently (bent toward its neighbor as above) -- a placeholder, not the
+real chord-blend behavior (see led_ring.py). No volume/font/OLED yet --
+those come with their own firmware items.
 
 Needs sudo -- the LED ring uses PWM/DMA hardware, same as
 testing/led_ring_test.py.
@@ -23,7 +26,7 @@ Ctrl+C to quit.
 
 from signal import pause
 
-from audio_engine import ChromaCadeAudio
+from audio_engine import ChromaCadeAudio, bent_letter
 from hardware_poller import HardwarePoller
 from led_ring import LedRing
 
@@ -32,19 +35,32 @@ def main():
     audio = ChromaCadeAudio()
     ring = LedRing()
     held = []
+    state = {"bend": 0.0, "shown": None}
+
+    def update_ring():
+        if not held:
+            ring.clear()
+            state["shown"] = None
+            return
+        letter = bent_letter(held[-1], state["bend"])
+        if letter != state["shown"]:
+            if state["shown"] is not None:
+                print(f"COLOR   {state['shown']} -> {letter} (bend crossed the halfway point)")
+            ring.show(letter)
+            state["shown"] = letter
 
     def note_on(letter):
         print(f"PRESS   {letter}")
         audio.note_on(letter)
         held.append(letter)
-        ring.show(letter)
+        update_ring()
 
     def note_off(letter):
         print(f"release {letter}")
         audio.note_off(letter)
         if letter in held:
             held.remove(letter)
-        ring.show(held[-1]) if held else ring.clear()
+        update_ring()
 
     def octave_change(delta):
         audio.octave_change(delta)
@@ -56,10 +72,13 @@ def main():
         print(f"ROCKER  {label}")
 
     def pitch_bend(bend_fraction):
-        # No print here -- this fires ~30x/sec (JOYSTICK_POLL_INTERVAL
-        # in hardware_poller.py), unlike the other controls' discrete
-        # events, so printing every tick would just flood the terminal.
+        # No PRESS-style print here -- this fires ~30x/sec
+        # (JOYSTICK_POLL_INTERVAL in hardware_poller.py), unlike the
+        # other controls' discrete events. update_ring() only prints
+        # when the displayed letter actually crosses over.
         audio.set_pitch_bend(bend_fraction)
+        state["bend"] = bend_fraction
+        update_ring()
 
     # Must stay referenced for the life of the program -- if this gets
     # garbage collected, its gpiozero Button objects go with it and the
