@@ -39,7 +39,22 @@ Two distinct sub-modes, both worth building eventually:
 - **Tutor / follow-along mode:** the device lights the LED ring in the color of the next note in a song, and *waits* for the child to press the matching button before advancing. No memorization required — encouraging rather than testing. This is the primary mode for a toddler.
 - **Simon Says / memory mode:** classic escalating-sequence memory game — plays a growing sequence, child must reproduce it from memory. Better suited for an older child or as the toddler grows into it. Lower priority to build first.
 
-**Candidate song library** (simple melodies playable entirely with natural notes, no accidentals needed): Twinkle Twinkle Little Star, Hot Cross Buns, Mary Had a Little Lamb, Ode to Joy.
+**Candidate song library** — tiered by difficulty, expanded 2026-08-15 (see `open-questions.md` for the accidental-mechanic question below):
+
+*Tier 1, all-natural notes (no accidentals), primary Tutor-mode target:*
+- Hot Cross Buns — E D C \| E D C \| C C C C \| D D D D \| E D C (simplest possible, only 3 notes)
+- Mary Had a Little Lamb — E D C D \| E E E \| D D D \| E G G \| E D C D \| E E E E \| D D E D \| C
+- Twinkle Twinkle Little Star — C C G G \| A A G \| F F E E \| D D C \| G G F F \| E E D \| G G F F \| E E D \| C C G G \| A A G \| F F E E \| D D C
+- Ode to Joy — E E F G \| G F E D \| C C D E \| E D D \| E E F G \| G F E D \| C C D E \| D C
+- Row, Row, Row Your Boat — C C C D E \| E D E F G \| C' C' C' G G G E E E C C C \| G F E D C
+- Frère Jacques (Are You Sleeping) — C D E C \| C D E C \| E F G \| E F G \| G A G F E C \| G A G F E C \| C G C \| C G C
+- Three Blind Mice, London Bridge Is Falling Down, Old MacDonald Had a Farm, This Old Man — confirmed as natural-note nursery songs, note-for-note sequence not independently verified here; check against sheet music/a reference recording before hardcoding into `audio/play_melody.py`.
+
+Worth surfacing in-app: Twinkle Twinkle, Baa Baa Black Sheep, and the Alphabet Song are the exact same melody — a "same notes, different words" moment reinforces the octave/note-identity teaching goal, not just trivia.
+
+*Tier 2, still all-natural but wider range/bigger leaps — a difficulty step before accidentals:* Happy Birthday (octave leap on "dear ___", doubles as octave-equivalence reinforcement), Yankee Doodle, Amazing Grace (pentatonic, wide leaps).
+
+*Tier 3, needs exactly one accidental — first candidate for whichever accidental mechanic gets decided in `open-questions.md`:* Für Elise's opening motif (Beethoven) — `E D# E D# E B D C A`. Unusually good fit: the whole hook is a half-step wobble between D and D#, which demonstrates what a sharp modifies rather than just naming it as a switch position.
 
 **Wrong-press behavior:** leaning toward "gently don't advance, keep the current note's cue lit" for the tutor mode (toddler-friendly, non-punitive). Simon mode would more traditionally reset/game-over on a wrong press, since that's the point of a memory game.
 
