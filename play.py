@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
-ChromaCade -- play notes with the real button panel via FluidSynth.
+ChromaCade -- play notes with the real button panel via FluidSynth,
+LED ring lit per note.
 
-Current scope: 7 note buttons, fixed C4 octave, Acoustic Grand Piano.
-No accidentals/octave-shift/pitch-bend/volume/font yet -- those come
-with their own firmware items.
+Current scope: 7 note buttons, fixed C4 octave, Acoustic Grand Piano,
+ring shows whichever held note was pressed most recently -- a
+placeholder, not the real chord-blend behavior (see led_ring.py).
+No octave-shift/pitch-bend/volume/font/OLED yet -- those come with
+their own firmware items.
+
+Needs sudo -- the LED ring uses PWM/DMA hardware, same as
+testing/led_ring_test.py.
 
 Usage:
-    python3 play.py
+    sudo python3 play.py
 
 Ctrl+C to quit.
 """
@@ -16,18 +22,26 @@ from signal import pause
 
 from audio_engine import ChromaCadeAudio
 from hardware_poller import HardwarePoller
+from led_ring import LedRing
 
 
 def main():
     audio = ChromaCadeAudio()
+    ring = LedRing()
+    held = []
 
     def note_on(letter):
         print(f"PRESS   {letter}")
         audio.note_on(letter)
+        held.append(letter)
+        ring.show(letter)
 
     def note_off(letter):
         print(f"release {letter}")
         audio.note_off(letter)
+        if letter in held:
+            held.remove(letter)
+        ring.show(held[-1]) if held else ring.clear()
 
     # Must stay referenced for the life of the program -- if this gets
     # garbage collected, its gpiozero Button objects go with it and the
@@ -40,6 +54,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        ring.clear()
         audio.quit()
         print("\nDone.")
 
