@@ -77,6 +77,8 @@ Moved from GPIO13 to GPIO25 on 2026-07-28 to free GPIO13 (PWM1) for the LED stri
 
 **Resolved: the switch was never dead.** It never registered on GPIO25 and was briefly treated as a dead switch (see `decision-log.md`), but that was traced to solder/desolder history on GPIO25's specific pad from the old 3-key test mount's "Key 3" — a plausible fault independent of the switch. Confirmed via `encoder_test.py --which octave --button-pin 8`: clean registration on GPIO8, a genuinely untouched spare (GPIO14/GPIO15 carry the same test-mount history as GPIO25 and were avoided for the same reason). GPIO8 is now the permanent assignment; GPIO25 is free again.
 
+**Rotation direction inverted as wired — confirmed 2026-08-14.** Turning the shaft physically clockwise registers as CCW via `encoder_test.py` (and vice versa) — as-wired, not worth re-wiring for, same pattern as the volume pot and joystick axis inversions (see the ADS1115 section above). Whichever code eventually maps encoder steps to octave changes should invert the CW/CCW interpretation (or swap the GPIO5/GPIO6 argument order when constructing `RotaryEncoder`) rather than assuming a physical clockwise turn raises the octave.
+
 ### Font encoder (EC11, shelf far right)
 | Function | Pin |
 |---|---|
