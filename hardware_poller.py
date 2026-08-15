@@ -2,24 +2,27 @@
 ChromaCade -- hardware polling layer, GPIO controls -> callbacks.
 
 Current scope: note buttons, the octave encoder, the flat/sharp rocker,
-and the pitch-bend joystick. Font encoder and volume pot will extend
-this as their firmware items land -- see docs/open-questions.md and
-feature-spec.md for what's still undecided about each control's
-behavior before wiring it in here.
+the pitch-bend joystick, and the volume pot. Font encoder will extend
+this as that firmware item lands -- see docs/open-questions.md and
+feature-spec.md for what's still undecided about its behavior before
+wiring it in here.
 
 Uses gpiozero throughout for digital controls, not raw RPi.GPIO --
 proven reliable during this build's control bring-up
 (note_buttons_test.py, encoder_test.py, rocker_test.py, all in
-testing/). The joystick is analog (via the ADS1115 over I2C, same
-setup as testing/ads1115_test.py) and has no interrupt mechanism, so
-unlike everything else here it's read via a background polling thread
-rather than an event callback.
+testing/). The joystick and volume pot are both analog, both on the
+same ADS1115 over I2C (same setup as testing/ads1115_test.py), and
+have no interrupt mechanism -- unlike everything else here, both are
+read from a single shared background polling thread rather than event
+callbacks. One thread, not two, deliberately: they're on the same I2C
+bus, and I2C isn't safe for two threads to hit concurrently without a
+lock, so both channels are read from the same loop each cycle instead.
 
 Not unit tested -- this logic needs real hardware to validate
 meaningfully rather than mocking GPIO/I2C. audio_engine.py's note math
-(including rocker_accidental() and joystick_bend_fraction()) and
-octave_gesture.py's debounce logic are where the hardware-free,
-pytest-covered logic lives.
+(including rocker_accidental(), joystick_bend_fraction(), and
+pot_volume_fraction()) and octave_gesture.py's debounce logic are where
+the hardware-free, pytest-covered logic lives.
 """
 
 import threading
@@ -31,7 +34,7 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from gpiozero import Button, RotaryEncoder
 
-from audio_engine import joystick_bend_fraction, rocker_accidental, smooth
+from audio_engine import joystick_bend_fraction, pot_volume_fraction, rocker_accidental, smooth
 from octave_gesture import OctaveGesture
 
 # Note -> BCM pin, physical left-to-right order (gpio-pin-assignments.md).
@@ -64,20 +67,25 @@ FLAT_PIN = 23
 SHARP_PIN = 24
 
 ADS1115_ADDRESS = 0x48
-JOYSTICK_ADS_CHANNEL = 0  # plain int, not ADS.P0 -- see testing/ads1115_test.py
-                          # for why (dropped in adafruit-circuitpython-ads1x15 3.0.5)
+# Plain ints, not ADS.P0/P1 -- see testing/ads1115_test.py for why
+# (dropped in adafruit-circuitpython-ads1x15 3.0.5)
+JOYSTICK_ADS_CHANNEL = 0
+VOLUME_ADS_CHANNEL = 1
 
-# How often to re-read the joystick. No interrupt mechanism for an
-# analog value, so this trades I2C traffic against how smooth the bend
-# feels. Bumped 30Hz -> 50Hz 2026-08-15 after live testing felt
-# "jumpy" -- tune further if it still feels laggy or jittery.
-JOYSTICK_POLL_INTERVAL = 1 / 50
+# How often to re-read the joystick and pot (shared loop, see module
+# docstring). No interrupt mechanism for an analog value, so this
+# trades I2C traffic against how smooth the bend/volume feels. Bumped
+# 30Hz -> 50Hz 2026-08-15 after live testing felt "jumpy" -- tune
+# further if it still feels laggy or jittery.
+ADS1115_POLL_INTERVAL = 1 / 50
 
-# Exponential-smoothing weight for the raw voltage reading (see
+# Exponential-smoothing weight for the raw voltage readings (see
 # audio_engine.smooth()) -- added 2026-08-15 alongside the poll-rate
-# bump, same "felt jumpy" live feedback. Lower = smoother but more lag,
-# higher = more responsive but more jitter. Starting guess, tune live.
+# bump, same "felt jumpy" live feedback on the joystick. Reused as-is
+# for the pot for now; tune independently if the pot ends up needing a
+# different feel.
 JOYSTICK_SMOOTHING_ALPHA = 0.4
+VOLUME_SMOOTHING_ALPHA = 0.4
 
 
 class HardwarePoller:
@@ -88,6 +96,7 @@ class HardwarePoller:
         on_octave_change,
         on_accidental_change,
         on_pitch_bend,
+        on_volume_change,
     ):
         self.buttons = {}
         for letter, pin in NOTE_PINS.items():
@@ -115,14 +124,16 @@ class HardwarePoller:
             btn.when_released = self._on_rocker_change
 
         self.on_pitch_bend = on_pitch_bend
+        self.on_volume_change = on_volume_change
         i2c = busio.I2C(board.SCL, board.SDA)
         ads = ADS.ADS1115(i2c, address=ADS1115_ADDRESS)
         ads.gain = 1  # +/-4.096V full-scale, matches ads1115_test.py --
                       # better resolution than default +/-6.144V on this 3.3V supply
         self.joystick_chan = AnalogIn(ads, JOYSTICK_ADS_CHANNEL)
+        self.volume_chan = AnalogIn(ads, VOLUME_ADS_CHANNEL)
 
-        self._joystick_thread = threading.Thread(target=self._poll_joystick, daemon=True)
-        self._joystick_thread.start()
+        self._ads1115_thread = threading.Thread(target=self._poll_ads1115, daemon=True)
+        self._ads1115_thread.start()
 
     @staticmethod
     def _bind(letter, callback):
@@ -150,12 +161,18 @@ class HardwarePoller:
         )
         self.on_accidental_change(accidental)
 
-    def _poll_joystick(self):
-        smoothed_voltage = self.joystick_chan.voltage
+    def _poll_ads1115(self):
+        smoothed_joy_voltage = self.joystick_chan.voltage
+        smoothed_pot_voltage = self.volume_chan.voltage
         while True:
-            smoothed_voltage = smooth(
-                smoothed_voltage, self.joystick_chan.voltage, JOYSTICK_SMOOTHING_ALPHA
+            smoothed_joy_voltage = smooth(
+                smoothed_joy_voltage, self.joystick_chan.voltage, JOYSTICK_SMOOTHING_ALPHA
             )
-            bend = joystick_bend_fraction(smoothed_voltage)
-            self.on_pitch_bend(bend)
-            time.sleep(JOYSTICK_POLL_INTERVAL)
+            self.on_pitch_bend(joystick_bend_fraction(smoothed_joy_voltage))
+
+            smoothed_pot_voltage = smooth(
+                smoothed_pot_voltage, self.volume_chan.voltage, VOLUME_SMOOTHING_ALPHA
+            )
+            self.on_volume_change(pot_volume_fraction(smoothed_pot_voltage))
+
+            time.sleep(ADS1115_POLL_INTERVAL)

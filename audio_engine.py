@@ -157,6 +157,35 @@ def bent_letter(letter, bend_fraction, max_semitones=MAX_BEND_SEMITONES):
     )
 
 
+# Volume pot calibration -- same ADS1115, same 0-3.3V range as the
+# joystick (testing/ads1115_test.py's live sweep). Confirmed inverted
+# as wired (gpio-pin-assignments.md): clockwise turn reads as LOWER
+# voltage, but clockwise should mean louder.
+POT_MAX_VOLTAGE = 3.3
+
+
+def pot_volume_fraction(voltage):
+    """Raw pot voltage -> normalized volume, 0.0 (silent) to 1.0 (full
+    clockwise turn)."""
+    fraction = 1.0 - (voltage / POT_MAX_VOLTAGE)
+    return max(0.0, min(1.0, fraction))
+
+
+# Deliberate ceiling independent of the pot's own range (feature-spec.md
+# Normal play mode): even at full clockwise turn, output should never
+# exceed a level appropriate for a small room. Starting guess, tune live.
+VOLUME_CEILING = 0.7
+
+
+def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING):
+    """Normalized volume (0.0-1.0) -> the 0-127 value Synth.cc(chan, 7,
+    val) (MIDI channel volume, confirmed from the installed
+    pyfluidsynth's own docstring) expects, scaled by the safety
+    ceiling."""
+    val = round(volume_fraction * ceiling * 127)
+    return max(0, min(127, val))
+
+
 class ChromaCadeAudio:
     def __init__(self, gain=4.5, program=0):
         if fluidsynth is None:
@@ -217,6 +246,11 @@ class ChromaCadeAudio:
         applies to whatever's currently held with no retrigger needed,
         same as the "applies globally" rule for octave/accidental."""
         self.fs.pitch_bend(0, pitch_bend_value(bend_fraction))
+
+    def set_volume(self, volume_fraction):
+        """MIDI channel volume (CC7) -- same whole-channel-effect
+        reasoning as set_pitch_bend(), no retrigger needed."""
+        self.fs.cc(0, 7, volume_midi_value(volume_fraction))
 
     def quit(self):
         for letter in list(self.playing):

@@ -10,10 +10,11 @@ five letters -- E-F and B-C are the diatonic scale's two half-steps).
 Current scope: 7 note buttons, Acoustic Grand Piano, octave encoder
 (debounced -- see octave_gesture.py), flat/sharp rocker, pitch-bend
 joystick (+-4 semitone range -- see audio_engine.py's
-MAX_BEND_SEMITONES), ring shows whichever held note was pressed most
+MAX_BEND_SEMITONES), volume pot (capped by VOLUME_CEILING regardless of
+how far it's turned), ring shows whichever held note was pressed most
 recently (bent toward its neighbor as above) -- a placeholder, not the
-real chord-blend behavior (see led_ring.py). No volume/font/OLED yet --
-those come with their own firmware items.
+real chord-blend behavior (see led_ring.py). No font/OLED yet -- those
+come with their own firmware items.
 
 Needs sudo -- the LED ring uses PWM/DMA hardware, same as
 testing/led_ring_test.py.
@@ -72,13 +73,17 @@ def main():
         print(f"ROCKER  {label}")
 
     def pitch_bend(bend_fraction):
-        # No PRESS-style print here -- this fires ~30x/sec
-        # (JOYSTICK_POLL_INTERVAL in hardware_poller.py), unlike the
+        # No PRESS-style print here -- this fires ~50x/sec
+        # (ADS1115_POLL_INTERVAL in hardware_poller.py), unlike the
         # other controls' discrete events. update_ring() only prints
         # when the displayed letter actually crosses over.
         audio.set_pitch_bend(bend_fraction)
         state["bend"] = bend_fraction
         update_ring()
+
+    def volume_change(volume_fraction):
+        # Same reasoning as pitch_bend -- fires continuously, no print.
+        audio.set_volume(volume_fraction)
 
     # Must stay referenced for the life of the program -- if this gets
     # garbage collected, its gpiozero Button objects go with it and the
@@ -89,6 +94,7 @@ def main():
         on_octave_change=octave_change,
         on_accidental_change=accidental_change,
         on_pitch_bend=pitch_bend,
+        on_volume_change=volume_change,
     )
 
     print("ChromaCade is live -- press the note buttons (C D E F G A B). Ctrl+C to quit.")

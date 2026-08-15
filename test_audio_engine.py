@@ -7,8 +7,10 @@ from audio_engine import (
     joystick_bend_fraction,
     midi_note,
     pitch_bend_value,
+    pot_volume_fraction,
     rocker_accidental,
     smooth,
+    volume_midi_value,
 )
 
 
@@ -174,3 +176,31 @@ def test_smooth_alpha_zero_ignores_new_value_entirely():
 
 def test_smooth_alpha_half_averages_the_two():
     assert smooth(previous=1.0, new_value=3.0, alpha=0.5) == 2.0
+
+
+def test_pot_volume_fraction_zero_volts_is_full_clockwise_full_volume():
+    # confirmed inverted as wired -- clockwise turn reads as lower voltage
+    assert pot_volume_fraction(0.0) == pytest.approx(1.0, abs=0.01)
+
+
+def test_pot_volume_fraction_full_voltage_is_silent():
+    assert pot_volume_fraction(3.3) == pytest.approx(0.0, abs=0.01)
+
+
+def test_pot_volume_fraction_clamped_past_measured_extremes():
+    assert pot_volume_fraction(-1.0) == 1.0
+    assert pot_volume_fraction(5.0) == 0.0
+
+
+def test_volume_midi_value_zero_is_silent():
+    assert volume_midi_value(0.0) == 0
+
+
+def test_volume_midi_value_full_volume_stops_at_the_safety_ceiling():
+    # ceiling default is 0.7 -- full pot turn should never reach 127
+    assert volume_midi_value(1.0) == round(0.7 * 127)
+
+
+def test_volume_midi_value_custom_ceiling():
+    assert volume_midi_value(1.0, ceiling=1.0) == 127
+    assert volume_midi_value(1.0, ceiling=0.5) == round(0.5 * 127)
