@@ -20,7 +20,19 @@ from hardware_poller import HardwarePoller
 
 def main():
     audio = ChromaCadeAudio()
-    HardwarePoller(on_note_on=audio.note_on, on_note_off=audio.note_off)
+
+    def note_on(letter):
+        print(f"PRESS   {letter}")
+        audio.note_on(letter)
+
+    def note_off(letter):
+        print(f"release {letter}")
+        audio.note_off(letter)
+
+    # Must stay referenced for the life of the program -- if this gets
+    # garbage collected, its gpiozero Button objects go with it and the
+    # buttons silently stop working with no error (bit us once already).
+    poller = HardwarePoller(on_note_on=note_on, on_note_off=note_off)
 
     print("ChromaCade is live -- press the note buttons (C D E F G A B). Ctrl+C to quit.")
     try:
