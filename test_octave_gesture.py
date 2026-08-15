@@ -1,42 +1,39 @@
 from octave_gesture import OctaveGesture
 
 
-def test_no_rotation_commits_nothing():
+def test_first_cw_click_fires_plus_one_immediately():
     g = OctaveGesture()
-    assert g.commit() == 0
+    assert g.rotate("cw") == 1
 
 
-def test_single_cw_click_commits_plus_one():
+def test_first_ccw_click_fires_minus_one_immediately():
     g = OctaveGesture()
-    g.rotate("cw")
-    assert g.commit() == 1
+    assert g.rotate("ccw") == -1
 
 
-def test_single_ccw_click_commits_minus_one():
+def test_further_clicks_in_same_gesture_are_absorbed():
     g = OctaveGesture()
-    g.rotate("ccw")
-    assert g.commit() == -1
+    assert g.rotate("cw") == 1
+    assert g.rotate("cw") == 0
+    assert g.rotate("cw") == 0
 
 
-def test_many_same_direction_clicks_still_commit_exactly_one_octave():
+def test_many_clicks_in_one_burst_still_only_fire_once():
     g = OctaveGesture()
-    for _ in range(50):
-        g.rotate("cw")
-    assert g.commit() == 1
+    results = [g.rotate("cw") for _ in range(50)]
+    assert results[0] == 1
+    assert all(r == 0 for r in results[1:])
 
 
-def test_direction_reversal_mid_gesture_uses_most_recent_direction():
+def test_direction_reversal_mid_gesture_is_absorbed_not_fired():
     g = OctaveGesture()
-    g.rotate("cw")
-    g.rotate("cw")
-    g.rotate("ccw")
-    assert g.commit() == -1
+    assert g.rotate("cw") == 1
+    assert g.rotate("ccw") == 0  # gesture already active, absorbed
 
 
-def test_commit_resets_state_for_next_gesture():
+def test_reset_allows_the_next_gesture_to_fire_immediately():
     g = OctaveGesture()
-    g.rotate("cw")
-    assert g.commit() == 1
-    assert g.commit() == 0  # nothing pending after a fresh commit
-    g.rotate("ccw")
-    assert g.commit() == -1
+    assert g.rotate("cw") == 1
+    assert g.rotate("cw") == 0
+    g.reset()
+    assert g.rotate("ccw") == -1

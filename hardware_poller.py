@@ -41,9 +41,12 @@ BOUNCE_TIME = 0.02
 OCTAVE_ENC_A = 5
 OCTAVE_ENC_B = 6
 
-# How long to wait with no further rotation before committing a gesture
-# as one octave step -- see octave_gesture.py for why a whole burst of
-# clicks only ever moves one octave. Starting guess, tune live.
+# How long a gesture stays "active" (absorbing further clicks) after
+# the last rotation before the next turn is allowed to fire again --
+# see octave_gesture.py for why a whole burst of clicks only ever moves
+# one octave. Doesn't gate responsiveness (that's instant, leading-edge)
+# -- only gates how forgiving a single slow continuous turn is against
+# accidentally re-firing partway through. Starting guess, tune live.
 OCTAVE_GESTURE_PAUSE = 0.4
 
 
@@ -75,13 +78,13 @@ class HardwarePoller:
         return handler
 
     def _record_rotation(self, direction):
-        self._octave_gesture.rotate(direction)
+        delta = self._octave_gesture.rotate(direction)
         if self._octave_timer:
             self._octave_timer.cancel()
-        self._octave_timer = threading.Timer(OCTAVE_GESTURE_PAUSE, self._commit_octave_gesture)
+        self._octave_timer = threading.Timer(OCTAVE_GESTURE_PAUSE, self._end_octave_gesture)
         self._octave_timer.start()
-
-    def _commit_octave_gesture(self):
-        delta = self._octave_gesture.commit()
         if delta:
             self.on_octave_change(delta)
+
+    def _end_octave_gesture(self):
+        self._octave_gesture.reset()
