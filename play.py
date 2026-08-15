@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
 ChromaCade -- play notes with the real button panel via FluidSynth,
-LED ring lit per note, octave encoder and flat/sharp rocker both shift
-whatever's held live.
+LED ring lit per note, octave encoder / flat-sharp rocker / pitch-bend
+joystick all shift whatever's held live.
 
 Current scope: 7 note buttons, Acoustic Grand Piano, octave encoder
-(debounced -- see octave_gesture.py), flat/sharp rocker, ring shows
-whichever held note was pressed most recently -- a placeholder, not the
-real chord-blend behavior (see led_ring.py). No pitch-bend/volume/font/
-OLED yet -- those come with their own firmware items.
+(debounced -- see octave_gesture.py), flat/sharp rocker, pitch-bend
+joystick (+-0.5 semitone starting range -- see audio_engine.py's
+MAX_BEND_SEMITONES), ring shows whichever held note was pressed most
+recently -- a placeholder, not the real chord-blend behavior (see
+led_ring.py). No volume/font/OLED yet -- those come with their own
+firmware items.
 
 Needs sudo -- the LED ring uses PWM/DMA hardware, same as
 testing/led_ring_test.py.
@@ -53,6 +55,12 @@ def main():
         label = {-1: "FLAT", 0: "NATURAL", 1: "SHARP"}[accidental]
         print(f"ROCKER  {label}")
 
+    def pitch_bend(bend_fraction):
+        # No print here -- this fires ~30x/sec (JOYSTICK_POLL_INTERVAL
+        # in hardware_poller.py), unlike the other controls' discrete
+        # events, so printing every tick would just flood the terminal.
+        audio.set_pitch_bend(bend_fraction)
+
     # Must stay referenced for the life of the program -- if this gets
     # garbage collected, its gpiozero Button objects go with it and the
     # buttons silently stop working with no error (bit us once already).
@@ -61,6 +69,7 @@ def main():
         on_note_off=note_off,
         on_octave_change=octave_change,
         on_accidental_change=accidental_change,
+        on_pitch_bend=pitch_bend,
     )
 
     print("ChromaCade is live -- press the note buttons (C D E F G A B). Ctrl+C to quit.")

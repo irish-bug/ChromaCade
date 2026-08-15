@@ -1,27 +1,37 @@
 """
 ChromaCade -- hardware polling layer, GPIO controls -> callbacks.
 
-Current scope: note buttons, the octave encoder, and the flat/sharp
-rocker. Font encoder, joystick, and volume pot will extend this as
-their firmware items land -- see docs/open-questions.md and
+Current scope: note buttons, the octave encoder, the flat/sharp rocker,
+and the pitch-bend joystick. Font encoder and volume pot will extend
+this as their firmware items land -- see docs/open-questions.md and
 feature-spec.md for what's still undecided about each control's
 behavior before wiring it in here.
 
-Uses gpiozero throughout, not raw RPi.GPIO -- proven reliable during
-this build's control bring-up (note_buttons_test.py, encoder_test.py,
-rocker_test.py, all in testing/).
+Uses gpiozero throughout for digital controls, not raw RPi.GPIO --
+proven reliable during this build's control bring-up
+(note_buttons_test.py, encoder_test.py, rocker_test.py, all in
+testing/). The joystick is analog (via the ADS1115 over I2C, same
+setup as testing/ads1115_test.py) and has no interrupt mechanism, so
+unlike everything else here it's read via a background polling thread
+rather than an event callback.
 
-Not unit tested -- this logic needs real buttons/encoders to validate
-meaningfully rather than mocking GPIO. audio_engine.py's note math
-(including rocker_accidental()) and octave_gesture.py's debounce logic
-are where the hardware-free, pytest-covered logic lives.
+Not unit tested -- this logic needs real hardware to validate
+meaningfully rather than mocking GPIO/I2C. audio_engine.py's note math
+(including rocker_accidental() and joystick_bend_fraction()) and
+octave_gesture.py's debounce logic are where the hardware-free,
+pytest-covered logic lives.
 """
 
 import threading
+import time
 
+import board
+import busio
+import adafruit_ads1x15.ads1115 as ADS
+from adafruit_ads1x15.analog_in import AnalogIn
 from gpiozero import Button, RotaryEncoder
 
-from audio_engine import rocker_accidental
+from audio_engine import joystick_bend_fraction, rocker_accidental
 from octave_gesture import OctaveGesture
 
 # Note -> BCM pin, physical left-to-right order (gpio-pin-assignments.md).
@@ -53,9 +63,26 @@ OCTAVE_GESTURE_PAUSE = 0.4
 FLAT_PIN = 23
 SHARP_PIN = 24
 
+ADS1115_ADDRESS = 0x48
+JOYSTICK_ADS_CHANNEL = 0  # plain int, not ADS.P0 -- see testing/ads1115_test.py
+                          # for why (dropped in adafruit-circuitpython-ads1x15 3.0.5)
+
+# How often to re-read the joystick. No interrupt mechanism for an
+# analog value, so this trades I2C traffic against how smooth the bend
+# feels -- 30Hz is a starting guess, tune live if it feels laggy or
+# jittery/noisy.
+JOYSTICK_POLL_INTERVAL = 1 / 30
+
 
 class HardwarePoller:
-    def __init__(self, on_note_on, on_note_off, on_octave_change, on_accidental_change):
+    def __init__(
+        self,
+        on_note_on,
+        on_note_off,
+        on_octave_change,
+        on_accidental_change,
+        on_pitch_bend,
+    ):
         self.buttons = {}
         for letter, pin in NOTE_PINS.items():
             btn = Button(pin, pull_up=True, bounce_time=BOUNCE_TIME)
@@ -80,6 +107,16 @@ class HardwarePoller:
         for btn in (self.flat_button, self.sharp_button):
             btn.when_pressed = self._on_rocker_change
             btn.when_released = self._on_rocker_change
+
+        self.on_pitch_bend = on_pitch_bend
+        i2c = busio.I2C(board.SCL, board.SDA)
+        ads = ADS.ADS1115(i2c, address=ADS1115_ADDRESS)
+        ads.gain = 1  # +/-4.096V full-scale, matches ads1115_test.py --
+                      # better resolution than default +/-6.144V on this 3.3V supply
+        self.joystick_chan = AnalogIn(ads, JOYSTICK_ADS_CHANNEL)
+
+        self._joystick_thread = threading.Thread(target=self._poll_joystick, daemon=True)
+        self._joystick_thread.start()
 
     @staticmethod
     def _bind(letter, callback):
@@ -106,3 +143,9 @@ class HardwarePoller:
             sharp_active=self.sharp_button.is_pressed,
         )
         self.on_accidental_change(accidental)
+
+    def _poll_joystick(self):
+        while True:
+            bend = joystick_bend_fraction(self.joystick_chan.voltage)
+            self.on_pitch_bend(bend)
+            time.sleep(JOYSTICK_POLL_INTERVAL)

@@ -60,6 +60,45 @@ def rocker_accidental(flat_active, sharp_active):
     return 0
 
 
+# Joystick calibration -- measured via testing/ads1115_test.py's live
+# sweep 2026-08-14: raw voltage spans ~0-3.3V (min=-0.005V, max=3.278V).
+# Center is the ADC's theoretical midpoint (3.3/2); measured rest
+# readings clustered close to it.
+JOYSTICK_CENTER_VOLTAGE = 1.65
+JOYSTICK_MAX_DEVIATION = 1.65
+
+
+def joystick_bend_fraction(voltage):
+    """Raw joystick voltage -> normalized bend, -1.0 (full flat) to 1.0
+    (full sharp). Confirmed inverted as wired (gpio-pin-assignments.md):
+    pushing forward reads as LOWER voltage, but forward should mean
+    sharp/positive bend, so this is (center - voltage), not voltage
+    itself."""
+    fraction = (JOYSTICK_CENTER_VOLTAGE - voltage) / JOYSTICK_MAX_DEVIATION
+    return max(-1.0, min(1.0, fraction))
+
+
+# Confirmed from the installed pyfluidsynth's own Synth.pitch_bend()
+# docstring: 2048 units = 1 semitone, valid range -8192..8191 (+-4
+# semitones max -- more headroom than this needs).
+PITCH_BEND_UNITS_PER_SEMITONE = 2048
+PITCH_BEND_MIN = -8192
+PITCH_BEND_MAX = 8191
+
+# Starting guess per tonight's plan: bend approaches but never reaches
+# the neighboring sharp/flat, so a bent note is always closer to its
+# own pitch than to a different letter -- keeps the note-identity
+# teaching goal intact. Tune live.
+MAX_BEND_SEMITONES = 0.5
+
+
+def pitch_bend_value(bend_fraction, max_semitones=MAX_BEND_SEMITONES):
+    """Normalized bend (-1.0..1.0) -> the raw value Synth.pitch_bend()
+    expects, clamped to its valid range."""
+    val = round(bend_fraction * max_semitones * PITCH_BEND_UNITS_PER_SEMITONE)
+    return max(PITCH_BEND_MIN, min(PITCH_BEND_MAX, val))
+
+
 class ChromaCadeAudio:
     def __init__(self, gain=4.5, program=0):
         if fluidsynth is None:
@@ -113,6 +152,13 @@ class ChromaCadeAudio:
     def accidental_change(self, accidental):
         self.accidental = accidental
         self._retrigger_held()
+
+    def set_pitch_bend(self, bend_fraction):
+        """MIDI pitch bend is inherently a whole-channel effect, not
+        per-note -- since everything plays on channel 0, this already
+        applies to whatever's currently held with no retrigger needed,
+        same as the "applies globally" rule for octave/accidental."""
+        self.fs.pitch_bend(0, pitch_bend_value(bend_fraction))
 
     def quit(self):
         for letter in list(self.playing):

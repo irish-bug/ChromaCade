@@ -1,4 +1,13 @@
-from audio_engine import NOTE_SEMITONES, clamp_octave, midi_note, rocker_accidental
+import pytest
+
+from audio_engine import (
+    NOTE_SEMITONES,
+    clamp_octave,
+    joystick_bend_fraction,
+    midi_note,
+    pitch_bend_value,
+    rocker_accidental,
+)
 
 
 def test_note_semitones_covers_all_seven_letters():
@@ -70,3 +79,39 @@ def test_rocker_accidental_sharp_throw():
 
 def test_rocker_accidental_both_active_is_a_wiring_fault_falls_back_natural():
     assert rocker_accidental(flat_active=True, sharp_active=True) == 0
+
+
+def test_joystick_bend_fraction_at_center_is_zero():
+    assert joystick_bend_fraction(1.65) == pytest.approx(0.0, abs=0.01)
+
+
+def test_joystick_bend_fraction_low_voltage_is_positive_sharp():
+    # confirmed inverted as wired -- forward push reads as lower voltage
+    # but should mean sharp/positive bend
+    assert joystick_bend_fraction(0.0) == pytest.approx(1.0, abs=0.01)
+
+
+def test_joystick_bend_fraction_high_voltage_is_negative_flat():
+    assert joystick_bend_fraction(3.3) == pytest.approx(-1.0, abs=0.01)
+
+
+def test_joystick_bend_fraction_clamped_past_measured_extremes():
+    assert joystick_bend_fraction(-1.0) == 1.0
+    assert joystick_bend_fraction(5.0) == -1.0
+
+
+def test_pitch_bend_value_zero_at_center():
+    assert pitch_bend_value(0.0) == 0
+
+
+def test_pitch_bend_value_half_semitone_up_at_full_positive_bend():
+    assert pitch_bend_value(1.0, max_semitones=0.5) == 1024
+
+
+def test_pitch_bend_value_half_semitone_down_at_full_negative_bend():
+    assert pitch_bend_value(-1.0, max_semitones=0.5) == -1024
+
+
+def test_pitch_bend_value_clamped_to_valid_synth_range():
+    assert pitch_bend_value(1.0, max_semitones=10) == 8191
+    assert pitch_bend_value(-1.0, max_semitones=10) == -8192
