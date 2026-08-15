@@ -224,6 +224,10 @@ __marimo__/
 audio/*.wav
 audio/grab_navi_sounds.sh
 
+# Same reasoning, root-level -- tutor_mode.py's wrong-key sound effect
+# (nope.wav) isn't under audio/, so the rule above doesn't catch it.
+/*.wav
+
 # Personal song transcriptions for play_melody.py -- these encode a
 # specific copyrighted melody's actual notes, unlike the generic
 # player tool itself. Whole directory ignored (not filename-specific)

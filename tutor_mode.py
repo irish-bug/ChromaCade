@@ -12,8 +12,12 @@ why the demo and the game can't drift out of sync with each other):
      its own undone firmware item, see play.py's docstring).
   2. Color-matching game -- the ring shows the next note's color and
      waits for the child to press the matching button before
-     advancing; a wrong press doesn't penalize, it just doesn't
-     advance (see TutorSession in tutor_songs.py). Completing the song
+     advancing; a wrong press doesn't advance and doesn't stop the
+     song, it just gets a strip-only cue (ring keeps holding the
+     target color throughout, undisturbed) -- a red flash + nope.wav,
+     then a flash of the correct color as a reminder (see
+     miss_feedback()). See TutorSession in tutor_songs.py for the
+     match/no-penalty-on-miss logic itself. Completing the song
      triggers a brief ring+strip celebration flash, then the script
      exits on its own -- no need for Ctrl+C. There's no menu/game UI
      layer to hand control back to (same "run directly" scope as
@@ -57,13 +61,15 @@ normally exits on its own, see module docstring.
 """
 
 import argparse
+import os
+import subprocess
 import sys
 import threading
 import time
 
 from audio_engine import ChromaCadeAudio, FONTS
 from hardware_poller import HardwarePoller
-from led_ring import LedRing
+from led_ring import LedRing, NOTE_COLORS
 from led_strip import LedStrip
 from tutor_songs import SCORES, SONGS, TutorSession, parse_note_name
 
@@ -86,6 +92,44 @@ def celebrate(ring, strip):
         ring.clear()
         strip.clear()
         time.sleep(CELEBRATION_FLASH_SECONDS)
+
+
+# Wrong-key cue -- strip only, ring is deliberately untouched (it's the
+# persistent target cue -- feature-spec.md's "gently don't advance,
+# keep the current note's cue lit" -- so the ring should hold steady
+# through a miss, not react to it). Red flash + nope.wav together, then
+# a flash of the correct color as a "here's what you want" reminder.
+MISS_COLOR = (255, 0, 0)
+MISS_FLASH_SECONDS = 0.2
+NOPE_SOUND_PATH = os.path.expanduser("~/ChromaCade/nope.wav")
+
+
+def play_nope_sound():
+    """Fire-and-forget -- non-blocking so the flash below isn't stuck
+    waiting on it, and a missing/failed file doesn't crash the game
+    (aplay just exits non-zero into DEVNULL). No -D device override,
+    unlike boot_chime.sh's aplay call: that one plays before anything
+    else has the audio device open, but ChromaCadeAudio holds ALSA's
+    dmix-backed `default` PCM open for the whole life of this script,
+    and dmix is specifically what lets a second aplay process share
+    the device concurrently -- targeting plughw directly here would
+    likely fail with "device busy" while a note's sounding."""
+    subprocess.Popen(
+        ["aplay", NOPE_SOUND_PATH],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def miss_feedback(strip, target_letter):
+    play_nope_sound()
+    strip.fill(MISS_COLOR)
+    time.sleep(MISS_FLASH_SECONDS)
+    strip.clear()
+    time.sleep(MISS_FLASH_SECONDS)
+    strip.fill(NOTE_COLORS[target_letter])
+    time.sleep(MISS_FLASH_SECONDS)
+    strip.clear()
 
 
 # ChromaCadeAudio defaults to Organ (audio_engine.py's DEFAULT_PROGRAM),
@@ -166,6 +210,7 @@ def main():
                 show_target()
             else:
                 print(f"MISS    {letter} (wanted {session.target})")
+                miss_feedback(strip, session.target)
 
         def note_off(letter):
             audio.note_off(letter)
