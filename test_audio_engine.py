@@ -1,10 +1,12 @@
 import pytest
 
 from audio_engine import (
+    FONTS,
     NOTE_SEMITONES,
     VOLUME_CEILING,
     bent_letter,
     clamp_octave,
+    font_index_change,
     joystick_bend_fraction,
     midi_note,
     pitch_bend_value,
@@ -221,3 +223,26 @@ def test_volume_midi_value_gamma_endpoints_unaffected():
     # a gamma curve preserves 0.0 and 1.0 exactly regardless of gamma
     assert volume_midi_value(0.0, gamma=0.3) == 0
     assert volume_midi_value(1.0, gamma=0.3) == round(VOLUME_CEILING * 127)
+
+
+def test_font_index_change_steps_forward_and_backward():
+    assert font_index_change(0, 1, num_fonts=5) == 1
+    assert font_index_change(2, -1, num_fonts=5) == 1
+
+
+def test_font_index_change_wraps_past_the_end():
+    assert font_index_change(4, 1, num_fonts=5) == 0
+
+
+def test_font_index_change_wraps_past_the_start():
+    assert font_index_change(0, -1, num_fonts=5) == 4
+
+
+def test_fonts_list_has_no_duplicate_display_names():
+    names = [name for _, name in FONTS]
+    assert len(names) == len(set(names))
+
+
+def test_fonts_list_has_no_duplicate_gm_programs():
+    programs = [program for program, _ in FONTS]
+    assert len(programs) == len(set(programs))

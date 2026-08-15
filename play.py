@@ -7,17 +7,16 @@ the ring's color to the neighboring letter (see audio_engine.py's
 bent_letter() for why E/B cross with much less bend than the other
 five letters -- E-F and B-C are the diatonic scale's two half-steps).
 
-Current scope: 7 note buttons, Church Organ (audio_engine.py's
-DEFAULT_PROGRAM -- an interim voice until real font switching exists,
-chosen because it sustains cleanly while every other control is still
-being tested/tuned), octave encoder (debounced -- see
-octave_gesture.py), flat/sharp rocker, pitch-bend joystick (+-4
-semitone range -- see audio_engine.py's MAX_BEND_SEMITONES), volume pot
-(capped by VOLUME_CEILING regardless of how far it's turned), ring
-shows whichever held note was pressed most recently (bent toward its
-neighbor as above) -- a placeholder, not the real chord-blend behavior
-(see led_ring.py). No font/OLED yet -- those come with their own
-firmware items.
+Current scope: 7 note buttons, font encoder cycling the curated voice
+list (audio_engine.py's FONTS -- rotation only, its push-button is
+deliberately unwired, see hardware_poller.py), octave encoder
+(debounced -- see octave_gesture.py), flat/sharp rocker, pitch-bend
+joystick (+-4 semitone range -- see audio_engine.py's
+MAX_BEND_SEMITONES), volume pot (capped by VOLUME_CEILING regardless of
+how far it's turned), ring shows whichever held note was pressed most
+recently (bent toward its neighbor as above) -- a placeholder, not the
+real chord-blend behavior (see led_ring.py). No OLED yet -- that's its
+own firmware item.
 
 Needs sudo -- the LED ring uses PWM/DMA hardware, same as
 testing/led_ring_test.py.
@@ -88,6 +87,10 @@ def main():
         # Same reasoning as pitch_bend -- fires continuously, no print.
         audio.set_volume(volume_fraction)
 
+    def font_change(delta):
+        audio.font_change(delta)
+        print(f"FONT    -> {audio.font_name}")
+
     # Must stay referenced for the life of the program -- if this gets
     # garbage collected, its gpiozero Button objects go with it and the
     # buttons silently stop working with no error (bit us once already).
@@ -98,6 +101,7 @@ def main():
         on_accidental_change=accidental_change,
         on_pitch_bend=pitch_bend,
         on_volume_change=volume_change,
+        on_font_change=font_change,
     )
 
     print("ChromaCade is live -- press the note buttons (C D E F G A B). Ctrl+C to quit.")

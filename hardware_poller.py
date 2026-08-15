@@ -2,10 +2,8 @@
 ChromaCade -- hardware polling layer, GPIO controls -> callbacks.
 
 Current scope: note buttons, the octave encoder, the flat/sharp rocker,
-the pitch-bend joystick, and the volume pot. Font encoder will extend
-this as that firmware item lands -- see docs/open-questions.md and
-feature-spec.md for what's still undecided about its behavior before
-wiring it in here.
+the pitch-bend joystick, the volume pot, and the font encoder's
+rotation (its push-button is NOT wired here -- see module note below).
 
 Uses gpiozero throughout for digital controls, not raw RPi.GPIO --
 proven reliable during this build's control bring-up
@@ -18,11 +16,19 @@ callbacks. One thread, not two, deliberately: they're on the same I2C
 bus, and I2C isn't safe for two threads to hit concurrently without a
 lock, so both channels are read from the same loop each cycle instead.
 
+The font encoder's push-button (GPIO7) is deliberately left unread --
+its behavior is still an open, undesigned question (overloaded as a
+play-mode modifier vs. a menu-mode click, needs an explicit state
+machine -- see open-questions.md). Wiring it in now would mean
+inventing behavior that isn't decided yet, so it's left for whenever
+that design actually happens.
+
 Not unit tested -- this logic needs real hardware to validate
 meaningfully rather than mocking GPIO/I2C. audio_engine.py's note math
-(including rocker_accidental(), joystick_bend_fraction(), and
-pot_volume_fraction()) and octave_gesture.py's debounce logic are where
-the hardware-free, pytest-covered logic lives.
+(including rocker_accidental(), joystick_bend_fraction(),
+pot_volume_fraction(), and font_index_change()) and
+octave_gesture.py's debounce logic are where the hardware-free,
+pytest-covered logic lives.
 """
 
 import threading
@@ -34,7 +40,12 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from gpiozero import Button, RotaryEncoder
 
-from audio_engine import joystick_bend_fraction, pot_volume_fraction, rocker_accidental, smooth
+from audio_engine import (
+    joystick_bend_fraction,
+    pot_volume_fraction,
+    rocker_accidental,
+    smooth,
+)
 from octave_gesture import OctaveGesture
 
 # Note -> BCM pin, physical left-to-right order (gpio-pin-assignments.md).
@@ -65,6 +76,10 @@ OCTAVE_GESTURE_PAUSE = 0.4
 
 FLAT_PIN = 23
 SHARP_PIN = 24
+
+FONT_ENC_A = 26
+FONT_ENC_B = 16
+# FONT_BTN = 7 -- deliberately unused, see module docstring
 
 ADS1115_ADDRESS = 0x48
 # Plain ints, not ADS.P0/P1 -- see testing/ads1115_test.py for why
@@ -97,6 +112,7 @@ class HardwarePoller:
         on_accidental_change,
         on_pitch_bend,
         on_volume_change,
+        on_font_change,
     ):
         self.buttons = {}
         for letter, pin in NOTE_PINS.items():
@@ -134,6 +150,14 @@ class HardwarePoller:
 
         self._ads1115_thread = threading.Thread(target=self._poll_ads1115, daemon=True)
         self._ads1115_thread.start()
+
+        self.on_font_change = on_font_change
+        self.font_encoder = RotaryEncoder(FONT_ENC_A, FONT_ENC_B, max_steps=0)
+        # Same confirmed rotation inversion as the octave encoder
+        # (gpio-pin-assignments.md) -- physical CW reads as CCW via
+        # gpiozero and vice versa.
+        self.font_encoder.when_rotated_clockwise = lambda: self.on_font_change(-1)
+        self.font_encoder.when_rotated_counter_clockwise = lambda: self.on_font_change(1)
 
     @staticmethod
     def _bind(letter, callback):

@@ -204,9 +204,35 @@ def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING, gamma=VOLUME_CURV
     return max(0, min(127, val))
 
 
-# GM program 19, Church Organ -- interim default until real font
-# switching exists (see module docstring for why organ specifically).
-DEFAULT_PROGRAM = 19
+# Curated font list -- (GM program number, OLED display name), chosen
+# via live listening tests 2026-08-15. Display name sometimes differs
+# from the GM patch name (Celesta reads better to a toddler as "Toy
+# Piano"). List order is the cycling order the font encoder steps
+# through. Organ kept first so DEFAULT_PROGRAM below stays the same
+# interim voice used throughout tonight's testing.
+FONTS = [
+    (19, "Organ"),
+    (0, "Piano"),
+    (8, "Toy Piano"),
+    (79, "Ocarina"),
+    (114, "Steel Drums"),
+    (117, "Melodic Tom"),
+    (40, "Violin"),
+    (29, "Overdrive"),
+    (13, "Xylophone"),
+    (9, "Glockenspiel"),
+    (80, "Synth"),
+]
+
+DEFAULT_PROGRAM = FONTS[0][0]
+
+
+def font_index_change(current_index, delta, num_fonts):
+    """Cycles through the font list with wraparound. Unlike the octave
+    encoder, there's no "home" position to get lost from by spinning
+    too far, so this is a plain step-per-click -- no debounced/batched
+    gesture like OctaveGesture needed."""
+    return (current_index + delta) % num_fonts
 
 
 class ChromaCadeAudio:
@@ -221,12 +247,19 @@ class ChromaCadeAudio:
         self.fs.setting("synth.gain", gain)
         self.fs.start()
 
-        sfid = self.fs.sfload(SOUNDFONT_PATH)
+        self.sfid = self.fs.sfload(SOUNDFONT_PATH)
         # sfload() does NOT raise on failure -- returns -1. See
         # open-questions.md / fluidsynth_test.py for why this check matters.
-        if sfid == -1:
+        if self.sfid == -1:
             raise RuntimeError(f"Failed to load soundfont at {SOUNDFONT_PATH}")
-        self.fs.program_select(0, sfid, 0, program)
+        self.fs.program_select(0, self.sfid, 0, program)
+
+        # Find program's position in FONTS so font_change() cycles from
+        # the right place; falls back to 0 if a non-curated program was
+        # passed in directly (e.g. a one-off test).
+        self.font_index = next(
+            (i for i, (prog, _) in enumerate(FONTS) if prog == program), 0
+        )
 
         self.octave = 4
         self.accidental = 0
@@ -262,6 +295,21 @@ class ChromaCadeAudio:
     def accidental_change(self, accidental):
         self.accidental = accidental
         self._retrigger_held()
+
+    def font_change(self, delta):
+        """Decided 2026-08-15 (was an open question): yes, this
+        retriggers whatever's currently held, same as octave/accidental
+        -- hearing a held note's timbre change live is the same
+        instructive, delightful pattern already established for the
+        other controls, not just a "next press" effect."""
+        self.font_index = font_index_change(self.font_index, delta, len(FONTS))
+        program = FONTS[self.font_index][0]
+        self.fs.program_select(0, self.sfid, 0, program)
+        self._retrigger_held()
+
+    @property
+    def font_name(self):
+        return FONTS[self.font_index][1]
 
     def set_pitch_bend(self, bend_fraction):
         """MIDI pitch bend is inherently a whole-channel effect, not
