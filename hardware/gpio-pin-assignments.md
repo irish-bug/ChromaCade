@@ -85,8 +85,12 @@ Moved from GPIO13 to GPIO25 on 2026-07-28 to free GPIO13 (PWM1) for the LED stri
 | A (quadrature) | GPIO26 |
 | B (quadrature) | GPIO16 |
 | Common | GND |
-| Push-button | GPIO20 |
+| Push-button | GPIO7 |
 | Push-button (other switch leg) | GND |
+
+**Moved off GPIO20 to GPIO7, confirmed working 2026-08-14.** GPIO20 was the originally documented pin, but it's permanently claimed by the I2S peripheral (`dtparam=i2s=on` puts GPIO20 in ALT0/PCM_DIN — confirmed via live `pinctrl`, not just a theoretical conflict) and can never function as a plain GPIO input while I2S audio is enabled, which it always will be on this build. That button would never have registered a press no matter how it was wired. GPIO7 is a clean, conflict-free spare — full rotation + button confirmed working there.
+
+**Rotation direction inverted as wired — confirmed 2026-08-14.** Same as the octave encoder (see above): physical clockwise reads as CCW via `encoder_test.py` and vice versa. As-wired, not worth re-wiring for — invert in software when mapping steps to font/instrument selection.
 
 Each bare EC11 has 5 pins whose physical layout can vary by manufacturer — don't trust a guessed silkscreen order. Identify by continuity (power off): 2 pins show continuity to each other *only* while the shaft is pressed — those are the pushbutton's two legs (either can go to the GPIO, the other to GND). Of the remaining 3, one (Common) shows continuity to the other two as you slowly rotate the shaft; those other two are A and B — which one is "A" vs "B" only affects direction sense, easy to flip in software during bring-up if backwards.
 
@@ -103,8 +107,9 @@ Wire each throw to ground through its own GPIO with internal pull-up enabled, ac
 Not assigned a GPIO. The DWEII boost/charge board's keypad connection point handles on/off inline on the power path — no Pi GPIO involved unless a future soft-shutdown feature is added later.
 
 ### Budget
-- Used: GPIO2,3,4,5,6,8,9,10,11,12,13,16,17,18,19,20,21,22,23,24,26,27 = **22 of 26 usable GPIO**
-- Spare: GPIO7, GPIO14, GPIO15, GPIO25 (4 pins) — GPIO14/15 are UART TX/RX, reclaimable as plain GPIO if serial console is disabled in `raspi-config`, but leave as spares for now rather than assuming that. GPIO25 freed up 2026-08-14 when the octave button moved to GPIO8 (see "Octave encoder" above) — it's a clean spare going forward, but be aware it has prior solder history from the old 3-key test mount if a future fault ever needs explaining.
+- Used: GPIO2,3,4,5,6,7,8,9,10,11,12,13,16,17,18,19,21,22,23,24,26,27 = **22 of 26 usable GPIO**
+- Spare: GPIO14, GPIO15, GPIO25 (3 pins) — GPIO14/15 are UART TX/RX, reclaimable as plain GPIO if serial console is disabled in `raspi-config`, but leave as spares for now rather than assuming that. GPIO25 freed up 2026-08-14 when the octave button moved to GPIO8 (see "Octave encoder" above) — it's a clean spare going forward, but be aware it has prior solder history from the old 3-key test mount if a future fault ever needs explaining.
+- **Not usable at all, don't assign here: GPIO20.** Permanently claimed by the I2S peripheral (`dtparam=i2s=on` → ALT0/PCM_DIN) on this build regardless of what's wired to it — confirmed via `pinctrl`, not theoretical. Was the font button's original (never-working) assignment; moved to GPIO7 2026-08-14. Excluded from both the used and spare counts above since it was never actually available.
 
 
 J8:
