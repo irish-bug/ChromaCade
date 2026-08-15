@@ -1,4 +1,4 @@
-from audio_engine import NOTE_SEMITONES, midi_note
+from audio_engine import NOTE_SEMITONES, clamp_octave, midi_note
 
 
 def test_note_semitones_covers_all_seven_letters():
@@ -36,3 +36,21 @@ def test_octave_0_and_8_match_the_confirmed_range():
     # feature-spec.md: 8 octaves, C0-C8, confirmed via live speaker sweep
     assert midi_note("C", octave=0) == 12
     assert midi_note("C", octave=8) == 108
+
+
+def test_clamp_octave_moves_within_range():
+    assert clamp_octave(4, 1) == 5
+    assert clamp_octave(4, -1) == 3
+
+
+def test_clamp_octave_stops_at_the_confirmed_floor_and_ceiling():
+    assert clamp_octave(0, -1) == 0
+    assert clamp_octave(8, 1) == 8
+
+
+def test_clamp_octave_handles_a_runaway_gesture_in_one_step():
+    # a whole burst of clicks still only ever moves one octave per
+    # commit()ed gesture, but clamp_octave itself should be safe even
+    # if called with a larger delta than that
+    assert clamp_octave(0, -5) == 0
+    assert clamp_octave(8, 5) == 8

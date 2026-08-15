@@ -32,6 +32,19 @@ def midi_note(letter, octave=4, accidental=0):
     return 12 * (octave + 1) + NOTE_SEMITONES[letter] + accidental
 
 
+# Confirmed range via live speaker sweep, feature-spec.md's Note range
+# section: 8 full octaves, C0-C8. This is the system-level ceiling: it
+# will likely need tightening once accidentals/pitch-bend need headroom
+# past the selectable edges (see that section's headroom requirement) --
+# not done yet, since neither is wired into the firmware yet.
+OCTAVE_MIN = 0
+OCTAVE_MAX = 8
+
+
+def clamp_octave(octave, delta):
+    return max(OCTAVE_MIN, min(OCTAVE_MAX, octave + delta))
+
+
 class ChromaCadeAudio:
     def __init__(self, gain=4.5, program=0):
         if fluidsynth is None:
@@ -66,6 +79,17 @@ class ChromaCadeAudio:
         if letter in self.playing:
             self.fs.noteoff(0, self.playing[letter])
             del self.playing[letter]
+
+    def octave_change(self, delta):
+        """Applies globally to whatever's currently held (feature-spec.md),
+        not just future presses -- re-triggers held notes at the new
+        octave so the pitch audibly shifts under a held finger."""
+        self.octave = clamp_octave(self.octave, delta)
+        for letter, old_note in list(self.playing.items()):
+            self.fs.noteoff(0, old_note)
+            new_note = midi_note(letter, self.octave, self.accidental)
+            self.fs.noteon(0, new_note, 100)
+            self.playing[letter] = new_note
 
     def quit(self):
         for letter in list(self.playing):
