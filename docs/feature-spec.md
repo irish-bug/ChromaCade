@@ -9,6 +9,13 @@
 - OLED shows live status: note+accidental (large), font name, base frequency + signed bend offset in Hz, volume % — see control-layout.md for exact format
 - Software volume ceiling: even at max pot position, output should never exceed a level appropriate for a small room. This is a deliberate ceiling independent of the physical pot's range.
 
+## Note range
+Confirmed via live speaker test 2026-08-15 (a `fluidsynth_test.py`-style sweep, GM Acoustic Grand Piano, through the real WM8960/speaker hardware, not a simulation): **7 full octaves, C0 through C8 (MIDI 12–108), all sound acceptable** — audible, in-tune, and musically usable across the whole span. Below C0, quality drops noticeably (still audible, described as sounding "tired" — likely the speaker's bass limit and/or the ear's low-frequency sensitivity dropping off, not a hard cutoff). Didn't test above C8; the top octave (C7–C8) held up clean, just a bit quieter at the very top.
+
+Octave numbering follows standard scientific pitch notation/MIDI convention — the octave number increments at C, not A. So the 7 letter buttons should be grouped **C, D, E, F, G, A, B per octave** for octave-equivalence teaching to match real music theory, not alphabetical A–G. Firmware/mapping decision only — the physical keycaps are color-coded (Elacgap rainbow set), not letter-printed, so this implies no hardware change.
+
+**Headroom requirement, not yet built:** the flat/sharp rocker and the joystick's continuous pitch-bend both need somewhere valid to land past the edges of whatever octave is currently selected — C + flat needs the previous octave's B, B + sharp needs the next octave's C, and pitch-bend needs continuous room beyond either extreme note. So the firmware's actual playable MIDI range needs a semitone-plus-bend-margin of headroom beyond both ends of the *selectable* range (C0–C8), not a hard stop at MIDI 12/108. Real headroom exists below C0 (down to MIDI 0/C-1, untested, but octave 0 was already confirmed acceptable-if-duller, so a little further down should be fine as brief bend/flat margin, not a home octave). Exact bend semitone budget still undecided — see `open-questions.md`.
+
 ## Color system (the harder design problem)
 Each of the 7 letters gets a fixed base hue. Sharp shifts that hue warmer; flat shifts it cooler; octave maps to brightness, not hue. Straightforward for single notes. The open problem is chords:
 
