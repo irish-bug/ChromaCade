@@ -45,6 +45,21 @@ def clamp_octave(octave, delta):
     return max(OCTAVE_MIN, min(OCTAVE_MAX, octave + delta))
 
 
+def rocker_accidental(flat_active, sharp_active):
+    """Maps the 3-position rocker's raw (flat, sharp) throw state to an
+    accidental value (-1=flat, 0=natural, 1=sharp). Both active at once
+    is a wiring fault, not a real switch position (testing/rocker_test.py
+    calls this out explicitly) -- falls back to natural rather than
+    raising, since this needs to be safe to call from a GPIO callback."""
+    if flat_active and sharp_active:
+        return 0
+    if flat_active:
+        return -1
+    if sharp_active:
+        return 1
+    return 0
+
+
 class ChromaCadeAudio:
     def __init__(self, gain=4.5, program=0):
         if fluidsynth is None:
@@ -80,16 +95,24 @@ class ChromaCadeAudio:
             self.fs.noteoff(0, self.playing[letter])
             del self.playing[letter]
 
-    def octave_change(self, delta):
-        """Applies globally to whatever's currently held (feature-spec.md),
-        not just future presses -- re-triggers held notes at the new
-        octave so the pitch audibly shifts under a held finger."""
-        self.octave = clamp_octave(self.octave, delta)
+    def _retrigger_held(self):
+        """Re-fires everything currently held at the current
+        octave/accidental -- shared by octave_change() and
+        accidental_change(), both of which apply globally to whatever's
+        held (feature-spec.md), not just future presses."""
         for letter, old_note in list(self.playing.items()):
             self.fs.noteoff(0, old_note)
             new_note = midi_note(letter, self.octave, self.accidental)
             self.fs.noteon(0, new_note, 100)
             self.playing[letter] = new_note
+
+    def octave_change(self, delta):
+        self.octave = clamp_octave(self.octave, delta)
+        self._retrigger_held()
+
+    def accidental_change(self, accidental):
+        self.accidental = accidental
+        self._retrigger_held()
 
     def quit(self):
         for letter in list(self.playing):

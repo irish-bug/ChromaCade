@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 ChromaCade -- play notes with the real button panel via FluidSynth,
-LED ring lit per note, octave encoder shifts whatever's held live.
+LED ring lit per note, octave encoder and flat/sharp rocker both shift
+whatever's held live.
 
 Current scope: 7 note buttons, Acoustic Grand Piano, octave encoder
-(debounced -- see octave_gesture.py), ring shows whichever held note
-was pressed most recently -- a placeholder, not the real chord-blend
-behavior (see led_ring.py). No pitch-bend/volume/font/OLED yet -- those
-come with their own firmware items.
+(debounced -- see octave_gesture.py), flat/sharp rocker, ring shows
+whichever held note was pressed most recently -- a placeholder, not the
+real chord-blend behavior (see led_ring.py). No pitch-bend/volume/font/
+OLED yet -- those come with their own firmware items.
 
 Needs sudo -- the LED ring uses PWM/DMA hardware, same as
 testing/led_ring_test.py.
@@ -47,6 +48,11 @@ def main():
         audio.octave_change(delta)
         print(f"OCTAVE  {'+1' if delta > 0 else '-1'} -> now {audio.octave}")
 
+    def accidental_change(accidental):
+        audio.accidental_change(accidental)
+        label = {-1: "FLAT", 0: "NATURAL", 1: "SHARP"}[accidental]
+        print(f"ROCKER  {label}")
+
     # Must stay referenced for the life of the program -- if this gets
     # garbage collected, its gpiozero Button objects go with it and the
     # buttons silently stop working with no error (bit us once already).
@@ -54,6 +60,7 @@ def main():
         on_note_on=note_on,
         on_note_off=note_off,
         on_octave_change=octave_change,
+        on_accidental_change=accidental_change,
     )
 
     print("ChromaCade is live -- press the note buttons (C D E F G A B). Ctrl+C to quit.")

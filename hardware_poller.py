@@ -1,26 +1,27 @@
 """
 ChromaCade -- hardware polling layer, GPIO controls -> callbacks.
 
-Current scope: note buttons and the octave encoder. Font encoder, the
-flat/sharp rocker, joystick, and volume pot will extend this as their
-firmware items land -- see docs/open-questions.md and feature-spec.md
-for what's still undecided about each control's behavior before wiring
-it in here.
+Current scope: note buttons, the octave encoder, and the flat/sharp
+rocker. Font encoder, joystick, and volume pot will extend this as
+their firmware items land -- see docs/open-questions.md and
+feature-spec.md for what's still undecided about each control's
+behavior before wiring it in here.
 
 Uses gpiozero throughout, not raw RPi.GPIO -- proven reliable during
 this build's control bring-up (note_buttons_test.py, encoder_test.py,
 rocker_test.py, all in testing/).
 
 Not unit tested -- this logic needs real buttons/encoders to validate
-meaningfully rather than mocking GPIO. audio_engine.py's note math and
-octave_gesture.py's debounce logic are where the hardware-free,
-pytest-covered logic lives.
+meaningfully rather than mocking GPIO. audio_engine.py's note math
+(including rocker_accidental()) and octave_gesture.py's debounce logic
+are where the hardware-free, pytest-covered logic lives.
 """
 
 import threading
 
 from gpiozero import Button, RotaryEncoder
 
+from audio_engine import rocker_accidental
 from octave_gesture import OctaveGesture
 
 # Note -> BCM pin, physical left-to-right order (gpio-pin-assignments.md).
@@ -49,9 +50,12 @@ OCTAVE_ENC_B = 6
 # accidentally re-firing partway through. Starting guess, tune live.
 OCTAVE_GESTURE_PAUSE = 0.4
 
+FLAT_PIN = 23
+SHARP_PIN = 24
+
 
 class HardwarePoller:
-    def __init__(self, on_note_on, on_note_off, on_octave_change):
+    def __init__(self, on_note_on, on_note_off, on_octave_change, on_accidental_change):
         self.buttons = {}
         for letter, pin in NOTE_PINS.items():
             btn = Button(pin, pull_up=True, bounce_time=BOUNCE_TIME)
@@ -69,6 +73,13 @@ class HardwarePoller:
         # rest of the app only ever deals in physical/intended direction.
         self.octave_encoder.when_rotated_clockwise = lambda: self._record_rotation("ccw")
         self.octave_encoder.when_rotated_counter_clockwise = lambda: self._record_rotation("cw")
+
+        self.on_accidental_change = on_accidental_change
+        self.flat_button = Button(FLAT_PIN, pull_up=True, bounce_time=BOUNCE_TIME)
+        self.sharp_button = Button(SHARP_PIN, pull_up=True, bounce_time=BOUNCE_TIME)
+        for btn in (self.flat_button, self.sharp_button):
+            btn.when_pressed = self._on_rocker_change
+            btn.when_released = self._on_rocker_change
 
     @staticmethod
     def _bind(letter, callback):
@@ -88,3 +99,10 @@ class HardwarePoller:
 
     def _end_octave_gesture(self):
         self._octave_gesture.reset()
+
+    def _on_rocker_change(self):
+        accidental = rocker_accidental(
+            flat_active=self.flat_button.is_pressed,
+            sharp_active=self.sharp_button.is_pressed,
+        )
+        self.on_accidental_change(accidental)

@@ -1,4 +1,4 @@
-from audio_engine import NOTE_SEMITONES, clamp_octave, midi_note
+from audio_engine import NOTE_SEMITONES, clamp_octave, midi_note, rocker_accidental
 
 
 def test_note_semitones_covers_all_seven_letters():
@@ -54,3 +54,19 @@ def test_clamp_octave_handles_a_runaway_gesture_in_one_step():
     # if called with a larger delta than that
     assert clamp_octave(0, -5) == 0
     assert clamp_octave(8, 5) == 8
+
+
+def test_rocker_accidental_natural_when_neither_throw_active():
+    assert rocker_accidental(flat_active=False, sharp_active=False) == 0
+
+
+def test_rocker_accidental_flat_throw():
+    assert rocker_accidental(flat_active=True, sharp_active=False) == -1
+
+
+def test_rocker_accidental_sharp_throw():
+    assert rocker_accidental(flat_active=False, sharp_active=True) == 1
+
+
+def test_rocker_accidental_both_active_is_a_wiring_fault_falls_back_natural():
+    assert rocker_accidental(flat_active=True, sharp_active=True) == 0
