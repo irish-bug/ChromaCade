@@ -7,14 +7,17 @@ the ring's color to the neighboring letter (see audio_engine.py's
 bent_letter() for why E/B cross with much less bend than the other
 five letters -- E-F and B-C are the diatonic scale's two half-steps).
 
-Current scope: 7 note buttons, Acoustic Grand Piano, octave encoder
-(debounced -- see octave_gesture.py), flat/sharp rocker, pitch-bend
-joystick (+-4 semitone range -- see audio_engine.py's
-MAX_BEND_SEMITONES), volume pot (capped by VOLUME_CEILING regardless of
-how far it's turned), ring shows whichever held note was pressed most
-recently (bent toward its neighbor as above) -- a placeholder, not the
-real chord-blend behavior (see led_ring.py). No font/OLED yet -- those
-come with their own firmware items.
+Current scope: 7 note buttons, Church Organ (audio_engine.py's
+DEFAULT_PROGRAM -- an interim voice until real font switching exists,
+chosen because it sustains cleanly while every other control is still
+being tested/tuned), octave encoder (debounced -- see
+octave_gesture.py), flat/sharp rocker, pitch-bend joystick (+-4
+semitone range -- see audio_engine.py's MAX_BEND_SEMITONES), volume pot
+(capped by VOLUME_CEILING regardless of how far it's turned), ring
+shows whichever held note was pressed most recently (bent toward its
+neighbor as above) -- a placeholder, not the real chord-blend behavior
+(see led_ring.py). No font/OLED yet -- those come with their own
+firmware items.
 
 Needs sudo -- the LED ring uses PWM/DMA hardware, same as
 testing/led_ring_test.py.

@@ -6,11 +6,17 @@ test_audio_engine.py, no soundfont or audio device needed. ChromaCadeAudio
 wraps FluidSynth and needs real audio hardware to mean anything, so it's
 not unit tested, same reasoning as hardware_poller.py's own docstring.
 
-Current scope: fixed C4 octave, Acoustic Grand Piano (GM program 0), no
-accidentals/pitch-bend/volume/font yet -- those land with their own
-firmware items. octave and accidental are already plumbed through
-midi_note() and ChromaCadeAudio's state so those items extend this
-rather than rework it.
+Current scope: octave, accidental, pitch-bend, and volume are all
+wired up (see their respective functions/methods below); font
+switching isn't yet -- DEFAULT_PROGRAM is an interim fixed voice, not
+a real default. Currently Church Organ, not Acoustic Grand Piano:
+organ sustains at constant volume for as long as a note is held
+(confirmed live 2026-08-15 against the piano's authentic
+decay-even-while-held behavior), which makes it a better voice for
+testing/evaluating every *other* control while they're still being
+built. Once the curated font list and font-encoder switching land
+(see open-questions.md), this stops mattering -- any voice will be
+one encoder click away.
 """
 
 try:
@@ -198,8 +204,13 @@ def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING, gamma=VOLUME_CURV
     return max(0, min(127, val))
 
 
+# GM program 19, Church Organ -- interim default until real font
+# switching exists (see module docstring for why organ specifically).
+DEFAULT_PROGRAM = 19
+
+
 class ChromaCadeAudio:
-    def __init__(self, gain=4.5, program=0):
+    def __init__(self, gain=4.5, program=DEFAULT_PROGRAM):
         if fluidsynth is None:
             raise ImportError(
                 "pyfluidsynth not installed -- pip3 install pyfluidsynth --break-system-packages"
