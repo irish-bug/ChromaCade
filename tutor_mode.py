@@ -55,12 +55,21 @@ import sys
 import time
 from signal import pause
 
-from audio_engine import ChromaCadeAudio
+from audio_engine import ChromaCadeAudio, FONTS
 from hardware_poller import HardwarePoller
 from led_ring import LedRing
 from tutor_songs import SCORES, SONGS, TutorSession, parse_note_name
 
 DEFAULT_TEMPO = 90  # BPM -- slower than play_melody.py's 120 default, toddler-paced
+
+# ChromaCadeAudio defaults to Organ (audio_engine.py's DEFAULT_PROGRAM),
+# which has no decay -- repeated same-pitch notes with no gap between
+# them (e.g. Hot Cross Buns' "C C C C" run) blend into what sounds like
+# one continuous held note instead of distinct repeated presses. Toy
+# Piano has a percussive attack/decay, so repeats stay audibly separate.
+# Confirmed live 2026-08-15. Scoped to tutor_mode.py only -- play.py's
+# default is a separate, general-play preference, not touched here.
+TUTOR_PROGRAM = next(program for program, name in FONTS if name == "Toy Piano")
 
 
 def play_demo(audio, ring, score, seconds_per_beat):
@@ -103,7 +112,7 @@ def main():
         sys.exit(1)
 
     seconds_per_beat = 60.0 / args.tempo
-    audio = ChromaCadeAudio()
+    audio = ChromaCadeAudio(program=TUTOR_PROGRAM)
     ring = LedRing()
 
     try:
