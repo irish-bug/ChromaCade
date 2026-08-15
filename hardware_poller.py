@@ -148,6 +148,7 @@ class HardwarePoller:
         self.joystick_chan = AnalogIn(ads, JOYSTICK_ADS_CHANNEL)
         self.volume_chan = AnalogIn(ads, VOLUME_ADS_CHANNEL)
 
+        self._stop_event = threading.Event()
         self._ads1115_thread = threading.Thread(target=self._poll_ads1115, daemon=True)
         self._ads1115_thread.start()
 
@@ -188,7 +189,7 @@ class HardwarePoller:
     def _poll_ads1115(self):
         smoothed_joy_voltage = self.joystick_chan.voltage
         smoothed_pot_voltage = self.volume_chan.voltage
-        while True:
+        while not self._stop_event.is_set():
             smoothed_joy_voltage = smooth(
                 smoothed_joy_voltage, self.joystick_chan.voltage, JOYSTICK_SMOOTHING_ALPHA
             )
@@ -200,3 +201,17 @@ class HardwarePoller:
             self.on_volume_change(pot_volume_fraction(smoothed_pot_voltage))
 
             time.sleep(ADS1115_POLL_INTERVAL)
+
+    def stop(self):
+        """Cleanly stops all background activity that calls into
+        ChromaCadeAudio -- MUST be called and allowed to finish before
+        ChromaCadeAudio.quit() (which frees the underlying FluidSynth C
+        object). Without this, the polling thread or a pending
+        octave-gesture timer can call into FluidSynth after that object
+        is already freed -- a use-after-free that segfaults the whole
+        process rather than raising a catchable Python error. Confirmed
+        live 2026-08-15."""
+        if self._octave_timer:
+            self._octave_timer.cancel()
+        self._stop_event.set()
+        self._ads1115_thread.join()

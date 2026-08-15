@@ -110,6 +110,12 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        # Must stop the background polling thread (and cancel any
+        # pending octave-gesture timer) before audio.quit() frees the
+        # FluidSynth C object -- otherwise either can call into it
+        # after it's gone, segfaulting instead of erroring cleanly.
+        # Confirmed live 2026-08-15 (Ctrl+C mid-session).
+        poller.stop()
         ring.clear()
         audio.quit()
         print("\nDone.")
