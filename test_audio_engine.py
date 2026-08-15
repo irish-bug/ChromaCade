@@ -2,6 +2,7 @@ import pytest
 
 from audio_engine import (
     NOTE_SEMITONES,
+    VOLUME_CEILING,
     bent_letter,
     clamp_octave,
     joystick_bend_fraction,
@@ -204,3 +205,19 @@ def test_volume_midi_value_full_volume_stops_at_the_safety_ceiling():
 def test_volume_midi_value_custom_ceiling():
     assert volume_midi_value(1.0, ceiling=1.0) == 127
     assert volume_midi_value(1.0, ceiling=0.5) == round(0.5 * 127)
+
+
+def test_volume_midi_value_gamma_curve_boosts_low_and_mid_positions():
+    # sqrt(0.25) = 0.5, so the default gamma curve should give roughly
+    # double the MIDI value a straight linear mapping would at this
+    # pot position -- this is the actual fix for the reported "silent
+    # through the lower two-thirds" issue
+    linear_equivalent = round(0.25 * VOLUME_CEILING * 127)
+    curved = volume_midi_value(0.25)
+    assert curved > linear_equivalent
+
+
+def test_volume_midi_value_gamma_endpoints_unaffected():
+    # a gamma curve preserves 0.0 and 1.0 exactly regardless of gamma
+    assert volume_midi_value(0.0, gamma=0.3) == 0
+    assert volume_midi_value(1.0, gamma=0.3) == round(VOLUME_CEILING * 127)

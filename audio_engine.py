@@ -176,13 +176,25 @@ def pot_volume_fraction(voltage):
 # exceed a level appropriate for a small room. Starting guess, tune live.
 VOLUME_CEILING = 0.7
 
+# Perceived loudness isn't linear with MIDI CC7 -- confirmed live
+# 2026-08-15: a straight linear pot->volume mapping left the machine
+# silent through roughly the lower two-thirds of the pot's travel,
+# only becoming audible near the top (loudness perception is roughly
+# logarithmic, so a linear control crams most of the audible range
+# into a small slice of physical rotation). A gamma curve (< 1) gives
+# low pot positions relatively more MIDI headroom than a linear
+# mapping would, so audible change spreads more evenly across the
+# whole turn. Starting guess (square root), tune live.
+VOLUME_CURVE_GAMMA = 0.5
 
-def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING):
+
+def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING, gamma=VOLUME_CURVE_GAMMA):
     """Normalized volume (0.0-1.0) -> the 0-127 value Synth.cc(chan, 7,
     val) (MIDI channel volume, confirmed from the installed
-    pyfluidsynth's own docstring) expects, scaled by the safety
-    ceiling."""
-    val = round(volume_fraction * ceiling * 127)
+    pyfluidsynth's own docstring) expects, gamma-curved for perceived
+    loudness and scaled by the safety ceiling."""
+    curved = volume_fraction**gamma
+    val = round(curved * ceiling * 127)
     return max(0, min(127, val))
 
 
