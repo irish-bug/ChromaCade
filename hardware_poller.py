@@ -31,7 +31,7 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from gpiozero import Button, RotaryEncoder
 
-from audio_engine import joystick_bend_fraction, rocker_accidental
+from audio_engine import joystick_bend_fraction, rocker_accidental, smooth
 from octave_gesture import OctaveGesture
 
 # Note -> BCM pin, physical left-to-right order (gpio-pin-assignments.md).
@@ -69,9 +69,15 @@ JOYSTICK_ADS_CHANNEL = 0  # plain int, not ADS.P0 -- see testing/ads1115_test.py
 
 # How often to re-read the joystick. No interrupt mechanism for an
 # analog value, so this trades I2C traffic against how smooth the bend
-# feels -- 30Hz is a starting guess, tune live if it feels laggy or
-# jittery/noisy.
-JOYSTICK_POLL_INTERVAL = 1 / 30
+# feels. Bumped 30Hz -> 50Hz 2026-08-15 after live testing felt
+# "jumpy" -- tune further if it still feels laggy or jittery.
+JOYSTICK_POLL_INTERVAL = 1 / 50
+
+# Exponential-smoothing weight for the raw voltage reading (see
+# audio_engine.smooth()) -- added 2026-08-15 alongside the poll-rate
+# bump, same "felt jumpy" live feedback. Lower = smoother but more lag,
+# higher = more responsive but more jitter. Starting guess, tune live.
+JOYSTICK_SMOOTHING_ALPHA = 0.4
 
 
 class HardwarePoller:
@@ -145,7 +151,11 @@ class HardwarePoller:
         self.on_accidental_change(accidental)
 
     def _poll_joystick(self):
+        smoothed_voltage = self.joystick_chan.voltage
         while True:
-            bend = joystick_bend_fraction(self.joystick_chan.voltage)
+            smoothed_voltage = smooth(
+                smoothed_voltage, self.joystick_chan.voltage, JOYSTICK_SMOOTHING_ALPHA
+            )
+            bend = joystick_bend_fraction(smoothed_voltage)
             self.on_pitch_bend(bend)
             time.sleep(JOYSTICK_POLL_INTERVAL)

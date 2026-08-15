@@ -8,6 +8,7 @@ from audio_engine import (
     midi_note,
     pitch_bend_value,
     rocker_accidental,
+    smooth,
 )
 
 
@@ -161,3 +162,15 @@ def test_bent_letter_large_bend_partway_between_two_boundaries_shows_middle_lett
     # G bent up exactly 2 semitones lands exactly on A -- confirms the
     # multi-boundary walk stops at the right letter, not overshooting
     assert bent_letter("G", 0.5, max_semitones=4.0) == "A"
+
+
+def test_smooth_alpha_one_tracks_new_value_instantly():
+    assert smooth(previous=1.0, new_value=2.0, alpha=1.0) == 2.0
+
+
+def test_smooth_alpha_zero_ignores_new_value_entirely():
+    assert smooth(previous=1.0, new_value=2.0, alpha=0.0) == 1.0
+
+
+def test_smooth_alpha_half_averages_the_two():
+    assert smooth(previous=1.0, new_value=3.0, alpha=0.5) == 2.0

@@ -73,6 +73,15 @@ def rocker_accidental(flat_active, sharp_active):
     return 0
 
 
+def smooth(previous, new_value, alpha):
+    """Exponential moving average. alpha closer to 1.0 tracks new
+    values faster (less smoothing, less lag); closer to 0.0 smooths out
+    more noise at the cost of more lag. Used to take the jitter out of
+    the joystick's raw voltage reading -- confirmed live 2026-08-15 as
+    feeling "jumpy" without this."""
+    return alpha * new_value + (1 - alpha) * previous
+
+
 # Joystick calibration -- measured via testing/ads1115_test.py's live
 # sweep 2026-08-14: raw voltage spans ~0-3.3V (min=-0.005V, max=3.278V).
 # Center is the ADC's theoretical midpoint (3.3/2); measured rest
