@@ -41,10 +41,15 @@ class LedRing:
             pixel_order=neopixel.GRB,
         )
 
-    def show(self, letter):
-        self.pixels.fill(NOTE_COLORS[letter])
+    def fill(self, color):
+        """Arbitrary-color fill, not tied to NOTE_COLORS -- for things
+        like tutor_mode.py's completion celebration flash, which isn't
+        a note cue."""
+        self.pixels.fill(color)
         self.pixels.show()
 
+    def show(self, letter):
+        self.fill(NOTE_COLORS[letter])
+
     def clear(self):
-        self.pixels.fill((0, 0, 0))
-        self.pixels.show()
+        self.fill((0, 0, 0))

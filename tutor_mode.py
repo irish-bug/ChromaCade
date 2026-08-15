@@ -13,7 +13,12 @@ why the demo and the game can't drift out of sync with each other):
   2. Color-matching game -- the ring shows the next note's color and
      waits for the child to press the matching button before
      advancing; a wrong press doesn't penalize, it just doesn't
-     advance (see TutorSession in tutor_songs.py).
+     advance (see TutorSession in tutor_songs.py). Completing the song
+     triggers a brief ring+strip celebration flash, then the script
+     exits on its own -- no need for Ctrl+C. There's no menu/game UI
+     layer to hand control back to (same "run directly" scope as
+     everything else in this v1 list below), so "what happens after
+     you finish" has to be this script's own job for now.
 
 The demo phase runs before HardwarePoller exists, deliberately -- it's
 a blocking, timed sequence, and starting the poller only for phase 2
@@ -47,20 +52,41 @@ Usage:
     sudo python3 tutor_mode.py --list
     sudo python3 tutor_mode.py --song "Twinkle Twinkle Little Star" --tempo 80
 
-Ctrl+C to quit (works during either phase).
+Ctrl+C to quit early (works during either phase) -- finishing the song
+normally exits on its own, see module docstring.
 """
 
 import argparse
 import sys
+import threading
 import time
-from signal import pause
 
 from audio_engine import ChromaCadeAudio, FONTS
 from hardware_poller import HardwarePoller
 from led_ring import LedRing
+from led_strip import LedStrip
 from tutor_songs import SCORES, SONGS, TutorSession, parse_note_name
 
 DEFAULT_TEMPO = 90  # BPM -- slower than play_melody.py's 120 default, toddler-paced
+
+# "You did it!" cue after a song completes -- both the ring and the
+# interior strip flash through these together (not a chase/alternation
+# between the two chains, just synchronized). Reuses colors already
+# tuned live on this hardware (color-palette.md's F/E/B ring hues)
+# rather than picking new untested ones. Tune live once seen for real.
+CELEBRATION_COLORS = [(0, 200, 0), (255, 170, 0), (255, 20, 147)]  # green, gold, pink
+CELEBRATION_FLASH_SECONDS = 0.25
+
+
+def celebrate(ring, strip):
+    for color in CELEBRATION_COLORS:
+        ring.fill(color)
+        strip.fill(color)
+        time.sleep(CELEBRATION_FLASH_SECONDS)
+        ring.clear()
+        strip.clear()
+        time.sleep(CELEBRATION_FLASH_SECONDS)
+
 
 # ChromaCadeAudio defaults to Organ (audio_engine.py's DEFAULT_PROGRAM),
 # which has no decay -- repeated same-pitch notes with no gap between
@@ -114,18 +140,21 @@ def main():
     seconds_per_beat = 60.0 / args.tempo
     audio = ChromaCadeAudio(program=TUTOR_PROGRAM)
     ring = LedRing()
+    strip = LedStrip()
 
     try:
         print(f"ChromaCade Tutor mode -- {args.song}. Watch and listen first...")
         play_demo(audio, ring, SCORES[args.song], seconds_per_beat)
 
-        print("Now you try! Match the color, in any octave. Ctrl+C to quit.")
+        print("Now you try! Match the color, in any octave. Ctrl+C to quit early.")
         session = TutorSession(SONGS[args.song])
+        song_complete = threading.Event()
 
         def show_target():
             if session.is_complete():
                 print(f"DONE    {args.song} complete!")
                 ring.clear()
+                song_complete.set()
             else:
                 print(f"CUE     {session.target}")
                 ring.show(session.target)
@@ -175,7 +204,7 @@ def main():
 
         show_target()
         try:
-            pause()
+            song_complete.wait()
         except KeyboardInterrupt:
             pass
         finally:
@@ -183,10 +212,14 @@ def main():
             # background poller before freeing FluidSynth or it can
             # segfault on a use-after-free.
             poller.stop()
+
+        if session.is_complete():
+            celebrate(ring, strip)
     except KeyboardInterrupt:
         pass
     finally:
         ring.clear()
+        strip.clear()
         audio.quit()
         print("\nDone.")
 
