@@ -16,6 +16,7 @@ Living list of decisions not yet finalized. Move items out of this file (into th
 
 ## Firmware/software architecture
 - **Joystick click button — currently entirely unused.** The sourced KY-023 module is dual-axis with a built-in push-button (SW pin), but the design only ever wires one analog axis for pitch bend (see `hardware-bom.md`/`gpio-pin-assignments.md`). Unlike the second axis, dropping the click was never an explicit decision — it just never came up in `control-layout.md`/`feature-spec.md`/`decision-log.md`. If used, needs a spare GPIO (GPIO7/8/14/15 currently free, per `gpio-pin-assignments.md`'s budget) wired active-low with a pull-up, same pattern as the encoder push-buttons — and a defined behavior (candidate ideas not yet discussed: snap pitch-bend to zero instantly rather than waiting for spring-return, a modifier for something else while held, etc.).
+- **Octave encoder's push-button — hardware confirmed working 2026-08-14 (moved GPIO25→GPIO8), but no assigned function.** Was briefly written off as a dead switch and the font encoder's button treated as the sole click control (see `decision-log.md`) — now that it's a real working control again, its behavior is an open question, not a moot one. No candidate ideas discussed yet.
 - Font-encoder push-button is overloaded (modifier-hold during play, short-click during menu) — needs an explicit state machine; not yet designed
 - Exact refresh rate for the OLED live-updating pitch-bend readout (suggested ~10–20Hz as a starting point, not tested)
 

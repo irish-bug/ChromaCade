@@ -70,12 +70,12 @@ GPIO9/10/11 are the SPI MISO/MOSI/SCLK pins — unused here since nothing on thi
 | A (quadrature) | GPIO5 |
 | B (quadrature) | GPIO6 |
 | Common | GND |
-| Push-button (not registering on GPIO25 — see caveat below) | GPIO25 |
+| Push-button | GPIO8 |
 | Push-button (other switch leg) | GND |
 
-Moved from GPIO13 to GPIO25 on 2026-07-28 to free GPIO13 (PWM1) for the LED strip's own independent data line — see "WS2812 LED interior strip" above. A plain digital push-button read doesn't need a PWM-capable pin, so this cost nothing functionally.
+Moved from GPIO13 to GPIO25 on 2026-07-28 to free GPIO13 (PWM1) for the LED strip's own independent data line — see "WS2812 LED interior strip" above. **Then moved again, GPIO25 → GPIO8, confirmed working 2026-08-14.**
 
-**Push-button not registering on GPIO25 as of 2026-07-29** — rotation/quadrature (A/B above) still works fine, only the click failed to register. Initially treated as a dead switch (see `decision-log.md`), but **reopened for retest same day**: GPIO25 (physical pin 22) was previously soldered, then desoldered, for the now-disassembled 3-key test mount's "Key 3" — that solder/desolder cycle on GPIO25's specific pad is a plausible fault on its own, independent of the switch. Pending: retest on GPIO7 or GPIO8 (genuinely untouched spares — GPIO14/GPIO15 carry the same test-mount solder history as GPIO25, not clean controls) before concluding the switch itself is bad.
+**Resolved: the switch was never dead.** It never registered on GPIO25 and was briefly treated as a dead switch (see `decision-log.md`), but that was traced to solder/desolder history on GPIO25's specific pad from the old 3-key test mount's "Key 3" — a plausible fault independent of the switch. Confirmed via `encoder_test.py --which octave --button-pin 8`: clean registration on GPIO8, a genuinely untouched spare (GPIO14/GPIO15 carry the same test-mount history as GPIO25 and were avoided for the same reason). GPIO8 is now the permanent assignment; GPIO25 is free again.
 
 ### Font encoder (EC11, shelf far right)
 | Function | Pin |
@@ -101,8 +101,8 @@ Wire each throw to ground through its own GPIO with internal pull-up enabled, ac
 Not assigned a GPIO. The DWEII boost/charge board's keypad connection point handles on/off inline on the power path — no Pi GPIO involved unless a future soft-shutdown feature is added later.
 
 ### Budget
-- Used: GPIO2,3,4,5,6,9,10,11,12,13,16,17,18,19,20,21,22,23,24,25,26,27 = **22 of 26 usable GPIO**
-- Spare: GPIO7, GPIO8, GPIO14, GPIO15 (4 pins) — GPIO14/15 are UART TX/RX, reclaimable as plain GPIO if serial console is disabled in `raspi-config`, but leave as spares for now rather than assuming that
+- Used: GPIO2,3,4,5,6,8,9,10,11,12,13,16,17,18,19,20,21,22,23,24,26,27 = **22 of 26 usable GPIO**
+- Spare: GPIO7, GPIO14, GPIO15, GPIO25 (4 pins) — GPIO14/15 are UART TX/RX, reclaimable as plain GPIO if serial console is disabled in `raspi-config`, but leave as spares for now rather than assuming that. GPIO25 freed up 2026-08-14 when the octave button moved to GPIO8 (see "Octave encoder" above) — it's a clean spare going forward, but be aware it has prior solder history from the old 3-key test mount if a future fault ever needs explaining.
 
 
 J8:
