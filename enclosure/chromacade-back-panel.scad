@@ -39,7 +39,7 @@ difference() {
     // 4mm dia -- measured against the actual cable (just over 3mm), confirmed
     // 2026-08-15. Same fit-confirmed status as the old 14x10/19.2x12.7 cutouts.
     power_cable_hole_d = 4;
-    translate([0, -h/2 + 15, -1]) cylinder(h=wall*3, d=power_cable_hole_d, center=false);
+    translate([-40, -h/2+1.5, -1]) cylinder(h=wall*3, d=power_cable_hole_d, center=false);
 
     translate([ boss_x, boss_z_top - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
     translate([ boss_x, boss_z_bot - case_h/2, -1]) cylinder(h=wall*3, d=3.5, center=false);
