@@ -17,9 +17,24 @@ no GPIO/OLED/audio calls. See test_menu.py.
 Also resolves open-questions.md's "does the menu have a song preview"
 question: no, not in this version -- select() starts the song/Simon
 game immediately, no snippet playback before confirming.
+
+Power Off / Reboot -- added 2026-08-16, requested to give a proper
+software shutdown option instead of only the physical power switch.
+Deliberately NOT a single click from the mode list: selecting either
+drops into a "confirm" stage (Yes/No, defaulting to No) before
+anything actually happens. A toddler idly wandering through the menu
+and clicking through it would land on "No" and cancel, not execute --
+a second, deliberate rotate-then-click is required to actually power
+off or reboot. Same "hold/confirm on purpose" spirit as the menu
+gesture itself being two-handed, just implemented as an extra menu
+step here instead of a hardware hold, since this reuses the existing
+rotate/select machinery rather than adding new hold-duration
+detection to hardware_poller.py.
 """
 
-MODES = ["Explore", "Tutor", "Simon"]  # "Play" renamed 2026-08-16 -- see parental web page
+MODES = ["Explore", "Tutor", "Simon", "Power Off", "Reboot"]
+CONFIRM_OPTIONS = ["No", "Yes"]  # "No" first/default -- see module docstring
+SYSTEM_ACTIONS = {"Power Off": "poweroff", "Reboot": "reboot"}
 
 
 class Menu:
@@ -31,16 +46,20 @@ class Menu:
         self.songs = list(songs)
         self.simon_sources = list(simon_sources)
         self.active = False
-        self.stage = "mode"  # "mode" | "song" | "simon" -- only meaningful while active
+        self.stage = "mode"  # "mode" | "song" | "simon" | "confirm"
         self.mode_index = 0
         self.song_index = 0
         self.simon_index = 0
+        self.confirm_index = 0
+        self.confirm_label = None
+        self.confirm_action = None
 
     def enter(self):
         """Always resets to the top of the menu (mode-select stage) --
         even if re-entering while already active, so on_menu_enter
         firing twice in a row (e.g. a slightly sloppy gesture release/
-        re-hold) doesn't leave the child stuck deep in a song list."""
+        re-hold) doesn't leave the child stuck deep in a song list (or
+        mid-way through a Power Off/Reboot confirmation)."""
         self.active = True
         self.stage = "mode"
         self.mode_index = 0
@@ -60,6 +79,10 @@ class Menu:
     def highlighted_simon_source(self):
         return self.simon_sources[self.simon_index]
 
+    @property
+    def highlighted_confirm_option(self):
+        return CONFIRM_OPTIONS[self.confirm_index]
+
     def rotate(self, delta):
         """delta is +-1 (or any int), matching on_font_change's
         existing convention. No-op while inactive -- callers shouldn't
@@ -71,32 +94,49 @@ class Menu:
             self.mode_index = (self.mode_index + delta) % len(MODES)
         elif self.stage == "song":
             self.song_index = (self.song_index + delta) % len(self.songs)
-        else:
+        elif self.stage == "simon":
             self.simon_index = (self.simon_index + delta) % len(self.simon_sources)
+        else:
+            self.confirm_index = (self.confirm_index + delta) % len(CONFIRM_OPTIONS)
 
     def select(self):
         """Confirms the highlighted option (font button short-click).
-        Returns None if still navigating (e.g. moved from mode-select
-        into song-select), or a result tuple describing what to do:
-        ("play",), ("tutor", song_name), or ("simon", source_name).
+        Returns None if still navigating, or a result tuple describing
+        what to do: ("play",), ("tutor", song_name),
+        ("simon", source_name), or ("system", "poweroff"|"reboot").
         Caller is responsible for actually acting on the result and
         calling exit() -- this class doesn't know about audio/tutor/
-        simon sessions/etc."""
+        simon sessions/subprocess calls/etc."""
         if not self.active:
             return None
         if self.stage == "mode":
-            if self.highlighted_mode == "Explore":
+            mode = self.highlighted_mode
+            if mode == "Explore":
                 return ("play",)  # internal result identifier unchanged, only the display name is "Explore" now
-            if self.highlighted_mode == "Tutor":
+            if mode == "Tutor":
                 self.stage = "song"
                 self.song_index = 0
                 return None
-            self.stage = "simon"
-            self.simon_index = 0
+            if mode == "Simon":
+                self.stage = "simon"
+                self.simon_index = 0
+                return None
+            # "Power Off" / "Reboot" -- see module docstring for why
+            # this goes to a confirm stage instead of acting immediately.
+            self.confirm_label = mode
+            self.confirm_action = SYSTEM_ACTIONS[mode]
+            self.confirm_index = 0
+            self.stage = "confirm"
             return None
         if self.stage == "song":
             return ("tutor", self.highlighted_song)
-        return ("simon", self.highlighted_simon_source)
+        if self.stage == "simon":
+            return ("simon", self.highlighted_simon_source)
+        # "confirm"
+        if self.highlighted_confirm_option == "Yes":
+            return ("system", self.confirm_action)
+        self.stage = "mode"
+        return None
 
     def display_lines(self, max_lines=5):
         """Plain text lines for the OLED to render verbatim -- kept
@@ -122,8 +162,10 @@ class Menu:
             header, items, index = "Select mode:", MODES, self.mode_index
         elif self.stage == "song":
             header, items, index = "Select song:", self.songs, self.song_index
-        else:
+        elif self.stage == "simon":
             header, items, index = "Select sequence:", self.simon_sources, self.simon_index
+        else:
+            header, items, index = f"{self.confirm_label}?", CONFIRM_OPTIONS, self.confirm_index
 
         visible_count = max_lines - 1  # header takes one line
         if len(items) <= visible_count:

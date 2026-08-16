@@ -92,6 +92,7 @@ Usage:
 Ctrl+C to quit.
 """
 
+import subprocess
 import time
 from signal import pause
 
@@ -441,10 +442,14 @@ def main():
             _, song_name = result
             menu.exit()
             start_tutor(song_name)
-        else:
+        elif result[0] == "simon":
             _, source_name = result
             menu.exit()
             start_simon(source_name)
+        else:
+            _, action = result
+            menu.exit()
+            system_action(action)
 
     def menu_enter():
         if app["state"] in ("tutor_demo", "tutor_active"):
@@ -489,6 +494,40 @@ def main():
             update_play_oled(force=True)
             print("MENU    exited simon -> play")
         # "play": nothing to exit, no-op
+
+    def system_action(action):
+        """Power Off / Reboot -- only ever called after menu.py's
+        confirm stage (Yes/No, defaulting to No), see that module's
+        docstring for why the extra step exists. chromacade.service
+        already runs as root, so no sudo prefix is needed. Doesn't try
+        to gracefully tear down audio/poller itself first -- systemd's
+        normal shutdown sequence sends this service SIGTERM as part of
+        shutting the whole system down together, same as any other
+        service on the box, no special handling needed here.
+
+        Reboot needs no special final-message handling -- the OLED
+        naturally gets overwritten once the service comes back up
+        (update_play_oled(force=True) at startup). Power Off is
+        different: confirmed live 2026-08-16 that "Shutting down..."
+        just stays frozen on screen forever afterward, since an SSD1306
+        keeps driving whatever's in its own onboard display memory as
+        long as the chip itself still has power -- `shutdown -h now`
+        halts the OS but doesn't cut power to the board (nothing does,
+        without a power-management HAT), so nothing ever tells it to
+        change. Whatever's shown right before the halt call is what
+        stays, so the actual "safe to unplug" message has to be the
+        LAST thing written, not the first."""
+        print(f"SYSTEM  {'Shutting down...' if action == 'poweroff' else 'Restarting...'}")
+        oled.show_lines(["Shutting down..." if action == "poweroff" else "Restarting..."])
+        ring.clear()
+        strip.clear()
+        audio.all_notes_off()
+        if action == "poweroff":
+            time.sleep(2)  # let "Shutting down..." register before it changes
+            oled.show_lines(["Powered off.", "Safe to unplug."])
+            subprocess.run(["shutdown", "-h", "now"])
+        else:
+            subprocess.run(["reboot"])
 
     # Must stay referenced for the life of the program -- see play.py's
     # identical note on this (garbage-collected poller silently kills

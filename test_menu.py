@@ -30,11 +30,15 @@ def test_exit_deactivates():
 def test_rotate_wraps_mode_selection():
     menu = Menu(SONGS, SIMON_SOURCES)
     menu.enter()
-    assert MODES == ["Explore", "Tutor", "Simon"]
+    assert MODES == ["Explore", "Tutor", "Simon", "Power Off", "Reboot"]
     menu.rotate(1)
     assert menu.highlighted_mode == "Tutor"
     menu.rotate(1)
     assert menu.highlighted_mode == "Simon"
+    menu.rotate(1)
+    assert menu.highlighted_mode == "Power Off"
+    menu.rotate(1)
+    assert menu.highlighted_mode == "Reboot"
     menu.rotate(1)
     assert menu.highlighted_mode == "Explore"  # wrapped
 
@@ -213,3 +217,67 @@ def test_display_lines_short_list_unaffected_by_scroll_logic():
     menu.select()
     lines = menu.display_lines(max_lines=5)
     assert len(lines) == 1 + len(SONGS)  # header + both songs, nothing cut
+
+
+# --- Power Off / Reboot confirm stage (added 2026-08-16) ---
+
+
+def _menu_at_power_off():
+    menu = Menu(SONGS, SIMON_SOURCES)
+    menu.enter()
+    menu.rotate(3)  # Explore -> Tutor -> Simon -> Power Off
+    assert menu.highlighted_mode == "Power Off"
+    return menu
+
+
+def test_selecting_power_off_enters_confirm_stage_defaulting_to_no():
+    menu = _menu_at_power_off()
+    result = menu.select()
+    assert result is None
+    assert menu.stage == "confirm"
+    assert menu.highlighted_confirm_option == "No"
+
+
+def test_confirming_no_cancels_back_to_mode_stage():
+    menu = _menu_at_power_off()
+    menu.select()  # -> confirm, defaults to "No"
+    result = menu.select()
+    assert result is None
+    assert menu.stage == "mode"
+
+
+def test_confirming_yes_returns_system_poweroff_result():
+    menu = _menu_at_power_off()
+    menu.select()  # -> confirm
+    menu.rotate(1)  # No -> Yes
+    result = menu.select()
+    assert result == ("system", "poweroff")
+
+
+def test_reboot_confirm_flow_returns_system_reboot_result():
+    menu = Menu(SONGS, SIMON_SOURCES)
+    menu.enter()
+    menu.rotate(4)  # -> Reboot
+    assert menu.highlighted_mode == "Reboot"
+    menu.select()  # -> confirm
+    menu.rotate(1)  # No -> Yes
+    result = menu.select()
+    assert result == ("system", "reboot")
+
+
+def test_confirm_stage_display_shows_action_and_options():
+    menu = _menu_at_power_off()
+    menu.select()
+    lines = menu.display_lines()
+    assert lines[0] == "Power Off?"
+    assert lines[1] == "> No"
+    assert lines[2] == "  Yes"
+
+
+def test_reentering_menu_from_confirm_stage_resets_to_mode():
+    menu = _menu_at_power_off()
+    menu.select()  # -> confirm
+    assert menu.stage == "confirm"
+    menu.enter()  # gesture fired again mid-confirmation
+    assert menu.stage == "mode"
+    assert menu.mode_index == 0
