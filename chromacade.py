@@ -12,49 +12,75 @@ ChromaCadeAudio/HardwarePoller/LedRing/LedStrip/OledDisplay are all
 built ONCE here and stay alive for the whole session; switching modes
 just changes how the SAME poller callbacks are interpreted, via the
 app["state"] dispatch below ("play" | "menu" | "tutor_demo" |
-"tutor_active"). play.py and tutor_mode.py are left as-is (not
-deleted) -- they're still useful standalone dev/test tools that bypass
-the menu entirely, and tutor_mode.py's play_demo()/celebrate()/
-miss_feedback()/TUTOR_PROGRAM are reused here directly rather than
-duplicated.
+"tutor_active" | "simon_demo" | "simon_active"). play.py and
+tutor_mode.py are left as-is (not deleted) -- they're still useful
+standalone dev/test tools that bypass the menu entirely, and
+tutor_mode.py's play_demo()/celebrate()/miss_feedback()/TUTOR_PROGRAM/
+MISS_COLOR/MISS_FLASH_SECONDS/play_nope_sound() are reused here
+directly rather than duplicated.
 
 Menu gesture (control-layout.md, corrected 2026-08-15 -- see
 hardware_poller.py's docstring for the full why): hold BOTH encoder
 push-buttons, then long-press C (exit) or B (enter) for ~1.5s. Cycle
 options: turn the font encoder (menu takes over that control's normal
 job while a menu is open). Select: short click of the font button.
-Nested menu (mode, then song within Tutor) -- see menu.py.
+Nested menu (mode, then song/sequence within Tutor/Simon) -- see
+menu.py.
+
+Simon Says (added 2026-08-15, feature-spec.md's Simon/Learn mode
+section's second sub-mode): classic escalating-sequence memory game --
+watch a growing sequence, reproduce it, wrong press resets (unlike
+Tutor's no-penalty design; feature-spec.md explicitly leans toward
+Simon resetting on a miss since it's meant to test, not just teach).
+Three selectable sequence sources (SIMON_SOURCES below), all floated
+by the user: "Random" (classic Simon, a fresh random letter appended
+each round, never ends), a famous number (simon_sequences.py's
+FAMOUS_NUMBERS, digits mapped to letters mod 7, e.g. pi's "3.14159" ->
+F D G D A E), or one of the existing Tutor songs (its real note
+sequence, revealed incrementally). Number/song sources are finite --
+reaching the end is a real win (full celebration), not just an
+arbitrarily-long round.
 
 ASSUMPTIONS / JUDGMENT CALLS MADE WITHOUT ASKING (flagged per-topic
 inline below too, this is the summary):
-  - Menu structure is nested (mode select, then song list), not flat --
-    open-questions.md left this undecided; nested fits a 4-line OLED.
-  - "Modes" = Play and Tutor only. Simon Says isn't in the menu -- no
-    game logic for it exists anywhere yet, unlike Tutor.
-  - No song preview/snippet before selecting -- select() starts the
-    song immediately.
-  - Entering the menu (or exiting it, or exiting an active Tutor
+  - Menu structure is nested (mode select, then song/sequence list),
+    not flat -- open-questions.md left this undecided; nested fits a
+    5-line OLED.
+  - No song/sequence preview before selecting -- select() starts
+    immediately.
+  - Entering the menu (or exiting it, or exiting an active Tutor/Simon
     session) always fully resets state -- e.g. re-triggering the enter
     gesture while already in the menu snaps back to the mode-select
     top level rather than preserving deep navigation.
-  - Finishing a Tutor song (after the celebration) returns to Play
-    mode, not back into the menu's song list.
-  - During the ~10s Tutor demo playback, the WHOLE control panel is
-    unresponsive (not just note buttons) -- this runs as a blocking
-    call inside a button-callback thread, same style already used by
-    celebrate()/miss_feedback() elsewhere in this codebase, and it's
-    what tutor_mode.py's original (poller-doesn't-exist-yet-during-
-    demo) design already did in spirit. A background thread would be
-    more responsive but adds another thread calling into FluidSynth
-    concurrently -- exactly the class of bug that caused the Ctrl+C
-    segfault fixed earlier this session. Kept it simple/blocking.
+  - Finishing a Tutor song or a Simon game (after the celebration)
+    returns to Play mode, not back into the menu's list.
+  - During Tutor's ~10s demo playback or a Simon round's playback, the
+    WHOLE control panel is unresponsive (not just note buttons) --
+    these run as blocking calls inside a button-callback thread, same
+    style already used by celebrate()/miss_feedback() elsewhere in
+    this codebase, and it's what tutor_mode.py's original (poller-
+    doesn't-exist-yet-during-demo) design already did in spirit. A
+    background thread would be more responsive but adds another
+    thread calling into FluidSynth concurrently -- exactly the class
+    of bug that caused the Ctrl+C segfault fixed earlier this session.
+    Kept it simple/blocking.
   - OLED refresh for continuous streams (pitch-bend, volume) is
     throttled to ~15Hz (OLED_THROTTLE_SECONDS) -- open-questions.md
     flagged this as unresolved ("suggested 10-20Hz, not tested"); 15Hz
     is the middle of that range, not independently benchmarked here.
-  - Tutor mode temporarily switches to Toy Piano (tutor_mode.py's
-    TUTOR_PROGRAM) and restores whatever font/voice was active before,
-    on both normal completion and an early exit.
+  - Tutor/Simon both temporarily switch to Toy Piano
+    (tutor_mode.py's TUTOR_PROGRAM, same repeated-note-blending
+    reasoning as Tutor -- a number/song source can easily produce
+    back-to-back identical letters) and restore whatever font/voice
+    was active before, on both normal completion and an early exit.
+    Octave is NOT saved/restored (same as Tutor already didn't) --
+    both modes just fix it to 4 during play.
+  - A wrong Simon press immediately (auto, no menu step) restarts
+    round 1 of the SAME game/source rather than requiring the player
+    to re-navigate the menu.
+  - Simon's miss cue reuses Tutor's red strip flash + nope.wav, but
+    WITHOUT tutor_mode.py's "flash the correct color after" step --
+    revealing the answer would defeat a memory game's purpose.
 
 Needs sudo -- same as play.py/tutor_mode.py (LED ring/strip PWM/DMA).
 
@@ -73,12 +99,55 @@ from led_ring import LedRing
 from led_strip import LedStrip
 from menu import Menu
 from oled_display import OledDisplay
-from tutor_mode import DEFAULT_TEMPO, TUTOR_PROGRAM, celebrate, miss_feedback, play_demo
+from simon_sequences import FAMOUS_NUMBERS, SimonSession, pool_source, random_source, sequence_from_number
+from tutor_mode import (
+    DEFAULT_TEMPO,
+    MISS_COLOR,
+    MISS_FLASH_SECONDS,
+    TUTOR_PROGRAM,
+    celebrate,
+    miss_feedback,
+    play_demo,
+    play_nope_sound,
+)
 from tutor_songs import SCORES, SONGS, TutorSession
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 TUTOR_FONT_INDEX = next(i for i, (program, _name) in enumerate(FONTS) if program == TUTOR_PROGRAM)
 ACCIDENTAL_SYMBOLS = {-1: "b", 0: "", 1: "#"}
+
+SIMON_SOURCES = ["Random"] + list(FAMOUS_NUMBERS.keys()) + list(SONGS.keys())
+SIMON_NOTE_SECONDS = 0.5
+SIMON_GAP_SECONDS = 0.2
+
+
+def resolve_simon_source(source_name):
+    """source_name -> (next_letter, max_length) for SimonSession --
+    see simon_sequences.py for what these mean."""
+    if source_name == "Random":
+        return random_source()
+    if source_name in FAMOUS_NUMBERS:
+        return pool_source(sequence_from_number(FAMOUS_NUMBERS[source_name]))
+    return pool_source(SONGS[source_name])
+
+
+def play_simon_sequence(audio, ring, sequence, oled=None):
+    """Blocking playthrough of the current round's sequence-so-far --
+    same blocking-call style as tutor_mode.py's play_demo(), see that
+    module's docstring and this module's assumptions list for why.
+    No SCORES-style rhythm data for Simon (song/number/random sources
+    are all bare letters, no duration), so this just uses a fixed
+    on/gap timing rather than DEFAULT_TEMPO-based beats."""
+    audio.octave = 4
+    for letter in sequence:
+        ring.show(letter)
+        if oled:
+            oled.show_lines(["Watch..."])
+        audio.note_on(letter)
+        time.sleep(SIMON_NOTE_SECONDS)
+        audio.note_off(letter)
+        ring.clear()
+        time.sleep(SIMON_GAP_SECONDS)
 
 
 def main():
@@ -86,12 +155,13 @@ def main():
     ring = LedRing()
     strip = LedStrip()
     oled = OledDisplay()
-    menu = Menu(list(SONGS.keys()))
+    menu = Menu(list(SONGS.keys()), SIMON_SOURCES)
 
-    app = {"state": "play"}  # "play" | "menu" | "tutor_demo" | "tutor_active"
+    app = {"state": "play"}  # "play"|"menu"|"tutor_demo"|"tutor_active"|"simon_demo"|"simon_active"
     held = []
     play_state = {"bend": 0.0, "shown": None, "shown_base": None, "volume_percent": 0.0}
     tutor = {"session": None, "song_name": None, "saved_font_index": None}
+    simon = {"session": None, "source_name": None, "saved_font_index": None}
     oled_throttle = {"t": 0.0}
 
     def update_ring():
@@ -172,6 +242,64 @@ def main():
         app["state"] = "tutor_active"
         show_tutor_target()
 
+    def stop_active_simon():
+        """Abort whatever Simon progress exists -- no celebration, this
+        is an interruption not a completion. Safe to call even if
+        nothing's running."""
+        if simon["saved_font_index"] is not None:
+            audio.font_change(simon["saved_font_index"] - audio.font_index)
+            simon["saved_font_index"] = None
+        audio.all_notes_off()
+        simon["session"] = None
+        simon["source_name"] = None
+        ring.clear()
+        strip.clear()
+
+    def simon_miss_feedback():
+        """Strip-only red flash + nope.wav, same as Tutor's
+        miss_feedback() -- but deliberately WITHOUT its "flash the
+        correct color after" step, which would reveal the answer and
+        defeat a memory game's whole purpose."""
+        play_nope_sound()
+        strip.fill(MISS_COLOR)
+        time.sleep(MISS_FLASH_SECONDS)
+        strip.clear()
+
+    def finish_simon():
+        session = simon["session"]
+        print(f"SIMON   {simon['source_name']} fully memorized, {session.round_number} rounds!")
+        oled.show_lines(["You memorized", "the whole thing!"])
+        celebrate(ring, strip)
+        if simon["saved_font_index"] is not None:
+            audio.font_change(simon["saved_font_index"] - audio.font_index)
+            simon["saved_font_index"] = None
+        simon["session"] = None
+        simon["source_name"] = None
+        app["state"] = "play"
+        update_play_oled(force=True)
+
+    def play_simon_round():
+        """Blocking: plays back the current round's sequence-so-far,
+        then flips to "simon_active" and waits for input. Called both
+        to start a game and after every correct round (and after a
+        reset following a wrong press) -- see module docstring's
+        assumptions list for why a miss auto-restarts immediately
+        rather than needing a menu trip."""
+        app["state"] = "simon_demo"
+        session = simon["session"]
+        oled.show_lines([f"Round {session.round_number}", "Watch..."])
+        play_simon_sequence(audio, ring, session.sequence, oled=oled)
+        app["state"] = "simon_active"
+        oled.show_lines([f"Round {session.round_number}", "Your turn!"])
+
+    def start_simon(source_name):
+        simon["saved_font_index"] = audio.font_index
+        audio.font_change(TUTOR_FONT_INDEX - audio.font_index)
+        simon["source_name"] = source_name
+        next_letter, max_length = resolve_simon_source(source_name)
+        simon["session"] = SimonSession(next_letter, max_length)
+        play_simon_round()
+
     def note_on(letter):
         state = app["state"]
         if state == "play":
@@ -189,7 +317,23 @@ def main():
             else:
                 print(f"MISS    {letter} (wanted {session.target})")
                 miss_feedback(strip, session.target)
-        # "menu" / "tutor_demo": no-op, menu/demo own input entirely
+        elif state == "simon_active":
+            session = simon["session"]
+            audio.note_on(letter)
+            result = session.press(letter)
+            if result == "wrong":
+                print(f"SIMON   wrong (pressed {letter}, wanted {session.sequence[session.input_index]})")
+                simon_miss_feedback()
+                session.reset()
+                play_simon_round()
+            elif result == "continue":
+                print(f"SIMON   {letter} ok")
+            elif result == "round_complete":
+                print(f"SIMON   round {session.round_number - 1} complete!")
+                play_simon_round()
+            elif result == "complete":
+                finish_simon()
+        # "menu" / "tutor_demo" / "simon_demo": no-op, own input entirely
 
     def note_off(letter):
         state = app["state"]
@@ -200,18 +344,18 @@ def main():
                 held.remove(letter)
             update_ring()
             update_play_oled(force=True)
-        elif state == "tutor_active":
+        elif state in ("tutor_active", "simon_active"):
             audio.note_off(letter)
 
     def octave_change(delta):
-        if app["state"] in ("play", "tutor_active"):
+        if app["state"] in ("play", "tutor_active", "simon_active"):
             audio.octave_change(delta)
             print(f"OCTAVE  {'+1' if delta > 0 else '-1'} -> now {audio.octave}")
             if app["state"] == "play":
                 update_play_oled(force=True)
 
     def accidental_change(accidental):
-        if app["state"] in ("play", "tutor_active"):
+        if app["state"] in ("play", "tutor_active", "simon_active"):
             audio.accidental_change(accidental)
             label = {-1: "FLAT", 0: "NATURAL", 1: "SHARP"}[accidental]
             print(f"ROCKER  {label}")
@@ -224,11 +368,11 @@ def main():
             play_state["bend"] = bend_fraction
             update_ring()
             update_play_oled()
-        elif app["state"] == "tutor_active":
+        elif app["state"] in ("tutor_active", "simon_active"):
             audio.set_pitch_bend(bend_fraction)
 
     def volume_change(volume_fraction):
-        if app["state"] in ("play", "tutor_active"):
+        if app["state"] in ("play", "tutor_active", "simon_active"):
             audio.set_volume(volume_fraction)
             play_state["volume_percent"] = volume_fraction * 100
             if app["state"] == "play":
@@ -238,7 +382,7 @@ def main():
         if app["state"] == "menu":
             menu.rotate(delta)
             oled.show_lines(menu.display_lines())
-        elif app["state"] in ("play", "tutor_active"):
+        elif app["state"] in ("play", "tutor_active", "simon_active"):
             audio.font_change(delta)
             print(f"FONT    -> {audio.font_name}")
             if app["state"] == "play":
@@ -254,14 +398,20 @@ def main():
             menu.exit()
             app["state"] = "play"
             update_play_oled(force=True)
-        else:
+        elif result[0] == "tutor":
             _, song_name = result
             menu.exit()
             start_tutor(song_name)
+        else:
+            _, source_name = result
+            menu.exit()
+            start_simon(source_name)
 
     def menu_enter():
         if app["state"] in ("tutor_demo", "tutor_active"):
             stop_active_tutor()
+        elif app["state"] in ("simon_demo", "simon_active"):
+            stop_active_simon()
         # Bug fixed 2026-08-15: the gesture's own note button (B) always
         # plays on press, before it's known to be part of a gesture --
         # if the state flips to "menu" mid-hold, the eventual release
@@ -294,6 +444,11 @@ def main():
             app["state"] = "play"
             update_play_oled(force=True)
             print("MENU    exited tutor -> play")
+        elif state in ("simon_demo", "simon_active"):
+            stop_active_simon()
+            app["state"] = "play"
+            update_play_oled(force=True)
+            print("MENU    exited simon -> play")
         # "play": nothing to exit, no-op
 
     # Must stay referenced for the life of the program -- see play.py's

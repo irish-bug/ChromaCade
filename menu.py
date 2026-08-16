@@ -1,12 +1,13 @@
 """
-ChromaCade -- mode/song menu: pure, hardware-free navigation state.
+ChromaCade -- mode/song/sequence menu: pure, hardware-free navigation
+state.
 
 Implements control-layout.md's "Menu / mode interaction grammar" and
 resolves open-questions.md's "nested vs. flat" menu-structure question
-in favor of nested (mode select, then a song list within Tutor) --
-chosen because a 4-line 128x64 OLED can't usefully show a long flat
-list mixing modes and songs together, and nested was the first-listed
-candidate in that doc.
+in favor of nested (mode select, then a song/sequence list within
+Tutor/Simon) -- chosen because a 5-line 128x64 OLED can't usefully
+show a long flat list mixing modes and songs/sequences together, and
+nested was the first-listed candidate in that doc.
 
 Split from chromacade.py the same way octave_gesture.py/tutor_songs.py
 are split from their hardware-touching callers -- this class only
@@ -14,22 +15,26 @@ tracks state and answers "what should happen next given this input,"
 no GPIO/OLED/audio calls. See test_menu.py.
 
 Also resolves open-questions.md's "does the menu have a song preview"
-question: no, not in this version -- select() starts the song
-immediately, no snippet playback before confirming.
+question: no, not in this version -- select() starts the song/Simon
+game immediately, no snippet playback before confirming.
 """
 
-MODES = ["Play", "Tutor"]
+MODES = ["Play", "Tutor", "Simon"]
 
 
 class Menu:
-    def __init__(self, songs):
+    def __init__(self, songs, simon_sources):
         if not songs:
             raise ValueError("songs must be non-empty")
+        if not simon_sources:
+            raise ValueError("simon_sources must be non-empty")
         self.songs = list(songs)
+        self.simon_sources = list(simon_sources)
         self.active = False
-        self.stage = "mode"  # "mode" or "song" -- only meaningful while active
+        self.stage = "mode"  # "mode" | "song" | "simon" -- only meaningful while active
         self.mode_index = 0
         self.song_index = 0
+        self.simon_index = 0
 
     def enter(self):
         """Always resets to the top of the menu (mode-select stage) --
@@ -51,6 +56,10 @@ class Menu:
     def highlighted_song(self):
         return self.songs[self.song_index]
 
+    @property
+    def highlighted_simon_source(self):
+        return self.simon_sources[self.simon_index]
+
     def rotate(self, delta):
         """delta is +-1 (or any int), matching on_font_change's
         existing convention. No-op while inactive -- callers shouldn't
@@ -60,25 +69,34 @@ class Menu:
             return
         if self.stage == "mode":
             self.mode_index = (self.mode_index + delta) % len(MODES)
-        else:
+        elif self.stage == "song":
             self.song_index = (self.song_index + delta) % len(self.songs)
+        else:
+            self.simon_index = (self.simon_index + delta) % len(self.simon_sources)
 
     def select(self):
         """Confirms the highlighted option (font button short-click).
         Returns None if still navigating (e.g. moved from mode-select
         into song-select), or a result tuple describing what to do:
-        ("play",) or ("tutor", song_name). Caller is responsible for
-        actually acting on the result and calling exit() -- this class
-        doesn't know about audio/tutor sessions/etc."""
+        ("play",), ("tutor", song_name), or ("simon", source_name).
+        Caller is responsible for actually acting on the result and
+        calling exit() -- this class doesn't know about audio/tutor/
+        simon sessions/etc."""
         if not self.active:
             return None
         if self.stage == "mode":
             if self.highlighted_mode == "Play":
                 return ("play",)
-            self.stage = "song"
-            self.song_index = 0
+            if self.highlighted_mode == "Tutor":
+                self.stage = "song"
+                self.song_index = 0
+                return None
+            self.stage = "simon"
+            self.simon_index = 0
             return None
-        return ("tutor", self.highlighted_song)
+        if self.stage == "song":
+            return ("tutor", self.highlighted_song)
+        return ("simon", self.highlighted_simon_source)
 
     def display_lines(self, max_lines=5):
         """Plain text lines for the OLED to render verbatim -- kept
@@ -102,8 +120,10 @@ class Menu:
             return []
         if self.stage == "mode":
             header, items, index = "Select mode:", MODES, self.mode_index
-        else:
+        elif self.stage == "song":
             header, items, index = "Select song:", self.songs, self.song_index
+        else:
+            header, items, index = "Select sequence:", self.simon_sources, self.simon_index
 
         visible_count = max_lines - 1  # header takes one line
         if len(items) <= visible_count:
