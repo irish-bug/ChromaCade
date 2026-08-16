@@ -56,16 +56,28 @@ inline below too, this is the summary):
     top level rather than preserving deep navigation.
   - Finishing a Tutor song or a Simon game (after the celebration)
     returns to Play mode, not back into the menu's list.
-  - During Tutor's ~10s demo playback or a Simon round's playback, the
-    WHOLE control panel is unresponsive (not just note buttons) --
-    these run as blocking calls inside a button-callback thread, same
-    style already used by celebrate()/miss_feedback() elsewhere in
-    this codebase, and it's what tutor_mode.py's original (poller-
-    doesn't-exist-yet-during-demo) design already did in spirit. A
-    background thread would be more responsive but adds another
-    thread calling into FluidSynth concurrently -- exactly the class
-    of bug that caused the Ctrl+C segfault fixed earlier this session.
-    Kept it simple/blocking.
+  - Starting a song/sequence from the menu (start_tutor()/
+    start_simon(), triggered by the font button's short-click) still
+    blocks the control panel for its initial demo/first-round playback
+    -- same reasoning as before: simplest, and nothing else needs to
+    interrupt that specific moment.
+  - Everything note_on() can trigger during tutor_active/simon_active
+    (miss feedback, round-complete/celebration, the next round's demo
+    playback) now runs on a background thread instead of blocking
+    inline -- changed 2026-08-16 after the menu exit gesture (hold
+    both encoder buttons + long-press C) was confirmed unreliable
+    live. Root cause: C/B are real notes too, so pressing one to start
+    the exit gesture also fires a normal note_on() -> miss_feedback()
+    (or a round-complete/celebration) call, which used to block
+    inline for up to several seconds -- long enough to disrupt
+    gpiozero's own hold-timer for that same button's when_held
+    callback, since it runs through the same button object. Safe to
+    background now: ChromaCadeAudio's RLock (added earlier this
+    session for the concurrent-access heap corruption crash) already
+    serializes FluidSynth access from any thread, so this isn't a new
+    class of risk, just a new caller of an already-guarded resource.
+    Not yet re-verified live (needs real button presses) -- see
+    open-questions.md if this turns out not to be the whole story.
   - OLED refresh for continuous streams (pitch-bend, volume) is
     throttled to ~15Hz (OLED_THROTTLE_SECONDS) -- open-questions.md
     flagged this as unresolved ("suggested 10-20Hz, not tested"); 15Hz
@@ -93,6 +105,7 @@ Ctrl+C to quit.
 """
 
 import subprocess
+import threading
 import time
 from signal import pause
 
@@ -322,6 +335,26 @@ def main():
         simon["session"] = SimonSession(next_letter, max_length)
         play_simon_round()
 
+    def _background(target, *args):
+        """Runs target(*args) on its own daemon thread -- see note_on()
+        below for why. Safe to call into audio/FluidSynth from here:
+        ChromaCadeAudio's RLock (added 2026-08-16 for the concurrent-
+        access crash fix) already serializes access from any thread,
+        this isn't a new class of risk, just a new caller."""
+        threading.Thread(target=target, args=args, daemon=True).start()
+
+    def _simon_handle_wrong():
+        simon_miss_feedback()
+        simon["session"].reset()
+        play_simon_round()
+
+    def _simon_handle_round_complete(sound_path):
+        play_wav(sound_path)
+        # Requested 2026-08-15 -- a beat before the next round starts,
+        # rather than snapping straight into it.
+        time.sleep(SIMON_ROUND_COMPLETE_DELAY_SECONDS)
+        play_simon_round()
+
     def note_on(letter):
         state = app["state"]
         if state == "play":
@@ -335,10 +368,10 @@ def main():
             audio.note_on(letter)
             if session.press(letter):
                 print(f"MATCH   {letter}")
-                show_tutor_target()
+                _background(show_tutor_target)
             else:
                 print(f"MISS    {letter} (wanted {session.target})")
-                miss_feedback(strip, session.target, pools["tutor_error"].next())
+                _background(miss_feedback, strip, session.target, pools["tutor_error"].next())
         elif state == "simon_active":
             session = simon["session"]
             audio.note_on(letter)
@@ -346,9 +379,7 @@ def main():
             result = session.press(letter)
             if result == "wrong":
                 print(f"SIMON   wrong (pressed {letter}, wanted {session.sequence[session.input_index]})")
-                simon_miss_feedback()
-                session.reset()
-                play_simon_round()
+                _background(_simon_handle_wrong)
             elif result == "continue":
                 print(f"SIMON   {letter} ok")
             elif result == "round_complete":
@@ -357,13 +388,9 @@ def main():
                 # reserved "big win" ones, those are for finishing the
                 # whole game -- see finish_simon()) for clearing a
                 # round, not just the flash-only cue this had before.
-                play_wav(pools["simon_round_complete"].next())
-                # Requested 2026-08-15 -- a beat before the next round
-                # starts, rather than snapping straight into it.
-                time.sleep(SIMON_ROUND_COMPLETE_DELAY_SECONDS)
-                play_simon_round()
+                _background(_simon_handle_round_complete, pools["simon_round_complete"].next())
             elif result == "complete":
-                finish_simon()
+                _background(finish_simon)
         # "menu" / "tutor_demo" / "simon_demo": no-op, own input entirely
 
     def note_off(letter):
