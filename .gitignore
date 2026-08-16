@@ -237,6 +237,13 @@ audio/grab_navi_sounds.sh
 # not add a blanket audio/**/*.wav or similar rule here, it would
 # catch these too.
 
+# Pre-normalization backups of the yays/nopes recordings above (kept
+# locally as a safety net while tuning playback level, see git
+# history) -- superseded duplicates, not read by any code, no need to
+# carry both versions in the repo.
+audio/nopes/originals/
+audio/yays/originals/
+
 # Personal song transcriptions for play_melody.py -- these encode a
 # specific copyrighted melody's actual notes, unlike the generic
 # player tool itself. Whole directory ignored (not filename-specific)

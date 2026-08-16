@@ -16,8 +16,10 @@ app["state"] dispatch below ("play" | "menu" | "tutor_demo" |
 tutor_mode.py are left as-is (not deleted) -- they're still useful
 standalone dev/test tools that bypass the menu entirely, and
 tutor_mode.py's play_demo()/celebrate()/miss_feedback()/TUTOR_PROGRAM/
-MISS_COLOR/MISS_FLASH_SECONDS/play_nope_sound() are reused here
-directly rather than duplicated.
+MISS_COLOR are reused here directly rather than duplicated. Sound
+selection (which nope/yay clip plays when) comes from sound_pools.py's
+build_pools() -- see that module's docstring for the four pools and
+their rules.
 
 Menu gesture (control-layout.md, corrected 2026-08-15 -- see
 hardware_poller.py's docstring for the full why): hold BOTH encoder
@@ -100,15 +102,14 @@ from led_strip import LedStrip
 from menu import Menu
 from oled_display import OledDisplay
 from simon_sequences import FAMOUS_NUMBERS, SimonSession, pool_source, random_source, sequence_from_number
+from sound_pools import build_pools, play_wav
 from tutor_mode import (
     DEFAULT_TEMPO,
     MISS_COLOR,
-    MISS_FLASH_SECONDS,
     TUTOR_PROGRAM,
     celebrate,
     miss_feedback,
     play_demo,
-    play_nope_sound,
 )
 from tutor_songs import SCORES, SONGS, TutorSession
 
@@ -159,6 +160,7 @@ def main():
     strip = LedStrip()
     oled = OledDisplay()
     menu = Menu(list(SONGS.keys()), SIMON_SOURCES)
+    pools = build_pools()
 
     app = {"state": "play"}  # "play"|"menu"|"tutor_demo"|"tutor_active"|"simon_demo"|"simon_active"
     held = []
@@ -222,7 +224,7 @@ def main():
             print(f"DONE    {tutor['song_name']} complete!")
             ring.clear()
             oled.show_lines(["Great job!", tutor["song_name"]])
-            celebrate(ring, strip)
+            celebrate(ring, strip, pools["big_win"].next())
             restore_font()
             tutor["session"] = None
             tutor["song_name"] = None
@@ -259,14 +261,16 @@ def main():
         strip.clear()
 
     def simon_miss_feedback():
-        """Double-flash red, ring alternating with strip, plus
-        nope.wav -- requested 2026-08-15 to replace the original
-        strip-only single flash (borrowed from Tutor's miss_feedback())
-        with something more distinct for Simon's harder-edged
-        "wrong, start over" moment. Deliberately doesn't flash the
-        correct color after (unlike Tutor's cue) -- revealing the
-        answer would defeat a memory game's purpose."""
-        play_nope_sound()
+        """Double-flash red, ring alternating with strip, plus a sound
+        from the simon_mistake pool (startover.wav/tryagain.wav,
+        alternating -- fixed 2026-08-16, was still hardcoded to the
+        old single nope.wav until now) -- requested 2026-08-15 to
+        replace the original strip-only single flash (borrowed from
+        Tutor's miss_feedback()) with something more distinct for
+        Simon's harder-edged "wrong, start over" moment. Deliberately
+        doesn't flash the correct color after (unlike Tutor's cue) --
+        revealing the answer would defeat a memory game's purpose."""
+        play_wav(pools["simon_mistake"].next())
         for _ in range(SIMON_MISS_FLASH_COUNT):
             ring.fill(MISS_COLOR)
             time.sleep(SIMON_MISS_FLASH_SECONDS)
@@ -281,7 +285,7 @@ def main():
         session = simon["session"]
         print(f"SIMON   {simon['source_name']} fully memorized, {session.round_number} rounds!")
         oled.show_lines(["You memorized", "the whole thing!"])
-        celebrate(ring, strip)
+        celebrate(ring, strip, pools["big_win"].next())
         if simon["saved_font_index"] is not None:
             audio.font_change(simon["saved_font_index"] - audio.font_index)
             simon["saved_font_index"] = None
@@ -333,7 +337,7 @@ def main():
                 show_tutor_target()
             else:
                 print(f"MISS    {letter} (wanted {session.target})")
-                miss_feedback(strip, session.target)
+                miss_feedback(strip, session.target, pools["tutor_error"].next())
         elif state == "simon_active":
             session = simon["session"]
             audio.note_on(letter)
@@ -348,6 +352,11 @@ def main():
                 print(f"SIMON   {letter} ok")
             elif result == "round_complete":
                 print(f"SIMON   round {session.round_number - 1} complete!")
+                # Requested 2026-08-16 -- a yays/ sound (not the two
+                # reserved "big win" ones, those are for finishing the
+                # whole game -- see finish_simon()) for clearing a
+                # round, not just the flash-only cue this had before.
+                play_wav(pools["simon_round_complete"].next())
                 # Requested 2026-08-15 -- a beat before the next round
                 # starts, rather than snapping straight into it.
                 time.sleep(SIMON_ROUND_COMPLETE_DELAY_SECONDS)

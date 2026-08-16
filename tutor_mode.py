@@ -61,7 +61,6 @@ normally exits on its own, see module docstring.
 """
 
 import argparse
-import subprocess
 import sys
 import threading
 import time
@@ -70,6 +69,7 @@ from audio_engine import ChromaCadeAudio, FONTS
 from hardware_poller import HardwarePoller
 from led_ring import LedRing, NOTE_COLORS
 from led_strip import LedStrip
+from sound_pools import build_pools, play_wav
 from tutor_songs import SCORES, SONGS, TutorSession, parse_note_name
 
 DEFAULT_TEMPO = 90  # BPM -- slower than play_melody.py's 120 default, toddler-paced
@@ -83,7 +83,13 @@ CELEBRATION_COLORS = [(0, 200, 0), (255, 170, 0), (255, 20, 147)]  # green, gold
 CELEBRATION_FLASH_SECONDS = 0.25
 
 
-def celebrate(ring, strip):
+def celebrate(ring, strip, sound_path=None):
+    """sound_path optional (default None, silent) -- chromacade.py
+    passes a "big win" sound from sound_pools.py's shared cycler;
+    tutor_mode.py's own standalone main() below does too now (fixed
+    2026-08-16, was previously always silent here)."""
+    if sound_path:
+        play_wav(sound_path)
     for color in CELEBRATION_COLORS:
         ring.fill(color)
         strip.fill(color)
@@ -96,40 +102,23 @@ def celebrate(ring, strip):
 # Wrong-key cue -- strip only, ring is deliberately untouched (it's the
 # persistent target cue -- feature-spec.md's "gently don't advance,
 # keep the current note's cue lit" -- so the ring should hold steady
-# through a miss, not react to it). Red flash + nope.wav together, then
+# through a miss, not react to it). Red flash + a sound together, then
 # a flash of the correct color as a "here's what you want" reminder.
 MISS_COLOR = (255, 0, 0)
 MISS_FLASH_SECONDS = 0.2
-# Hardcoded absolute path, not os.path.expanduser("~/...") -- this
-# script always runs under sudo (LED PWM/DMA needs root, see module
-# docstring), and sudo commonly resets HOME to /root, so "~" silently
-# resolved to /root/ChromaCade/nope.wav (nonexistent) instead of
-# /home/shane/ChromaCade/nope.wav. Confirmed live 2026-08-15 -- the
-# miss-flash ran fine but no sound, because aplay failed to find the
-# file and its stderr was (at the time) suppressed. Same reason
-# boot_chime.sh already hardcodes its own wav path rather than using
-# "~" -- should've followed that convention from the start.
-NOPE_SOUND_PATH = "/home/shane/ChromaCade/nope.wav"
 
 
-def play_nope_sound():
-    """Fire-and-forget -- non-blocking so the flash below isn't stuck
-    waiting on it, and a missing/failed file doesn't crash the game
-    (aplay just exits non-zero). stdout is suppressed (aplay's normal
-    "Playing WAVE..." line is just noise), but stderr is left to
-    surface normally -- suppressing it once already hid a real bug
-    (see NOPE_SOUND_PATH above), not worth repeating. No -D device
-    override, unlike boot_chime.sh's aplay call: that one plays before
-    anything else has the audio device open, but ChromaCadeAudio holds
-    ALSA's dmix-backed `default` PCM open for the whole life of this
-    script, and dmix is specifically what lets a second aplay process
-    share the device concurrently -- targeting plughw directly here
-    would likely fail with "device busy" while a note's sounding."""
-    subprocess.Popen(["aplay", NOPE_SOUND_PATH], stdout=subprocess.DEVNULL)
-
-
-def miss_feedback(strip, target_letter):
-    play_nope_sound()
+def miss_feedback(strip, target_letter, sound_path):
+    """sound_path is required (not optional/defaulted) -- forces every
+    caller to be explicit about which sound plays, on purpose: this
+    used to hardcode a single nope.wav (see git history for the old
+    NOPE_SOUND_PATH/play_nope_sound()), which silently kept playing
+    even after sound_pools.py's audio/nopes/ pool was built, since
+    nothing here was ever updated to use it. Confirmed live 2026-08-16
+    -- caller (chromacade.py, or this module's own main() below) is
+    now required to pass sound_pools.build_pools()["tutor_error"]
+    .next() explicitly instead."""
+    play_wav(sound_path)
     strip.fill(MISS_COLOR)
     time.sleep(MISS_FLASH_SECONDS)
     strip.clear()
@@ -200,6 +189,7 @@ def main():
     audio = ChromaCadeAudio(program=TUTOR_PROGRAM)
     ring = LedRing()
     strip = LedStrip()
+    pools = build_pools()
 
     try:
         print(f"ChromaCade Tutor mode -- {args.song}. Watch and listen first...")
@@ -225,7 +215,7 @@ def main():
                 show_target()
             else:
                 print(f"MISS    {letter} (wanted {session.target})")
-                miss_feedback(strip, session.target)
+                miss_feedback(strip, session.target, pools["tutor_error"].next())
 
         def note_off(letter):
             audio.note_off(letter)
@@ -274,7 +264,7 @@ def main():
             poller.stop()
 
         if session.is_complete():
-            celebrate(ring, strip)
+            celebrate(ring, strip, pools["big_win"].next())
     except KeyboardInterrupt:
         pass
     finally:
