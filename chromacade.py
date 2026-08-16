@@ -137,6 +137,7 @@ def main():
         is an interruption not a completion. Safe to call even if
         nothing's running."""
         restore_font()
+        audio.all_notes_off()
         tutor["session"] = None
         tutor["song_name"] = None
         ring.clear()
@@ -261,6 +262,20 @@ def main():
     def menu_enter():
         if app["state"] in ("tutor_demo", "tutor_active"):
             stop_active_tutor()
+        # Bug fixed 2026-08-15: the gesture's own note button (B) always
+        # plays on press, before it's known to be part of a gesture --
+        # if the state flips to "menu" mid-hold, the eventual release
+        # lands in a state where note_off() is a deliberate no-op
+        # ("menu owns input"), so that note_off never fires. Left B (or
+        # any other note held at the same time, e.g. a chord) stuck
+        # sustaining, and left it in `held` too, corrupting the ring/
+        # OLED once back in Play. all_notes_off() + clearing `held`
+        # here guarantees a clean slate on every entry into the menu,
+        # not just the gesture note specifically.
+        audio.all_notes_off()
+        held.clear()
+        play_state["shown"] = None
+        play_state["shown_base"] = None
         app["state"] = "menu"
         menu.enter()
         ring.clear()
