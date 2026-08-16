@@ -51,6 +51,15 @@ def midi_note(letter, octave=4, accidental=0):
     return 12 * (octave + 1) + NOTE_SEMITONES[letter] + accidental
 
 
+def midi_to_freq(midi_note_number):
+    """Standard 12-tone equal-temperament conversion, A4 (MIDI 69) =
+    440Hz. Added for the OLED's live frequency+bend readout
+    (control-layout.md: "base frequency + signed pitch-bend offset in
+    Hz, shown separately, not summed"), which needs an actual Hz value
+    to display, not just a MIDI note number."""
+    return 440.0 * 2 ** ((midi_note_number - 69) / 12)
+
+
 # Confirmed range via live speaker sweep, feature-spec.md's Note range
 # section: 8 full octaves, C0-C8. This is the system-level ceiling: it
 # will likely need tightening once accidentals/pitch-bend need headroom

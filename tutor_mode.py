@@ -149,12 +149,18 @@ def miss_feedback(strip, target_letter):
 TUTOR_PROGRAM = next(program for program, name in FONTS if name == "Toy Piano")
 
 
-def play_demo(audio, ring, score, seconds_per_beat):
+def play_demo(audio, ring, score, seconds_per_beat, oled=None):
     """Blocking, timed playthrough of one song's SCORES entry -- see
-    module docstring for why this runs before HardwarePoller exists."""
+    module docstring for why this runs before HardwarePoller exists.
+    oled is optional (default None, matching every other new-callback
+    pattern in this codebase) -- tutor_mode.py itself never had an
+    OLED to drive, chromacade.py passes a real one so the demo's note
+    names show up there instead of only in the console print."""
     for note_name, duration in score:
         if note_name is None:
             ring.clear()
+            if oled:
+                oled.show_lines(["Listen..."])
             time.sleep(duration * seconds_per_beat)
             continue
         letter, octave, accidental = parse_note_name(note_name)
@@ -162,6 +168,8 @@ def play_demo(audio, ring, score, seconds_per_beat):
         audio.accidental = accidental
         print(f"NOTE    {note_name}")
         ring.show(letter)
+        if oled:
+            oled.show_lines(["Listen...", note_name])
         audio.note_on(letter)
         time.sleep(duration * seconds_per_beat)
         audio.note_off(letter)

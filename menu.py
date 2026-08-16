@@ -1,0 +1,100 @@
+"""
+ChromaCade -- mode/song menu: pure, hardware-free navigation state.
+
+Implements control-layout.md's "Menu / mode interaction grammar" and
+resolves open-questions.md's "nested vs. flat" menu-structure question
+in favor of nested (mode select, then a song list within Tutor) --
+chosen because a 4-line 128x64 OLED can't usefully show a long flat
+list mixing modes and songs together, and nested was the first-listed
+candidate in that doc.
+
+Split from chromacade.py the same way octave_gesture.py/tutor_songs.py
+are split from their hardware-touching callers -- this class only
+tracks state and answers "what should happen next given this input,"
+no GPIO/OLED/audio calls. See test_menu.py.
+
+Also resolves open-questions.md's "does the menu have a song preview"
+question: no, not in this version -- select() starts the song
+immediately, no snippet playback before confirming.
+"""
+
+MODES = ["Play", "Tutor"]
+
+
+class Menu:
+    def __init__(self, songs):
+        if not songs:
+            raise ValueError("songs must be non-empty")
+        self.songs = list(songs)
+        self.active = False
+        self.stage = "mode"  # "mode" or "song" -- only meaningful while active
+        self.mode_index = 0
+        self.song_index = 0
+
+    def enter(self):
+        """Always resets to the top of the menu (mode-select stage) --
+        even if re-entering while already active, so on_menu_enter
+        firing twice in a row (e.g. a slightly sloppy gesture release/
+        re-hold) doesn't leave the child stuck deep in a song list."""
+        self.active = True
+        self.stage = "mode"
+        self.mode_index = 0
+
+    def exit(self):
+        self.active = False
+
+    @property
+    def highlighted_mode(self):
+        return MODES[self.mode_index]
+
+    @property
+    def highlighted_song(self):
+        return self.songs[self.song_index]
+
+    def rotate(self, delta):
+        """delta is +-1 (or any int), matching on_font_change's
+        existing convention. No-op while inactive -- callers shouldn't
+        route rotation here unless the menu is actually open, but this
+        guards against it anyway."""
+        if not self.active:
+            return
+        if self.stage == "mode":
+            self.mode_index = (self.mode_index + delta) % len(MODES)
+        else:
+            self.song_index = (self.song_index + delta) % len(self.songs)
+
+    def select(self):
+        """Confirms the highlighted option (font button short-click).
+        Returns None if still navigating (e.g. moved from mode-select
+        into song-select), or a result tuple describing what to do:
+        ("play",) or ("tutor", song_name). Caller is responsible for
+        actually acting on the result and calling exit() -- this class
+        doesn't know about audio/tutor sessions/etc."""
+        if not self.active:
+            return None
+        if self.stage == "mode":
+            if self.highlighted_mode == "Play":
+                return ("play",)
+            self.stage = "song"
+            self.song_index = 0
+            return None
+        return ("tutor", self.highlighted_song)
+
+    def display_lines(self):
+        """Plain text lines for the OLED to render verbatim -- kept
+        here (not in oled_display.py) so the *content* is testable
+        without touching Pillow/hardware. oled_display.py owns pixel
+        placement/fonts, not word choice."""
+        if not self.active:
+            return []
+        if self.stage == "mode":
+            lines = ["Select mode:"]
+            for i, mode in enumerate(MODES):
+                marker = ">" if i == self.mode_index else " "
+                lines.append(f"{marker} {mode}")
+            return lines
+        lines = ["Select song:"]
+        for i, song in enumerate(self.songs):
+            marker = ">" if i == self.song_index else " "
+            lines.append(f"{marker} {song}")
+        return lines
