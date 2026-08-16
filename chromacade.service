@@ -1,6 +1,14 @@
 [Unit]
 Description=ChromaCade unified app (play/menu/Tutor/Simon)
 After=sound.target
+# StartLimit* belong in [Unit], not [Service] -- systemd silently
+# ignores them in the wrong section ("Unknown key", confirmed live
+# 2026-08-16), which meant the crash-loop cap below wasn't actually
+# active until this got fixed. Caps restarts at 5/60s so a truly
+# broken state fails loudly (journalctl will show it) instead of
+# silently crash-looping forever.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -15,13 +23,9 @@ User=root
 # kids' house there's no guarantee some other not-yet-found crash
 # won't happen, and no one there can SSH in or power-cycle it on the
 # spot -- auto-restart means a crash becomes a ~3s hiccup instead of a
-# dead instrument. StartLimit* below caps it at 5 restarts/60s so a
-# truly broken state fails loudly (journalctl will show it) instead of
-# silently crash-looping forever.
+# dead instrument.
 Restart=on-failure
 RestartSec=3
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 [Install]
 WantedBy=multi-user.target
