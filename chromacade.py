@@ -503,14 +503,31 @@ def main():
         to gracefully tear down audio/poller itself first -- systemd's
         normal shutdown sequence sends this service SIGTERM as part of
         shutting the whole system down together, same as any other
-        service on the box, no special handling needed here."""
-        label = "Shutting down..." if action == "poweroff" else "Restarting..."
-        print(f"SYSTEM  {label}")
-        oled.show_lines([label])
+        service on the box, no special handling needed here.
+
+        Reboot needs no special final-message handling -- the OLED
+        naturally gets overwritten once the service comes back up
+        (update_play_oled(force=True) at startup). Power Off is
+        different: confirmed live 2026-08-16 that "Shutting down..."
+        just stays frozen on screen forever afterward, since an SSD1306
+        keeps driving whatever's in its own onboard display memory as
+        long as the chip itself still has power -- `shutdown -h now`
+        halts the OS but doesn't cut power to the board (nothing does,
+        without a power-management HAT), so nothing ever tells it to
+        change. Whatever's shown right before the halt call is what
+        stays, so the actual "safe to unplug" message has to be the
+        LAST thing written, not the first."""
+        print(f"SYSTEM  {'Shutting down...' if action == 'poweroff' else 'Restarting...'}")
+        oled.show_lines(["Shutting down..." if action == "poweroff" else "Restarting..."])
         ring.clear()
         strip.clear()
         audio.all_notes_off()
-        subprocess.run(["shutdown", "-h", "now"] if action == "poweroff" else ["reboot"])
+        if action == "poweroff":
+            time.sleep(2)  # let "Shutting down..." register before it changes
+            oled.show_lines(["Powered off.", "Safe to unplug."])
+            subprocess.run(["shutdown", "-h", "now"])
+        else:
+            subprocess.run(["reboot"])
 
     # Must stay referenced for the life of the program -- see play.py's
     # identical note on this (garbage-collected poller silently kills
