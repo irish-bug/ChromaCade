@@ -19,15 +19,17 @@ import board
 import neopixel
 
 NOTE_COLORS = {
-    # C nudged from pure (255,0,0) to a small blue tint 2026-08-15 --
-    # flagged live as too close to D/orange without a direct
-    # side-by-side comparison. (255,0,0) is already RGB-maximal red,
-    # so there's no "more red" to add on that channel; a touch of blue
-    # cools it toward true scarlet/crimson instead, since WS2812 red
-    # channels often skew warm/orange on their own. Live-tune further
-    # if this still isn't distinct enough from D.
-    "C": (255, 0, 25),
-    "D": (255, 45, 0),
+    # C/D confusion flagged live 2026-08-15. First attempt added a
+    # blue tint to C to cool it away from orange -- overcorrected,
+    # flagged live as now reading too close to B/pink instead (blue
+    # pushes red toward magenta fast, even in small amounts). Reverted
+    # C to pure (255,0,0) and fixed it from the other side instead: D
+    # was only 45/255 (18%) green, barely past red at all, more
+    # "red-orange" than orange. Bumped to 100/255 (~39%), closer to
+    # the midpoint between C's 0 and E's 170 -- a clearer, more
+    # distinct orange, further from both red and E's yellow-orange.
+    "C": (255, 0, 0),
+    "D": (255, 100, 0),
     "E": (255, 170, 0),
     "F": (0, 200, 0),
     "G": (0, 100, 255),
