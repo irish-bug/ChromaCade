@@ -92,6 +92,7 @@ Usage:
 Ctrl+C to quit.
 """
 
+import subprocess
 import time
 from signal import pause
 
@@ -441,10 +442,14 @@ def main():
             _, song_name = result
             menu.exit()
             start_tutor(song_name)
-        else:
+        elif result[0] == "simon":
             _, source_name = result
             menu.exit()
             start_simon(source_name)
+        else:
+            _, action = result
+            menu.exit()
+            system_action(action)
 
     def menu_enter():
         if app["state"] in ("tutor_demo", "tutor_active"):
@@ -489,6 +494,23 @@ def main():
             update_play_oled(force=True)
             print("MENU    exited simon -> play")
         # "play": nothing to exit, no-op
+
+    def system_action(action):
+        """Power Off / Reboot -- only ever called after menu.py's
+        confirm stage (Yes/No, defaulting to No), see that module's
+        docstring for why the extra step exists. chromacade.service
+        already runs as root, so no sudo prefix is needed. Doesn't try
+        to gracefully tear down audio/poller itself first -- systemd's
+        normal shutdown sequence sends this service SIGTERM as part of
+        shutting the whole system down together, same as any other
+        service on the box, no special handling needed here."""
+        label = "Shutting down..." if action == "poweroff" else "Restarting..."
+        print(f"SYSTEM  {label}")
+        oled.show_lines([label])
+        ring.clear()
+        strip.clear()
+        audio.all_notes_off()
+        subprocess.run(["shutdown", "-h", "now"] if action == "poweroff" else ["reboot"])
 
     # Must stay referenced for the life of the program -- see play.py's
     # identical note on this (garbage-collected poller silently kills
