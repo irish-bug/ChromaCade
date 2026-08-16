@@ -217,12 +217,32 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Third-party copyrighted sound assets (e.g. downloaded game audio for boot
-# chimes/notifications) -- never commit these to this public repo, including
-# the fetch script itself (kept local-only out of an abundance of caution
-# about anything tooling-related to redistributing copyrighted assets).
-audio/*.wav
+# Third-party copyrighted sound assets (Zelda Navi clips for boot
+# chimes/notifications, moved into audio/zelda/ 2026-08-16) -- never
+# commit these to this public repo, including the fetch script itself
+# (kept local-only out of an abundance of caution about anything
+# tooling-related to redistributing copyrighted assets).
+audio/zelda/
 audio/grab_navi_sounds.sh
+
+# Same reasoning, root-level -- tutor_mode.py's original (now
+# superseded by audio/yays//audio/nopes/, see below) wrong-key sound
+# effect (nope.wav) isn't under audio/, so the rule above doesn't
+# catch it.
+/*.wav
+
+# audio/yays/ and audio/nopes/ (Tutor/Simon feedback recordings,
+# 2026-08-16) are the user's own recordings and are NOT ignored --
+# committed on purpose, unlike the copyrighted Zelda clips above. Do
+# not add a blanket audio/**/*.wav or similar rule here, it would
+# catch these too.
+
+# Pre-normalization backups of the yays/nopes recordings above (kept
+# locally as a safety net while tuning playback level, see git
+# history) -- superseded duplicates, not read by any code, no need to
+# carry both versions in the repo.
+audio/nopes/originals/
+audio/yays/originals/
 
 # Personal song transcriptions for play_melody.py -- these encode a
 # specific copyrighted melody's actual notes, unlike the generic

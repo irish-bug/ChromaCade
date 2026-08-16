@@ -30,15 +30,21 @@
 - OLED shows four lines, live-updating: note+accidental (large), font name, base frequency + signed pitch-bend offset in Hz (shown separately, not summed — e.g. "440 Hz +22 Hz" — to reinforce that bend modifies rather than replaces the note), volume percentage
 
 ## Menu / mode interaction grammar
-Designed to survive toddler mashing — every menu action requires a two-handed modifier combo, since a plain long-press on a note button is not a safe gesture (toddlers routinely hold single notes just to sustain the sound).
+Designed to survive toddler mashing — every menu action requires a multi-control combo, since a plain long-press on a note button is not a safe gesture on its own (toddlers routinely hold single notes just to sustain the sound — see "Corrected 2026-08-15" below for why that matters).
 
-- **Enter mode menu:** hold the font encoder's push-button **and** long-press the G note button (~1.5s)
-- **Exit menu / back out (including exiting Simon/Learn mode entirely):** hold the font encoder's push-button **and** long-press the A note button (~1.5s)
-- **Cycle through menu options:** turn the font encoder (after releasing its push-button)
+- **Enter mode menu:** hold **both** encoder push-buttons (octave encoder's and font encoder's) **and** long-press the B note button (~1.5s)
+- **Exit menu / back out (including exiting an active Tutor session entirely):** hold **both** encoder push-buttons **and** long-press the C note button (~1.5s)
+- **Cycle through menu options:** turn the font encoder (menu takes over that control's normal job while a menu is open)
 - **Select a highlighted option:** short click of the font encoder's push-button
 
-A and G were chosen as the modifier-combo notes because they're the bookend letters (lowest and highest) — the two edges of the button row, easy to locate without looking.
+C and B were chosen as the modifier-combo notes because they're the bookend letters under the current **C-D-E-F-G-A-B** physical labeling (lowest and highest) — the two edges of the button row, easy to locate without looking.
 
-**Note on implementation:** the font encoder's push-button is now overloaded across three contexts — held-as-modifier (menu entry/exit), short-click (menu selection), and (previously) unused during normal play. Firmware needs a small state machine to disambiguate "held while another button is also down" from "quick click" unambiguously.
+**Corrected 2026-08-15 — was originally A/G + font-button-only, implemented as C/B + both-encoder-buttons:** two separate issues, fixed together.
+1. This section originally said "long-press G to enter, A to exit," reasoning that they were the two edge buttons — true under the *old* alphabetical A-G labeling, but the 2026-08-15 relabel to C-D-E-F-G-A-B moved the physical edges to C and B; A and G became interior buttons. Updated the letters to match, not the underlying "edge button" reasoning.
+2. The original design paired the font button alone (as a held modifier) with the note-button long-press. In practice a note-button long-press isn't a rare, deliberate signal — a toddler sustaining a single held note *is* a long-press, all day, during completely normal play. Requiring **both** encoder push-buttons (not just the font one) closes that gap: they sit at opposite ends of the shelf (far left = octave, far right = font), so holding both down is inherently two-handed and not something normal note-sustaining play does incidentally.
 
-**Open questions on menu behavior** (see open-questions.md for full list): whether A/G still play notes while a menu is active (leaning toward no — menu takes over input entirely), what visual feedback signals menu entry/exit (ring pulse? OLED switch?), and whether the menu structure is nested (mode, then song) or a flat list.
+This also resolves the octave encoder push-button's previously-unassigned function (see hardware-bom.md/open-questions.md history): it's now one of the two required holds for this gesture, not read for anything else yet.
+
+**Note on implementation:** the font encoder's push-button is overloaded across two contexts — held-as-modifier (menu entry/exit, alongside the octave button) and short-click (menu selection). Implemented in `hardware_poller.py` via a press/release timestamp (short click) plus `Button.when_held` on the C/B note buttons checking both encoder buttons' state at that instant — see that module's docstring for the exact approach and its known imprecision (checks a point in time, not that all three were held continuously for the full duration).
+
+**Resolved 2026-08-15 (was open):** A/C/B/G note buttons do *not* play notes while a menu is active — the menu takes over input entirely, confirmed as implemented in `chromacade.py`. Visual feedback: the OLED switches to a menu view (mode/song list, current selection marked), and the LED ring clears while a menu is open. Menu structure is nested (mode select, then a song list within Tutor) — see `menu.py`. No song preview/snippet plays before selecting.

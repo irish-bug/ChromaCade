@@ -37,7 +37,7 @@ Each of the 7 letters gets a fixed base hue. Sharp shifts that hue warmer; flat 
 Two distinct sub-modes, both worth building eventually:
 
 - **Tutor / follow-along mode:** the device lights the LED ring in the color of the next note in a song, and *waits* for the child to press the matching button before advancing. No memorization required — encouraging rather than testing. This is the primary mode for a toddler.
-- **Simon Says / memory mode:** classic escalating-sequence memory game — plays a growing sequence, child must reproduce it from memory. Better suited for an older child or as the toddler grows into it. Lower priority to build first.
+- **Simon Says / memory mode — implemented 2026-08-15, see `chromacade.py`/`simon_sequences.py`.** Classic escalating-sequence memory game — plays a growing sequence, child must reproduce it from memory, a wrong press resets to round 1 (unlike Tutor's no-penalty design — Simon is meant to test, not just teach). Three selectable sequence sources: a fully random sequence (classic Simon, never ends), a famous number's digits mapped to letters mod 7 (Pi/e/Golden Ratio bundled, e.g. pi's "3.14159" → F D G D A E), or one of the Tutor songs' real note sequences revealed incrementally. Number/song sources are finite — reaching the end triggers the same celebration as finishing a Tutor song. Not live-tested with real button presses as of this entry — see `chromacade.py`'s module docstring for what's guessed vs. verified.
 
 **Candidate song library** — tiered by difficulty, expanded 2026-08-15 (see `open-questions.md` for the accidental-mechanic question below):
 

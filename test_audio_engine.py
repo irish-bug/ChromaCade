@@ -9,6 +9,7 @@ from audio_engine import (
     font_index_change,
     joystick_bend_fraction,
     midi_note,
+    midi_to_freq,
     pitch_bend_value,
     pot_volume_fraction,
     rocker_accidental,
@@ -27,6 +28,18 @@ def test_c4_is_midi_60():
 
 def test_a4_is_midi_69_the_440hz_reference():
     assert midi_note("A", octave=4) == 69
+
+
+def test_midi_69_is_440hz():
+    assert midi_to_freq(69) == pytest.approx(440.0)
+
+
+def test_midi_to_freq_one_octave_up_doubles():
+    assert midi_to_freq(69 + 12) == pytest.approx(880.0)
+
+
+def test_midi_to_freq_one_octave_down_halves():
+    assert midi_to_freq(69 - 12) == pytest.approx(220.0)
 
 
 def test_all_seven_letters_at_octave_4():

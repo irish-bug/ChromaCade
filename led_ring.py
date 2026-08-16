@@ -19,8 +19,17 @@ import board
 import neopixel
 
 NOTE_COLORS = {
+    # C/D confusion flagged live 2026-08-15. First attempt added a
+    # blue tint to C to cool it away from orange -- overcorrected,
+    # flagged live as now reading too close to B/pink instead (blue
+    # pushes red toward magenta fast, even in small amounts). Reverted
+    # C to pure (255,0,0) and fixed it from the other side instead: D
+    # was only 45/255 (18%) green, barely past red at all, more
+    # "red-orange" than orange. Bumped to 100/255 (~39%), closer to
+    # the midpoint between C's 0 and E's 170 -- a clearer, more
+    # distinct orange, further from both red and E's yellow-orange.
     "C": (255, 0, 0),
-    "D": (255, 45, 0),
+    "D": (255, 100, 0),
     "E": (255, 170, 0),
     "F": (0, 200, 0),
     "G": (0, 100, 255),
@@ -41,10 +50,15 @@ class LedRing:
             pixel_order=neopixel.GRB,
         )
 
-    def show(self, letter):
-        self.pixels.fill(NOTE_COLORS[letter])
+    def fill(self, color):
+        """Arbitrary-color fill, not tied to NOTE_COLORS -- for things
+        like tutor_mode.py's completion celebration flash, which isn't
+        a note cue."""
+        self.pixels.fill(color)
         self.pixels.show()
 
+    def show(self, letter):
+        self.fill(NOTE_COLORS[letter])
+
     def clear(self):
-        self.pixels.fill((0, 0, 0))
-        self.pixels.show()
+        self.fill((0, 0, 0))

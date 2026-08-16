@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChromaCade Parental Settings</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    max-width: 38rem;
+    margin: 3rem auto;
+    padding: 0 1.5rem 4rem;
+    line-height: 1.55;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
+  h3 { font-size: 1rem; margin-top: 1.5rem; }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 1rem;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .soon {
+    display: inline-block;
+    padding: 0.05rem 0.5rem;
+    border-radius: 0.8rem;
+    background: #dbeafe;
+    color: #1e40af;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.3rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+  td, th { text-align: left; padding: 0.3rem 0.6rem 0.3rem 0; border-bottom: 1px solid #8883; font-size: 0.95rem; }
+  .swatch { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 50%; margin-right: 0.4rem; vertical-align: -1px; border: 1px solid #8888; }
+  code { background: #8882; padding: 0.1rem 0.35rem; border-radius: 0.3rem; font-size: 0.9em; }
+  ul, ol { padding-left: 1.3rem; }
+  li { margin: 0.3rem 0; }
+</style>
+</head>
+<body>
+
+<h1>ChromaCade <span class="badge">Parent's Guide</span></h1>
+<p>
+  ChromaCade is a teaching instrument, not a toy piano. Every control is built around
+  helping a small child learn note names, octave equivalence (the same note sounds
+  "the same," just higher or lower), and that sharp/flat are <em>modifications</em> to
+  a note, not different notes entirely. This page explains what everything does.
+</p>
+
+<h2>Explore Mode</h2>
+<p>
+  This is the mode ChromaCade starts in. Press any of the 7 rainbow note buttons to
+  play a note -- the LED ring lights up in that note's color, and more than one button
+  can be held at once for a chord.
+</p>
+
+<h3>The note buttons</h3>
+<table>
+  <tr><th></th><th>Letter</th><th>Color</th></tr>
+  <tr><td><span class="swatch" style="background:#ff0000"></span></td><td>C</td><td>Red</td></tr>
+  <tr><td><span class="swatch" style="background:#ff6400"></span></td><td>D</td><td>Orange</td></tr>
+  <tr><td><span class="swatch" style="background:#ffaa00"></span></td><td>E</td><td>Yellow-orange</td></tr>
+  <tr><td><span class="swatch" style="background:#00c800"></span></td><td>F</td><td>Green</td></tr>
+  <tr><td><span class="swatch" style="background:#0064ff"></span></td><td>G</td><td>Blue</td></tr>
+  <tr><td><span class="swatch" style="background:#3c00ff"></span></td><td>A</td><td>Violet</td></tr>
+  <tr><td><span class="swatch" style="background:#ff1493"></span></td><td>B</td><td>Pink</td></tr>
+</table>
+<p>Left to right on the panel, they run low to high: C, D, E, F, G, A, B.</p>
+
+<h3>The other controls</h3>
+<ul>
+  <li>
+    <strong>Flat / Natural / Sharp rocker switch</strong> (far left) -- a 3-position
+    switch that shifts whatever note(s) are currently held. It's global: it applies to
+    everything held at once, not one note at a time.
+  </li>
+  <li>
+    <strong>Octave encoder</strong> (far left, next to the rocker) -- turn to shift
+    everything held up or down a full octave. ChromaCade covers a full
+    <strong>8 octaves</strong> (C0 through C8) -- the entire practical range of a
+    full-size piano.
+  </li>
+  <li>
+    <strong>Font/voice encoder</strong> (far right) -- turn to cycle through
+    instrument sounds. Currently: Organ (the default), Piano, Toy Piano, Ocarina,
+    Steel Drums, Melodic Tom, Violin, Overdrive, Xylophone, Glockenspiel, and Synth.
+    <span class="soon">Adding your own instrument sounds through this page: coming soon</span>
+  </li>
+  <li>
+    <strong>Pitch-bend joystick</strong> (far right, next to the font encoder) -- push
+    to bend the pitch of whatever's held, up to 4 semitones either direction. It
+    springs back to center (and the pitch snaps back) on release. This is the "sharp/
+    flat is a modification, not a different note" idea made physical and audible.
+  </li>
+  <li>
+    <strong>Volume knob</strong> (side panel) -- placed somewhere deliberately a
+    little less convenient to reach, so it's not something that gets bumped constantly
+    mid-play.
+  </li>
+</ul>
+
+<h3>The OLED screen</h3>
+<p>While a note is held, the little screen shows:</p>
+<ul>
+  <li>The note name and any sharp/flat, in large text</li>
+  <li>The current instrument voice</li>
+  <li>
+    The note's frequency in Hz, and separately, how much the pitch-bend joystick is
+    currently shifting it -- shown as its own +/- number rather than folded into the
+    main frequency, so it's clear the bend is modifying the note, not replacing it
+  </li>
+  <li>Current volume, as a percentage</li>
+</ul>
+
+<h2>Switching modes</h2>
+<p>
+  Getting into the menu is deliberately a two-handed, can't-do-it-by-accident gesture
+  -- a toddler sustaining a single held note (completely normal play) won't
+  accidentally trigger it.
+</p>
+<ol>
+  <li>
+    Press and hold <strong>both</strong> encoder push-buttons at once (push straight
+    down on the octave encoder <em>and</em> the font encoder, at the same time -- one
+    hand on each end of the shelf).
+  </li>
+  <li>
+    While still holding both, also press and hold the <strong>B</strong> button (to
+    enter the menu) for about 1.5 seconds. The screen switches to a menu view.
+  </li>
+  <li><strong>Turn the font encoder</strong> to move between options.</li>
+  <li><strong>Click the font encoder's button</strong> (a quick press, not a hold) to select.</li>
+  <li>
+    To back out of the menu -- or to bail out of a Tutor/Simon session entirely and
+    return to Explore -- do the same combo, but hold <strong>C</strong> instead of B.
+  </li>
+</ol>
+<p>The menu has three options: <strong>Explore</strong>, <strong>Tutor</strong>, and <strong>Simon</strong>.</p>
+
+<h2>Tutor Mode</h2>
+<p>
+  Tutor mode teaches a specific song. Pick one from the menu, and:
+</p>
+<ol>
+  <li>
+    ChromaCade plays the whole song once by itself -- notes sound through the
+    speaker, and the LED ring lights up in each note's color as it plays, so your
+    child can watch and listen before trying.
+  </li>
+  <li>
+    Then it's their turn: the ring lights up the color of the next note in the song,
+    and waits -- no timer, no rush -- for them to press the matching button, in any
+    octave.
+  </li>
+</ol>
+<p>
+  A wrong press is never a penalty -- it just doesn't advance. The correct color
+  stays lit, there's a gentle sound and light cue, and they try again. Finishing the
+  whole song triggers a little light-and-sound celebration.
+</p>
+<p class="soon" style="display:block; margin-top:0.5rem;">
+  Adding your own songs through this page: coming soon!
+</p>
+
+<h2>Simon Mode</h2>
+<p>
+  Simon mode is the classic memory game: watch a sequence, then repeat it back. It
+  starts with just one note, and grows by one more note every time your child gets a
+  full round right. A wrong press resets back to round one (unlike Tutor mode, Simon
+  is meant to test recall, not just teach) -- but the very next thing that happens is
+  simply starting over, no scolding, no dead end.
+</p>
+<p>You can pick where the sequence comes from:</p>
+<ul>
+  <li><strong>Random</strong> -- the classic version. A fresh random note gets added each round, and it never ends.</li>
+  <li>
+    <strong>A famous number</strong> (like Pi) -- each digit maps to a note (0=C, 1=D,
+    2=E, 3=F, 4=G, 5=A, 6=B, then it wraps: 7=C, 8=D, 9=E). Reaching the end of the
+    number's digits is a real win, with the full celebration.
+  </li>
+  <li>
+    <strong>Any Tutor song</strong> -- instead of showing you the whole tune at once
+    like Tutor mode does, Simon reveals it one note at a time as you clear each round,
+    so it plays out as a growing memory challenge instead of a follow-along lesson.
+  </li>
+</ul>
+<p class="soon" style="display:block;">
+  Every song added to Tutor mode automatically becomes available here too --
+  there's nothing separate to add for Simon mode.
+</p>
+
+<h2>Power User Notes</h2>
+<p>
+  For anyone comfortable getting into the device itself, not just this page:
+</p>
+<ul>
+  <li>
+    <strong>Remote access:</strong> this device runs
+    <a href="https://connect.raspberrypi.com">Raspberry Pi Connect</a>, which gives
+    remote shell access from anywhere -- not just this WiFi. Sign in with the
+    Raspberry Pi ID account it's linked to.
+  </li>
+  <li>
+    <strong>Source code:</strong> everything -- firmware, enclosure CAD, hardware
+    docs, even this page -- lives at
+    <a href="https://github.com/irish-bug/ChromaCade">github.com/irish-bug/ChromaCade</a>.
+  </li>
+  <li>
+    <strong>Working with an AI coding agent</strong> (Claude Code, or another agent
+    of your choice): the repo has a <code>CLAUDE.md</code> at its root with
+    everything an agent needs to get oriented -- architecture, conventions, what's
+    already been tried and rejected, current hardware state. Clone the repo and start
+    your agent from inside that directory, e.g.:
+    <br><code>git clone git@github.com:irish-bug/ChromaCade.git &amp;&amp; cd ChromaCade &amp;&amp; claude</code>
+    <br>
+    Claude Code (and most similar tools) automatically read a project's
+    <code>CLAUDE.md</code> as context -- no extra flag needed. Working directly on
+    the device over SSH instead? Point your agent at <code>/home/shane/ChromaCade</code>
+    the same way.
+  </li>
+  <li>
+    <strong>Deploying a change:</strong> the app runs as a systemd service
+    (<code>chromacade.service</code>), not a script you launch by hand. After pulling
+    new code, run <code>sudo systemctl restart chromacade.service</code> for it to
+    take effect.
+  </li>
+</ul>
+
+</body>
+</html>

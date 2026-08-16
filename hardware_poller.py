@@ -1,9 +1,9 @@
 """
 ChromaCade -- hardware polling layer, GPIO controls -> callbacks.
 
-Current scope: note buttons, the octave encoder, the flat/sharp rocker,
-the pitch-bend joystick, the volume pot, and the font encoder's
-rotation (its push-button is NOT wired here -- see module note below).
+Current scope: note buttons (including the menu-gesture long-press on
+the two edge buttons), both encoders' rotation and push-buttons, the
+flat/sharp rocker, the pitch-bend joystick, and the volume pot.
 
 Uses gpiozero throughout for digital controls, not raw RPi.GPIO --
 proven reliable during this build's control bring-up
@@ -16,12 +16,21 @@ callbacks. One thread, not two, deliberately: they're on the same I2C
 bus, and I2C isn't safe for two threads to hit concurrently without a
 lock, so both channels are read from the same loop each cycle instead.
 
-The font encoder's push-button (GPIO7) is deliberately left unread --
-its behavior is still an open, undesigned question (overloaded as a
-play-mode modifier vs. a menu-mode click, needs an explicit state
-machine -- see open-questions.md). Wiring it in now would mean
-inventing behavior that isn't decided yet, so it's left for whenever
-that design actually happens.
+Font encoder push-button (GPIO7) and octave encoder push-button
+(GPIO8) are both wired now (2026-08-15) -- control-layout.md's menu
+grammar: hold *both* encoder push-buttons together, then long-press
+an edge note button (C=exit, B=enter) for ~1.5s. This is a corrected/
+hardened version of the original design (which paired the font button
+alone with a note-button long-press) -- a note-button long-press alone
+isn't actually a rare, deliberate signal, since sustaining a single
+held note is completely normal all-day play. Requiring both encoder
+push-buttons too (one on each end of the shelf, per control-layout.md,
+so inherently two-handed) makes accidental menu entry during normal
+play vanishingly unlikely. See chromacade.py for how on_menu_enter/
+on_menu_exit get used, and control-layout.md for the corrected
+gesture writeup (was previously A/G, the old alphabetical labeling's
+edge buttons -- C/B are the edges under the current C-D-E-F-G-A-B
+labeling).
 
 Not unit tested -- this logic needs real hardware to validate
 meaningfully rather than mocking GPIO/I2C. audio_engine.py's note math
@@ -65,6 +74,7 @@ BOUNCE_TIME = 0.02
 
 OCTAVE_ENC_A = 5
 OCTAVE_ENC_B = 6
+OCTAVE_BTN_PIN = 8
 
 # How long a gesture stays "active" (absorbing further clicks) after
 # the last rotation before the next turn is allowed to fire again --
@@ -79,7 +89,21 @@ SHARP_PIN = 24
 
 FONT_ENC_A = 26
 FONT_ENC_B = 16
-# FONT_BTN = 7 -- deliberately unused, see module docstring
+FONT_BTN_PIN = 7
+
+# Menu enter/exit gesture -- see module docstring and control-layout.md.
+# C (physical left edge) = exit, B (physical right edge) = enter, per
+# the original design's "bookend/edge button" reasoning, corrected for
+# the current C-D-E-F-G-A-B labeling (A/G are no longer the edges).
+MENU_GESTURE_LETTERS = {"C": "exit", "B": "enter"}
+MENU_GESTURE_HOLD_SECONDS = 1.5  # control-layout.md's "~1.5s"
+
+# Short click of the font button alone (no long-press, no gesture)
+# selects a highlighted menu option -- control-layout.md's "Select a
+# highlighted option: short click of the font encoder's push-button".
+# Comfortably below MENU_GESTURE_HOLD_SECONDS so a real gesture
+# in-progress is never misread as a click on release.
+FONT_CLICK_MAX_SECONDS = 0.5
 
 ADS1115_ADDRESS = 0x48
 # Plain ints, not ADS.P0/P1 -- see testing/ads1115_test.py for why
@@ -113,10 +137,31 @@ class HardwarePoller:
         on_pitch_bend,
         on_volume_change,
         on_font_change,
+        on_font_click=None,
+        on_menu_enter=None,
+        on_menu_exit=None,
     ):
+        # New 2026-08-15, all optional/default-None so existing callers
+        # (play.py, tutor_mode.py) don't need to change -- they just get
+        # no menu-gesture/click behavior, same as before this existed.
+        self.on_font_click = on_font_click
+        self.on_menu_enter = on_menu_enter
+        self.on_menu_exit = on_menu_exit
+        self._font_press_time = None
+
         self.buttons = {}
         for letter, pin in NOTE_PINS.items():
-            btn = Button(pin, pull_up=True, bounce_time=BOUNCE_TIME)
+            if letter in MENU_GESTURE_LETTERS:
+                btn = Button(
+                    pin,
+                    pull_up=True,
+                    bounce_time=BOUNCE_TIME,
+                    hold_time=MENU_GESTURE_HOLD_SECONDS,
+                    hold_repeat=False,
+                )
+                btn.when_held = self._bind(letter, self._check_menu_gesture)
+            else:
+                btn = Button(pin, pull_up=True, bounce_time=BOUNCE_TIME)
             btn.when_pressed = self._bind(letter, on_note_on)
             btn.when_released = self._bind(letter, on_note_off)
             self.buttons[letter] = btn
@@ -131,6 +176,24 @@ class HardwarePoller:
         # rest of the app only ever deals in physical/intended direction.
         self.octave_encoder.when_rotated_clockwise = lambda: self._record_rotation("ccw")
         self.octave_encoder.when_rotated_counter_clockwise = lambda: self._record_rotation("cw")
+
+        # Octave encoder's own push-button -- previously wired for
+        # rotation only (open-questions.md flagged its click as having
+        # "no assigned function"). That's resolved now: it's one of the
+        # two required holds for the menu enter/exit gesture (see
+        # MENU_GESTURE_LETTERS/_check_menu_gesture below and module
+        # docstring) -- not read for any other purpose yet.
+        self.octave_button = Button(OCTAVE_BTN_PIN, pull_up=True, bounce_time=BOUNCE_TIME)
+
+        # Font encoder's push-button -- previously entirely unwired.
+        # Two behaviors: short click -> on_font_click (menu select),
+        # and it's the other required hold for the menu gesture (see
+        # _check_menu_gesture). No hold_time/when_held of its own --
+        # timing is driven by the note buttons' when_held instead, this
+        # is just a press/release timestamp for the short-click check.
+        self.font_button = Button(FONT_BTN_PIN, pull_up=True, bounce_time=BOUNCE_TIME)
+        self.font_button.when_pressed = self._on_font_button_pressed
+        self.font_button.when_released = self._on_font_button_released
 
         self.on_accidental_change = on_accidental_change
         self.flat_button = Button(FLAT_PIN, pull_up=True, bounce_time=BOUNCE_TIME)
@@ -166,6 +229,33 @@ class HardwarePoller:
             callback(letter)
 
         return handler
+
+    def _check_menu_gesture(self, letter):
+        """Fires when C or B has been held MENU_GESTURE_HOLD_SECONDS --
+        only counts as the menu gesture if both encoder push-buttons are
+        ALSO down at that instant (see module docstring for why a
+        note-button hold alone isn't a safe/rare-enough signal). This
+        checks a point in time, not that both were held for the full
+        duration -- an approximation, same rigor level as this
+        project's other debounce/gesture logic; tune if it misfires."""
+        if not (self.font_button.is_pressed and self.octave_button.is_pressed):
+            return
+        direction = MENU_GESTURE_LETTERS[letter]
+        if direction == "enter" and self.on_menu_enter:
+            self.on_menu_enter()
+        elif direction == "exit" and self.on_menu_exit:
+            self.on_menu_exit()
+
+    def _on_font_button_pressed(self):
+        self._font_press_time = time.monotonic()
+
+    def _on_font_button_released(self):
+        if self._font_press_time is None:
+            return
+        held_seconds = time.monotonic() - self._font_press_time
+        self._font_press_time = None
+        if held_seconds < FONT_CLICK_MAX_SECONDS and self.on_font_click:
+            self.on_font_click()
 
     def _record_rotation(self, direction):
         delta = self._octave_gesture.rotate(direction)

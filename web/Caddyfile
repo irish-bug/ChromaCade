@@ -1,0 +1,4 @@
+:80 {
+	root * /home/shane/ChromaCade/web
+	file_server
+}
