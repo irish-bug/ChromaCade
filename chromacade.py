@@ -119,6 +119,9 @@ ACCIDENTAL_SYMBOLS = {-1: "b", 0: "", 1: "#"}
 SIMON_SOURCES = ["Random"] + list(FAMOUS_NUMBERS.keys()) + list(SONGS.keys())
 SIMON_NOTE_SECONDS = 0.5
 SIMON_GAP_SECONDS = 0.2
+SIMON_MISS_FLASH_SECONDS = 0.15
+SIMON_MISS_FLASH_COUNT = 2
+SIMON_ROUND_COMPLETE_DELAY_SECONDS = 1.0  # pause before the next round starts, requested 2026-08-15
 
 
 def resolve_simon_source(source_name):
@@ -256,14 +259,23 @@ def main():
         strip.clear()
 
     def simon_miss_feedback():
-        """Strip-only red flash + nope.wav, same as Tutor's
-        miss_feedback() -- but deliberately WITHOUT its "flash the
-        correct color after" step, which would reveal the answer and
-        defeat a memory game's whole purpose."""
+        """Double-flash red, ring alternating with strip, plus
+        nope.wav -- requested 2026-08-15 to replace the original
+        strip-only single flash (borrowed from Tutor's miss_feedback())
+        with something more distinct for Simon's harder-edged
+        "wrong, start over" moment. Deliberately doesn't flash the
+        correct color after (unlike Tutor's cue) -- revealing the
+        answer would defeat a memory game's purpose."""
         play_nope_sound()
-        strip.fill(MISS_COLOR)
-        time.sleep(MISS_FLASH_SECONDS)
-        strip.clear()
+        for _ in range(SIMON_MISS_FLASH_COUNT):
+            ring.fill(MISS_COLOR)
+            time.sleep(SIMON_MISS_FLASH_SECONDS)
+            ring.clear()
+            time.sleep(SIMON_MISS_FLASH_SECONDS)
+            strip.fill(MISS_COLOR)
+            time.sleep(SIMON_MISS_FLASH_SECONDS)
+            strip.clear()
+            time.sleep(SIMON_MISS_FLASH_SECONDS)
 
     def finish_simon():
         session = simon["session"]
@@ -284,7 +296,12 @@ def main():
         to start a game and after every correct round (and after a
         reset following a wrong press) -- see module docstring's
         assumptions list for why a miss auto-restarts immediately
-        rather than needing a menu trip."""
+        rather than needing a menu trip. all_notes_off() up front
+        guards against the note that was just pressed to trigger this
+        (still technically "on" until its button release fires,
+        possibly delayed behind this very call) bleeding into the
+        demo -- same class of fix as menu_enter()'s stuck-note bug."""
+        audio.all_notes_off()
         app["state"] = "simon_demo"
         session = simon["session"]
         oled.show_lines([f"Round {session.round_number}", "Watch..."])
@@ -320,6 +337,7 @@ def main():
         elif state == "simon_active":
             session = simon["session"]
             audio.note_on(letter)
+            ring.show(letter)  # requested 2026-08-15 -- press feedback, same as Play/Tutor
             result = session.press(letter)
             if result == "wrong":
                 print(f"SIMON   wrong (pressed {letter}, wanted {session.sequence[session.input_index]})")
@@ -330,6 +348,9 @@ def main():
                 print(f"SIMON   {letter} ok")
             elif result == "round_complete":
                 print(f"SIMON   round {session.round_number - 1} complete!")
+                # Requested 2026-08-15 -- a beat before the next round
+                # starts, rather than snapping straight into it.
+                time.sleep(SIMON_ROUND_COMPLETE_DELAY_SECONDS)
                 play_simon_round()
             elif result == "complete":
                 finish_simon()
@@ -344,8 +365,17 @@ def main():
                 held.remove(letter)
             update_ring()
             update_play_oled(force=True)
-        elif state in ("tutor_active", "simon_active"):
+        elif state == "tutor_active":
             audio.note_off(letter)
+        elif state == "simon_active":
+            audio.note_off(letter)
+            # `state` was captured at the top of this call, so a
+            # release delayed behind a blocking play_simon_round()
+            # (started by this same press) will see whatever state is
+            # current BY THEN, not "simon_active" -- naturally skips
+            # this ring.clear() rather than clobbering the next
+            # round's demo animation.
+            ring.clear()
 
     def octave_change(delta):
         if app["state"] in ("play", "tutor_active", "simon_active"):
