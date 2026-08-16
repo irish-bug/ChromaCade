@@ -80,21 +80,40 @@ class Menu:
             return None
         return ("tutor", self.highlighted_song)
 
-    def display_lines(self):
+    def display_lines(self, max_lines=5):
         """Plain text lines for the OLED to render verbatim -- kept
         here (not in oled_display.py) so the *content* is testable
         without touching Pillow/hardware. oled_display.py owns pixel
-        placement/fonts, not word choice."""
+        placement/fonts, not word choice.
+
+        max_lines default (5) matches oled_display.py's actual
+        capacity (HEIGHT // LINE_HEIGHT) -- kept as a plain int here
+        rather than importing that constant, since menu.py must stay
+        importable without Pillow/board/hardware libs (see
+        test_menu.py, which runs with no hardware present at all).
+        Keep these two "5"s in sync by hand if either changes.
+
+        Scrolls to keep the highlighted item visible -- confirmed live
+        2026-08-15 that returning every item unconditionally silently
+        truncated the song list on-screen once it grew past what fits
+        (5 songs + a header line is 6 lines, only 5 render), which
+        looked like a missing song rather than a display bug."""
         if not self.active:
             return []
         if self.stage == "mode":
-            lines = ["Select mode:"]
-            for i, mode in enumerate(MODES):
-                marker = ">" if i == self.mode_index else " "
-                lines.append(f"{marker} {mode}")
-            return lines
-        lines = ["Select song:"]
-        for i, song in enumerate(self.songs):
-            marker = ">" if i == self.song_index else " "
-            lines.append(f"{marker} {song}")
+            header, items, index = "Select mode:", MODES, self.mode_index
+        else:
+            header, items, index = "Select song:", self.songs, self.song_index
+
+        visible_count = max_lines - 1  # header takes one line
+        if len(items) <= visible_count:
+            window_start = 0
+        else:
+            window_start = min(max(0, index - visible_count // 2), len(items) - visible_count)
+        window = items[window_start : window_start + visible_count]
+
+        lines = [header]
+        for i, item in enumerate(window, start=window_start):
+            marker = ">" if i == index else " "
+            lines.append(f"{marker} {item}")
         return lines

@@ -116,3 +116,52 @@ def test_display_lines_marks_highlighted_song():
 def test_empty_songs_rejected():
     with pytest.raises(ValueError):
         Menu([])
+
+
+# Regression coverage for the truncated-song-list bug (2026-08-15): 5
+# songs + a header line is 6 lines, but the OLED only renders 5 --
+# display_lines() must scroll rather than silently drop the tail.
+FIVE_SONGS = ["A", "B", "C", "D", "E"]
+
+
+def test_display_lines_caps_at_max_lines():
+    menu = Menu(FIVE_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    lines = menu.display_lines(max_lines=5)
+    assert len(lines) <= 5
+
+
+def test_display_lines_keeps_selection_visible_when_scrolled_to_the_end():
+    menu = Menu(FIVE_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    for _ in range(len(FIVE_SONGS) - 1):
+        menu.rotate(1)
+    assert menu.highlighted_song == "E"
+    lines = menu.display_lines(max_lines=5)
+    assert any(line.startswith(">") and "E" in line for line in lines)
+
+
+def test_display_lines_every_song_reachable_via_scroll():
+    menu = Menu(FIVE_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    for song in FIVE_SONGS:
+        lines = menu.display_lines(max_lines=5)
+        assert any(line.startswith(">") and song in line for line in lines), (
+            f"{song} not visible when highlighted: {lines}"
+        )
+        menu.rotate(1)
+
+
+def test_display_lines_short_list_unaffected_by_scroll_logic():
+    menu = Menu(SONGS)  # only 2 songs, module-level fixture
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    lines = menu.display_lines(max_lines=5)
+    assert len(lines) == 1 + len(SONGS)  # header + both songs, nothing cut
