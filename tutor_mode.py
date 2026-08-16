@@ -61,7 +61,6 @@ normally exits on its own, see module docstring.
 """
 
 import argparse
-import os
 import subprocess
 import sys
 import threading
@@ -101,24 +100,32 @@ def celebrate(ring, strip):
 # a flash of the correct color as a "here's what you want" reminder.
 MISS_COLOR = (255, 0, 0)
 MISS_FLASH_SECONDS = 0.2
-NOPE_SOUND_PATH = os.path.expanduser("~/ChromaCade/nope.wav")
+# Hardcoded absolute path, not os.path.expanduser("~/...") -- this
+# script always runs under sudo (LED PWM/DMA needs root, see module
+# docstring), and sudo commonly resets HOME to /root, so "~" silently
+# resolved to /root/ChromaCade/nope.wav (nonexistent) instead of
+# /home/shane/ChromaCade/nope.wav. Confirmed live 2026-08-15 -- the
+# miss-flash ran fine but no sound, because aplay failed to find the
+# file and its stderr was (at the time) suppressed. Same reason
+# boot_chime.sh already hardcodes its own wav path rather than using
+# "~" -- should've followed that convention from the start.
+NOPE_SOUND_PATH = "/home/shane/ChromaCade/nope.wav"
 
 
 def play_nope_sound():
     """Fire-and-forget -- non-blocking so the flash below isn't stuck
     waiting on it, and a missing/failed file doesn't crash the game
-    (aplay just exits non-zero into DEVNULL). No -D device override,
-    unlike boot_chime.sh's aplay call: that one plays before anything
-    else has the audio device open, but ChromaCadeAudio holds ALSA's
-    dmix-backed `default` PCM open for the whole life of this script,
-    and dmix is specifically what lets a second aplay process share
-    the device concurrently -- targeting plughw directly here would
-    likely fail with "device busy" while a note's sounding."""
-    subprocess.Popen(
-        ["aplay", NOPE_SOUND_PATH],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    (aplay just exits non-zero). stdout is suppressed (aplay's normal
+    "Playing WAVE..." line is just noise), but stderr is left to
+    surface normally -- suppressing it once already hid a real bug
+    (see NOPE_SOUND_PATH above), not worth repeating. No -D device
+    override, unlike boot_chime.sh's aplay call: that one plays before
+    anything else has the audio device open, but ChromaCadeAudio holds
+    ALSA's dmix-backed `default` PCM open for the whole life of this
+    script, and dmix is specifically what lets a second aplay process
+    share the device concurrently -- targeting plughw directly here
+    would likely fail with "device busy" while a note's sounding."""
+    subprocess.Popen(["aplay", NOPE_SOUND_PATH], stdout=subprocess.DEVNULL)
 
 
 def miss_feedback(strip, target_letter):
