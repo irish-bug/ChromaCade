@@ -5,7 +5,12 @@ After=sound.target
 [Service]
 Type=oneshot
 ExecStart=/home/shane/ChromaCade/audio/boot_chime.sh
-User=shane
+# Root, not shane (changed 2026-08-16) -- chromacade.service (added
+# today) runs as root and creates the shared dmix IPC semaphore first;
+# a different user (shane) then can't access it ("unable to create IPC
+# semaphore" / "Permission denied", confirmed live). Matching the user
+# sidesteps the cross-user dmix permission clash entirely.
+User=root
 
 [Install]
 WantedBy=multi-user.target
