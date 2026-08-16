@@ -19,7 +19,7 @@ question: no, not in this version -- select() starts the song/Simon
 game immediately, no snippet playback before confirming.
 """
 
-MODES = ["Play", "Tutor", "Simon"]
+MODES = ["Explore", "Tutor", "Simon"]  # "Play" renamed 2026-08-16 -- see parental web page
 
 
 class Menu:
@@ -85,8 +85,8 @@ class Menu:
         if not self.active:
             return None
         if self.stage == "mode":
-            if self.highlighted_mode == "Play":
-                return ("play",)
+            if self.highlighted_mode == "Explore":
+                return ("play",)  # internal result identifier unchanged, only the display name is "Explore" now
             if self.highlighted_mode == "Tutor":
                 self.stage = "song"
                 self.song_index = 0

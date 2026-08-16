@@ -30,13 +30,13 @@ def test_exit_deactivates():
 def test_rotate_wraps_mode_selection():
     menu = Menu(SONGS, SIMON_SOURCES)
     menu.enter()
-    assert MODES == ["Play", "Tutor", "Simon"]
+    assert MODES == ["Explore", "Tutor", "Simon"]
     menu.rotate(1)
     assert menu.highlighted_mode == "Tutor"
     menu.rotate(1)
     assert menu.highlighted_mode == "Simon"
     menu.rotate(1)
-    assert menu.highlighted_mode == "Play"  # wrapped
+    assert menu.highlighted_mode == "Explore"  # wrapped
 
 
 def test_rotate_before_entering_is_noop():
@@ -48,7 +48,7 @@ def test_rotate_before_entering_is_noop():
 def test_select_play_returns_play_result():
     menu = Menu(SONGS, SIMON_SOURCES)
     menu.enter()
-    assert menu.highlighted_mode == "Play"
+    assert menu.highlighted_mode == "Explore"
     result = menu.select()
     assert result == ("play",)
 
