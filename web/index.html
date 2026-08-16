@@ -195,5 +195,42 @@
   there's nothing separate to add for Simon mode.
 </p>
 
+<h2>Power User Notes</h2>
+<p>
+  For anyone comfortable getting into the device itself, not just this page:
+</p>
+<ul>
+  <li>
+    <strong>Remote access:</strong> this device runs
+    <a href="https://connect.raspberrypi.com">Raspberry Pi Connect</a>, which gives
+    remote shell access from anywhere -- not just this WiFi. Sign in with the
+    Raspberry Pi ID account it's linked to.
+  </li>
+  <li>
+    <strong>Source code:</strong> everything -- firmware, enclosure CAD, hardware
+    docs, even this page -- lives at
+    <a href="https://github.com/irish-bug/ChromaCade">github.com/irish-bug/ChromaCade</a>.
+  </li>
+  <li>
+    <strong>Working with an AI coding agent</strong> (Claude Code, or another agent
+    of your choice): the repo has a <code>CLAUDE.md</code> at its root with
+    everything an agent needs to get oriented -- architecture, conventions, what's
+    already been tried and rejected, current hardware state. Clone the repo and start
+    your agent from inside that directory, e.g.:
+    <br><code>git clone git@github.com:irish-bug/ChromaCade.git &amp;&amp; cd ChromaCade &amp;&amp; claude</code>
+    <br>
+    Claude Code (and most similar tools) automatically read a project's
+    <code>CLAUDE.md</code> as context -- no extra flag needed. Working directly on
+    the device over SSH instead? Point your agent at <code>/home/shane/ChromaCade</code>
+    the same way.
+  </li>
+  <li>
+    <strong>Deploying a change:</strong> the app runs as a systemd service
+    (<code>chromacade.service</code>), not a script you launch by hand. After pulling
+    new code, run <code>sudo systemctl restart chromacade.service</code> for it to
+    take effect.
+  </li>
+</ul>
+
 </body>
 </html>
