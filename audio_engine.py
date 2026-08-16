@@ -19,6 +19,8 @@ built. Once the curated font list and font-encoder switching land
 one encoder click away.
 """
 
+import threading
+
 try:
     import fluidsynth
 except ImportError:
@@ -251,6 +253,23 @@ class ChromaCadeAudio:
                 "pyfluidsynth not installed -- pip3 install pyfluidsynth --break-system-packages"
             )
 
+        # FluidSynth's C API isn't guaranteed safe for concurrent calls
+        # from multiple threads -- this project calls into it from at
+        # least three: gpiozero's button/encoder callback path (note
+        # presses, octave, rocker, font), hardware_poller.py's
+        # dedicated ADS1115 polling thread (~50Hz continuously, for
+        # pitch-bend/volume), and any blocking sequence
+        # (celebrate()/play_demo()/etc) that itself runs inside one of
+        # those callback threads. Confirmed live 2026-08-16: a real
+        # heap corruption crash ("free(): invalid next size (fast)")
+        # during heavy rapid button-mashing + back-to-back font
+        # changes -- exactly the kind of concurrent-access window this
+        # lock closes. RLock, not Lock: note_on() calls self.note_off()
+        # internally, and font_change()/octave_change()/
+        # accidental_change() all call _retrigger_held() -- a plain
+        # Lock would deadlock on that same-thread re-entry.
+        self._lock = threading.RLock()
+
         self.fs = fluidsynth.Synth()
         self.fs.setting("audio.driver", "alsa")
         self.fs.setting("synth.gain", gain)
@@ -275,16 +294,18 @@ class ChromaCadeAudio:
         self.playing = {}  # letter -> midi note currently sounding
 
     def note_on(self, letter):
-        if letter in self.playing:
-            self.note_off(letter)
-        note = midi_note(letter, self.octave, self.accidental)
-        self.fs.noteon(0, note, NOTE_VELOCITY)
-        self.playing[letter] = note
+        with self._lock:
+            if letter in self.playing:
+                self.note_off(letter)
+            note = midi_note(letter, self.octave, self.accidental)
+            self.fs.noteon(0, note, NOTE_VELOCITY)
+            self.playing[letter] = note
 
     def note_off(self, letter):
-        if letter in self.playing:
-            self.fs.noteoff(0, self.playing[letter])
-            del self.playing[letter]
+        with self._lock:
+            if letter in self.playing:
+                self.fs.noteoff(0, self.playing[letter])
+                del self.playing[letter]
 
     def all_notes_off(self):
         """Stops everything currently sounding, regardless of how many
@@ -296,27 +317,31 @@ class ChromaCadeAudio:
         note releases. Confirmed live 2026-08-15: without this, the
         gesture's own note-button hold (B or C) left stuck sustaining
         after the gesture fired."""
-        for letter in list(self.playing):
-            self.note_off(letter)
+        with self._lock:
+            for letter in list(self.playing):
+                self.note_off(letter)
 
     def _retrigger_held(self):
         """Re-fires everything currently held at the current
         octave/accidental -- shared by octave_change() and
         accidental_change(), both of which apply globally to whatever's
         held (feature-spec.md), not just future presses."""
-        for letter, old_note in list(self.playing.items()):
-            self.fs.noteoff(0, old_note)
-            new_note = midi_note(letter, self.octave, self.accidental)
-            self.fs.noteon(0, new_note, NOTE_VELOCITY)
-            self.playing[letter] = new_note
+        with self._lock:
+            for letter, old_note in list(self.playing.items()):
+                self.fs.noteoff(0, old_note)
+                new_note = midi_note(letter, self.octave, self.accidental)
+                self.fs.noteon(0, new_note, NOTE_VELOCITY)
+                self.playing[letter] = new_note
 
     def octave_change(self, delta):
-        self.octave = clamp_octave(self.octave, delta)
-        self._retrigger_held()
+        with self._lock:
+            self.octave = clamp_octave(self.octave, delta)
+            self._retrigger_held()
 
     def accidental_change(self, accidental):
-        self.accidental = accidental
-        self._retrigger_held()
+        with self._lock:
+            self.accidental = accidental
+            self._retrigger_held()
 
     def font_change(self, delta):
         """Decided 2026-08-15 (was an open question): yes, this
@@ -324,10 +349,11 @@ class ChromaCadeAudio:
         -- hearing a held note's timbre change live is the same
         instructive, delightful pattern already established for the
         other controls, not just a "next press" effect."""
-        self.font_index = font_index_change(self.font_index, delta, len(FONTS))
-        program = FONTS[self.font_index][0]
-        self.fs.program_select(0, self.sfid, 0, program)
-        self._retrigger_held()
+        with self._lock:
+            self.font_index = font_index_change(self.font_index, delta, len(FONTS))
+            program = FONTS[self.font_index][0]
+            self.fs.program_select(0, self.sfid, 0, program)
+            self._retrigger_held()
 
     @property
     def font_name(self):
@@ -338,16 +364,19 @@ class ChromaCadeAudio:
         per-note -- since everything plays on channel 0, this already
         applies to whatever's currently held with no retrigger needed,
         same as the "applies globally" rule for octave/accidental."""
-        self.fs.pitch_bend(0, pitch_bend_value(bend_fraction))
+        with self._lock:
+            self.fs.pitch_bend(0, pitch_bend_value(bend_fraction))
 
     def set_volume(self, volume_fraction):
         """MIDI channel volume (CC7) -- same whole-channel-effect
         reasoning as set_pitch_bend(), no retrigger needed."""
-        self.fs.cc(0, 7, volume_midi_value(volume_fraction))
+        with self._lock:
+            self.fs.cc(0, 7, volume_midi_value(volume_fraction))
 
     def quit(self):
-        self.all_notes_off()
-        self.fs.delete()
+        with self._lock:
+            self.all_notes_off()
+            self.fs.delete()
 
 
 if __name__ == "__main__":
