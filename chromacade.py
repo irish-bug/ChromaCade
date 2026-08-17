@@ -21,11 +21,14 @@ selection (which nope/yay clip plays when) comes from sound_pools.py's
 build_pools() -- see that module's docstring for the four pools and
 their rules.
 
-Menu gesture (control-layout.md, corrected 2026-08-15 -- see
+Menu gesture (control-layout.md, simplified 2026-08-16 -- see
 hardware_poller.py's docstring for the full why): hold BOTH encoder
-push-buttons, then long-press C (exit) or B (enter) for ~1.5s. Cycle
-options: turn the font encoder (menu takes over that control's normal
-job while a menu is open). Select: short click of the font button.
+push-buttons together for ~1.5s -- no note button involved. One
+gesture toggles: opens the menu (from play, or from an active
+Tutor/Simon session, stopping it first) or closes it (from the menu,
+back to play). Cycle options: turn the font encoder (menu takes over
+that control's normal job while a menu is open). Select: short click
+of the font button.
 Nested menu (mode, then song/sequence within Tutor/Simon) -- see
 menu.py.
 
@@ -56,16 +59,28 @@ inline below too, this is the summary):
     top level rather than preserving deep navigation.
   - Finishing a Tutor song or a Simon game (after the celebration)
     returns to Play mode, not back into the menu's list.
-  - During Tutor's ~10s demo playback or a Simon round's playback, the
-    WHOLE control panel is unresponsive (not just note buttons) --
-    these run as blocking calls inside a button-callback thread, same
-    style already used by celebrate()/miss_feedback() elsewhere in
-    this codebase, and it's what tutor_mode.py's original (poller-
-    doesn't-exist-yet-during-demo) design already did in spirit. A
-    background thread would be more responsive but adds another
-    thread calling into FluidSynth concurrently -- exactly the class
-    of bug that caused the Ctrl+C segfault fixed earlier this session.
-    Kept it simple/blocking.
+  - Starting a song/sequence from the menu (start_tutor()/
+    start_simon(), triggered by the font button's short-click) still
+    blocks the control panel for its initial demo/first-round playback
+    -- same reasoning as before: simplest, and nothing else needs to
+    interrupt that specific moment.
+  - Everything note_on() can trigger during tutor_active/simon_active
+    (miss feedback, round-complete/celebration, the next round's demo
+    playback) now runs on a background thread instead of blocking
+    inline -- changed 2026-08-16 after the menu exit gesture (hold
+    both encoder buttons + long-press C) was confirmed unreliable
+    live. Root cause: C/B are real notes too, so pressing one to start
+    the exit gesture also fires a normal note_on() -> miss_feedback()
+    (or a round-complete/celebration) call, which used to block
+    inline for up to several seconds -- long enough to disrupt
+    gpiozero's own hold-timer for that same button's when_held
+    callback, since it runs through the same button object. Safe to
+    background now: ChromaCadeAudio's RLock (added earlier this
+    session for the concurrent-access heap corruption crash) already
+    serializes FluidSynth access from any thread, so this isn't a new
+    class of risk, just a new caller of an already-guarded resource.
+    Not yet re-verified live (needs real button presses) -- see
+    open-questions.md if this turns out not to be the whole story.
   - OLED refresh for continuous streams (pitch-bend, volume) is
     throttled to ~15Hz (OLED_THROTTLE_SECONDS) -- open-questions.md
     flagged this as unresolved ("suggested 10-20Hz, not tested"); 15Hz
@@ -93,6 +108,7 @@ Ctrl+C to quit.
 """
 
 import subprocess
+import threading
 import time
 from signal import pause
 
@@ -112,7 +128,7 @@ from tutor_mode import (
     miss_feedback,
     play_demo,
 )
-from tutor_songs import SCORES, SONGS, TutorSession
+from tutor_songs import PROMPTS, SCORES, SONGS, TutorSession
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 TUTOR_FONT_INDEX = next(i for i, (program, _name) in enumerate(FONTS) if program == TUTOR_PROGRAM)
@@ -156,7 +172,7 @@ def play_simon_sequence(audio, ring, sequence, oled=None):
 
 
 def main():
-    audio = ChromaCadeAudio()  # Organ default -- normal play's voice, unchanged from play.py
+    audio = ChromaCadeAudio()  # Toy Piano default (audio_engine.py's FONTS[0]) -- normal play's voice
     ring = LedRing()
     strip = LedStrip()
     oled = OledDisplay()
@@ -234,7 +250,11 @@ def main():
         else:
             print(f"CUE     {session.target}")
             ring.show(session.target)
-            oled.show_lines(["Match the color:", session.target])
+            lines = ["Match the color:", session.target]
+            prompt = PROMPTS.get(tutor["song_name"], {}).get(session.index)
+            if prompt:
+                lines.append(prompt)
+            oled.show_lines(lines)
 
     def start_tutor(song_name):
         tutor["saved_font_index"] = audio.font_index
@@ -322,6 +342,26 @@ def main():
         simon["session"] = SimonSession(next_letter, max_length)
         play_simon_round()
 
+    def _background(target, *args):
+        """Runs target(*args) on its own daemon thread -- see note_on()
+        below for why. Safe to call into audio/FluidSynth from here:
+        ChromaCadeAudio's RLock (added 2026-08-16 for the concurrent-
+        access crash fix) already serializes access from any thread,
+        this isn't a new class of risk, just a new caller."""
+        threading.Thread(target=target, args=args, daemon=True).start()
+
+    def _simon_handle_wrong():
+        simon_miss_feedback()
+        simon["session"].reset()
+        play_simon_round()
+
+    def _simon_handle_round_complete(sound_path):
+        play_wav(sound_path)
+        # Requested 2026-08-15 -- a beat before the next round starts,
+        # rather than snapping straight into it.
+        time.sleep(SIMON_ROUND_COMPLETE_DELAY_SECONDS)
+        play_simon_round()
+
     def note_on(letter):
         state = app["state"]
         if state == "play":
@@ -335,10 +375,10 @@ def main():
             audio.note_on(letter)
             if session.press(letter):
                 print(f"MATCH   {letter}")
-                show_tutor_target()
+                _background(show_tutor_target)
             else:
                 print(f"MISS    {letter} (wanted {session.target})")
-                miss_feedback(strip, session.target, pools["tutor_error"].next())
+                _background(miss_feedback, strip, session.target, pools["tutor_error"].next())
         elif state == "simon_active":
             session = simon["session"]
             audio.note_on(letter)
@@ -346,9 +386,7 @@ def main():
             result = session.press(letter)
             if result == "wrong":
                 print(f"SIMON   wrong (pressed {letter}, wanted {session.sequence[session.input_index]})")
-                simon_miss_feedback()
-                session.reset()
-                play_simon_round()
+                _background(_simon_handle_wrong)
             elif result == "continue":
                 print(f"SIMON   {letter} ok")
             elif result == "round_complete":
@@ -357,13 +395,9 @@ def main():
                 # reserved "big win" ones, those are for finishing the
                 # whole game -- see finish_simon()) for clearing a
                 # round, not just the flash-only cue this had before.
-                play_wav(pools["simon_round_complete"].next())
-                # Requested 2026-08-15 -- a beat before the next round
-                # starts, rather than snapping straight into it.
-                time.sleep(SIMON_ROUND_COMPLETE_DELAY_SECONDS)
-                play_simon_round()
+                _background(_simon_handle_round_complete, pools["simon_round_complete"].next())
             elif result == "complete":
-                finish_simon()
+                _background(finish_simon)
         # "menu" / "tutor_demo" / "simon_demo": no-op, own input entirely
 
     def note_off(letter):
@@ -456,16 +490,15 @@ def main():
             stop_active_tutor()
         elif app["state"] in ("simon_demo", "simon_active"):
             stop_active_simon()
-        # Bug fixed 2026-08-15: the gesture's own note button (B) always
-        # plays on press, before it's known to be part of a gesture --
-        # if the state flips to "menu" mid-hold, the eventual release
-        # lands in a state where note_off() is a deliberate no-op
-        # ("menu owns input"), so that note_off never fires. Left B (or
-        # any other note held at the same time, e.g. a chord) stuck
-        # sustaining, and left it in `held` too, corrupting the ring/
-        # OLED once back in Play. all_notes_off() + clearing `held`
-        # here guarantees a clean slate on every entry into the menu,
-        # not just the gesture note specifically.
+        # Any note(s) still held the instant the encoder-hold gesture
+        # fires need an explicit note_off here: the state flip to
+        # "menu" happens on the gesture's own timer, independent of
+        # when those notes get released, and once in "menu" state
+        # ordinary note releases are a deliberate no-op ("menu owns
+        # input") -- so a held note/chord would otherwise stay stuck
+        # sustaining, and stuck in `held` too, corrupting the ring/OLED
+        # once back in Play. all_notes_off() + clearing `held` here
+        # guarantees a clean slate on every entry into the menu.
         audio.all_notes_off()
         held.clear()
         play_state["shown"] = None
@@ -477,23 +510,21 @@ def main():
         print("MENU    entered")
 
     def menu_exit():
-        state = app["state"]
-        if state == "menu":
-            menu.exit()
-            app["state"] = "play"
-            update_play_oled(force=True)
-            print("MENU    exited -> play")
-        elif state in ("tutor_demo", "tutor_active"):
-            stop_active_tutor()
-            app["state"] = "play"
-            update_play_oled(force=True)
-            print("MENU    exited tutor -> play")
-        elif state in ("simon_demo", "simon_active"):
-            stop_active_simon()
-            app["state"] = "play"
-            update_play_oled(force=True)
-            print("MENU    exited simon -> play")
-        # "play": nothing to exit, no-op
+        menu.exit()
+        app["state"] = "play"
+        update_play_oled(force=True)
+        print("MENU    exited -> play")
+
+    def menu_toggle():
+        """The menu-toggle gesture (hardware_poller.py's
+        on_menu_toggle) always calls this -- one hold-both-encoders
+        gesture, contextually opening the menu from anywhere else or
+        closing it from the menu itself, rather than separate
+        enter/exit gestures needing different note buttons."""
+        if app["state"] == "menu":
+            menu_exit()
+        else:
+            menu_enter()
 
     def system_action(action):
         """Power Off / Reboot -- only ever called after menu.py's
@@ -541,8 +572,7 @@ def main():
         on_volume_change=volume_change,
         on_font_change=font_change,
         on_font_click=font_click,
-        on_menu_enter=menu_enter,
-        on_menu_exit=menu_exit,
+        on_menu_toggle=menu_toggle,
     )
 
     print("ChromaCade is live. Ctrl+C to quit.")

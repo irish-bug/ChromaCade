@@ -6,17 +6,12 @@ test_audio_engine.py, no soundfont or audio device needed. ChromaCadeAudio
 wraps FluidSynth and needs real audio hardware to mean anything, so it's
 not unit tested, same reasoning as hardware_poller.py's own docstring.
 
-Current scope: octave, accidental, pitch-bend, and volume are all
-wired up (see their respective functions/methods below); font
-switching isn't yet -- DEFAULT_PROGRAM is an interim fixed voice, not
-a real default. Currently Church Organ, not Acoustic Grand Piano:
-organ sustains at constant volume for as long as a note is held
-(confirmed live 2026-08-15 against the piano's authentic
-decay-even-while-held behavior), which makes it a better voice for
-testing/evaluating every *other* control while they're still being
-built. Once the curated font list and font-encoder switching land
-(see open-questions.md), this stops mattering -- any voice will be
-one encoder click away.
+Current scope: octave, accidental, pitch-bend, volume, and font are
+all wired up (see their respective functions/methods below, and
+FONTS/font_index_change() for the curated instrument list + font
+encoder cycling). DEFAULT_PROGRAM is FONTS[0] -- Toy Piano as of
+2026-08-16, the real day-to-day default now that the device is in
+actual use (any other voice is one encoder click away regardless).
 """
 
 import threading
@@ -219,12 +214,15 @@ def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING, gamma=VOLUME_CURV
 # via live listening tests 2026-08-15. Display name sometimes differs
 # from the GM patch name (Celesta reads better to a toddler as "Toy
 # Piano"). List order is the cycling order the font encoder steps
-# through. Organ kept first so DEFAULT_PROGRAM below stays the same
-# interim voice used throughout tonight's testing.
+# through. Toy Piano kept first (2026-08-16) so DEFAULT_PROGRAM below
+# is the real day-to-day default, not just a leftover interim testing
+# voice -- Organ's constant-volume sustain was useful while every
+# *other* control was still being bring-up-tested, but Toy Piano is
+# the better default now that the device is in actual use.
 FONTS = [
+    (8, "Toy Piano"),
     (19, "Organ"),
     (0, "Piano"),
-    (8, "Toy Piano"),
     (79, "Ocarina"),
     (114, "Steel Drums"),
     (117, "Melodic Tom"),
@@ -310,13 +308,15 @@ class ChromaCadeAudio:
     def all_notes_off(self):
         """Stops everything currently sounding, regardless of how many
         notes/chords happen to be held. Needed for mode transitions
-        (chromacade.py's menu_enter()) -- a note that started playing
-        on press, before a gesture is known to be forming, still needs
-        an explicit note_off if the state flips to "menu" mid-hold and
-        the eventual release lands in a state that (correctly) ignores
-        note releases. Confirmed live 2026-08-15: without this, the
-        gesture's own note-button hold (B or C) left stuck sustaining
-        after the gesture fired."""
+        (chromacade.py's menu_enter()) -- any note(s) still held the
+        instant the menu-toggle gesture fires still need an explicit
+        note_off, since the state flip to "menu" happens on the
+        gesture's own timer, independent of when those notes get
+        released, and once in "menu" state ordinary note releases are
+        (correctly) ignored. Confirmed live 2026-08-15 (under an
+        earlier version of the gesture where a note button was part of
+        the combo itself): without this, a held note was left stuck
+        sustaining after the gesture fired."""
         with self._lock:
             for letter in list(self.playing):
                 self.note_off(letter)
