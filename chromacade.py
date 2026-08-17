@@ -128,7 +128,7 @@ from tutor_mode import (
     miss_feedback,
     play_demo,
 )
-from tutor_songs import SCORES, SONGS, TutorSession
+from tutor_songs import PROMPTS, SCORES, SONGS, TutorSession
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 TUTOR_FONT_INDEX = next(i for i, (program, _name) in enumerate(FONTS) if program == TUTOR_PROGRAM)
@@ -250,7 +250,11 @@ def main():
         else:
             print(f"CUE     {session.target}")
             ring.show(session.target)
-            oled.show_lines(["Match the color:", session.target])
+            lines = ["Match the color:", session.target]
+            prompt = PROMPTS.get(tutor["song_name"], {}).get(session.index)
+            if prompt:
+                lines.append(prompt)
+            oled.show_lines(lines)
 
     def start_tutor(song_name):
         tutor["saved_font_index"] = audio.font_index
