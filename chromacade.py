@@ -85,13 +85,17 @@ inline below too, this is the summary):
     throttled to ~15Hz (OLED_THROTTLE_SECONDS) -- open-questions.md
     flagged this as unresolved ("suggested 10-20Hz, not tested"); 15Hz
     is the middle of that range, not independently benchmarked here.
-  - Tutor/Simon both temporarily switch to Toy Piano
-    (tutor_mode.py's TUTOR_PROGRAM, same repeated-note-blending
-    reasoning as Tutor -- a number/song source can easily produce
-    back-to-back identical letters) and restore whatever font/voice
-    was active before, on both normal completion and an early exit.
-    Octave is NOT saved/restored (same as Tutor already didn't) --
-    both modes just fix it to 4 during play.
+  - Simon temporarily switches to Toy Piano (tutor_mode.py's
+    TUTOR_PROGRAM -- a number/song source can easily produce
+    back-to-back identical letters, and Toy Piano's clear attack keeps
+    those distinguishable rather than blending into one held tone) and
+    restores whatever font/voice was active before, on both normal
+    completion and an early exit. Tutor does NOT do this (changed
+    2026-08-17, by request) -- it plays in whichever font/voice was
+    already selected when it started, same repeated-note-blending risk
+    accepted as a tradeoff for letting the chosen instrument carry
+    through. Octave is NOT saved/restored for either mode -- both just
+    fix it to 4 during play.
   - A wrong Simon press immediately (auto, no menu step) restarts
     round 1 of the SAME game/source rather than requiring the player
     to re-navigate the menu.
@@ -131,6 +135,9 @@ from tutor_mode import (
 from tutor_songs import PROMPTS, SCORES, SONGS, TutorSession
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
+# Simon-only now (2026-08-17) -- Tutor plays in whichever font was
+# already selected, see start_tutor()/module docstring's assumptions
+# list for why the two modes diverge here.
 TUTOR_FONT_INDEX = next(i for i, (program, _name) in enumerate(FONTS) if program == TUTOR_PROGRAM)
 ACCIDENTAL_SYMBOLS = {-1: "b", 0: "", 1: "#"}
 
@@ -182,7 +189,7 @@ def main():
     app = {"state": "play"}  # "play"|"menu"|"tutor_demo"|"tutor_active"|"simon_demo"|"simon_active"
     held = []
     play_state = {"bend": 0.0, "shown": None, "shown_base": None, "volume_percent": 0.0}
-    tutor = {"session": None, "song_name": None, "saved_font_index": None}
+    tutor = {"session": None, "song_name": None}
     simon = {"session": None, "source_name": None, "saved_font_index": None}
     oled_throttle = {"t": 0.0}
 
@@ -219,16 +226,10 @@ def main():
             note_label, base_freq, bend_hz = "--", 0.0, 0.0
         oled.show_play(note_label, audio.font_name, base_freq, bend_hz, play_state["volume_percent"])
 
-    def restore_font():
-        if tutor["saved_font_index"] is not None:
-            audio.font_change(tutor["saved_font_index"] - audio.font_index)
-            tutor["saved_font_index"] = None
-
     def stop_active_tutor():
         """Abort whatever Tutor progress exists -- no celebration, this
         is an interruption not a completion. Safe to call even if
         nothing's running."""
-        restore_font()
         audio.all_notes_off()
         tutor["session"] = None
         tutor["song_name"] = None
@@ -242,7 +243,6 @@ def main():
             ring.clear()
             oled.show_lines(["Great job!", tutor["song_name"]])
             celebrate(ring, strip, pools["big_win"].next())
-            restore_font()
             tutor["session"] = None
             tutor["song_name"] = None
             app["state"] = "play"
@@ -257,8 +257,6 @@ def main():
             oled.show_lines(lines)
 
     def start_tutor(song_name):
-        tutor["saved_font_index"] = audio.font_index
-        audio.font_change(TUTOR_FONT_INDEX - audio.font_index)
         tutor["song_name"] = song_name
         app["state"] = "tutor_demo"
         oled.show_lines(["Get ready...", song_name])
