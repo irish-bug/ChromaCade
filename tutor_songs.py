@@ -32,6 +32,14 @@ project's core teaching goals (see CLAUDE.md) -- pressing that color's
 button in any octave should count as a match, not just the exact
 octave the demo happened to play it in.
 
+Personal songs (e.g. something copyrighted that's fine to play on
+your own instrument but not to publish in this public repo) go in
+user-songs/ instead of here -- see load_user_songs() below and
+user-songs/README.md for the file format. They're merged into
+SCORES/SONGS/PROMPTS at import time, so they show up in the Tutor
+song menu and as a Simon sequence source exactly like a bundled song,
+without ever touching this tracked file.
+
 Confidence note, read before trusting this data: all six bundled
 songs' *note* sequences were checked against a phrase-by-phrase
 breakdown (see git history for this file). *Rhythm* confidence varies
@@ -49,9 +57,43 @@ unverified ones -- same verify-on-real-hardware culture as the rest of
 this project, just applied to song data instead of GPIO.
 """
 
+import importlib.util
+import pathlib
 import re
 
 _NOTE_NAME_RE = re.compile(r"^([A-Ga-g])(#|b)?(-?\d+)$")
+
+USER_SONGS_DIR = pathlib.Path(__file__).parent / "user-songs"
+
+
+def load_user_songs(directory=USER_SONGS_DIR):
+    """Loads personal songs from .py files in `directory` (gitignored
+    except a README -- see user-songs/README.md for the file format).
+    Each file defines module-level NAME, SCORE, and optionally
+    PROMPTS, matching this module's own SCORES/PROMPTS format exactly.
+    Lets someone add a song they're fine playing on their own
+    instrument but not publishing (e.g. copyrighted material) without
+    ever touching this tracked file -- no more stashing/unstashing a
+    local-only edit across every branch switch.
+
+    Returns (scores, prompts) dicts, both empty if the directory
+    doesn't exist or has no .py files. Files load in sorted-filename
+    order; on a NAME collision (between user files, or with a bundled
+    song) the later one wins with no error -- this is a personal,
+    single-user convenience feature, not something that needs
+    multi-author conflict handling."""
+    scores, prompts = {}, {}
+    directory = pathlib.Path(directory)
+    if not directory.is_dir():
+        return scores, prompts
+    for path in sorted(directory.glob("*.py")):
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        scores[module.NAME] = module.SCORE
+        if hasattr(module, "PROMPTS"):
+            prompts[module.NAME] = module.PROMPTS
+    return scores, prompts
 
 
 def parse_note_name(name):
@@ -137,9 +179,14 @@ SCORES = {
     ),
 }
 
+_USER_SCORES, _USER_PROMPTS = load_user_songs()
+SCORES.update(_USER_SCORES)
+
 # Bare letter sequences for the color-matching phase -- derived from
 # SCORES (see module docstring for why octave/duration are dropped
 # deliberately, and why deriving rather than hand-duplicating matters).
+# Runs after the user-songs merge above so personal songs get the same
+# derivation, not just the bundled ones.
 SONGS = {
     name: [parse_note_name(note)[0] for note, _duration in score if note is not None]
     for name, score in SCORES.items()
@@ -163,6 +210,7 @@ PROMPTS = {
         17: "OCTAVE BACK DOWN!",
     },
 }
+PROMPTS.update(_USER_PROMPTS)
 
 
 class TutorSession:
