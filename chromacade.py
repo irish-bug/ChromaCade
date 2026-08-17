@@ -172,7 +172,7 @@ def play_simon_sequence(audio, ring, sequence, oled=None):
 
 
 def main():
-    audio = ChromaCadeAudio()  # Organ default -- normal play's voice, unchanged from play.py
+    audio = ChromaCadeAudio()  # Toy Piano default (audio_engine.py's FONTS[0]) -- normal play's voice
     ring = LedRing()
     strip = LedStrip()
     oled = OledDisplay()
