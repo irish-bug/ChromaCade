@@ -251,3 +251,13 @@ audio/yays/originals/
 # somewhere trackable -- that happened once already with a filename
 # rule. Keep local-only, same reasoning as the audio/*.wav rule above.
 audio/songs/
+
+# Personal Tutor-mode songs (tutor_songs.py's load_user_songs()) --
+# same reasoning as audio/songs/ above, own directory rather than
+# folded into that one since the file format/contract differs (a
+# Python module tutor_songs.py imports at runtime -- module-level
+# NAME/SCORE/PROMPTS -- not a play_melody.py-style transcription).
+# README.md is the one tracked exception: it's format documentation,
+# not song content, safe to publish.
+user-songs/*
+!user-songs/README.md
