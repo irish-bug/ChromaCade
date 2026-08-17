@@ -39,15 +39,23 @@ Example (`user-songs/example.py`):
 NAME = "Example Song"
 
 SCORE = [
-    ("G4", 1),
-    ("A4", 1),
-    ("B4", 0.5),
-    (None, 0.5),  # rest
-    ("C5", 1),
+    ("G4", 1),      # letter-only index 0
+    ("A4", 1),      # letter-only index 1
+    ("B4", 0.5),    # letter-only index 2
+    (None, 0.5),    # rest -- doesn't get a letter-only index at all
+    ("C5", 1),      # letter-only index 3 (NOT 4 -- the rest above isn't counted)
 ]
 
-# Optional -- index into the letter-only sequence (rests stripped), not SCORE.
+# PROMPTS is keyed by letter-only index (see the comments on SCORE
+# above), not by position in SCORE. The rest at SCORE position 3
+# doesn't count, so letter-only index 3 is actually C5 (SCORE
+# position 4) -- this shows "OCTAVE UP!" when C5 becomes the target,
+# not when the rest does (a rest is never a target, so a rest index
+# would never show anyway, but the position 3 vs. 4 offset is the
+# part that trips people up).
 PROMPTS = {
     3: "OCTAVE UP!",
 }
 ```
+
+To find the right index for your own song: write out `SCORE`, cross out every rest, and count only what's left starting from 0 -- that position is what `PROMPTS` expects.
