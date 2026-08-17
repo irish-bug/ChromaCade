@@ -56,10 +56,9 @@ class Menu:
 
     def enter(self):
         """Always resets to the top of the menu (mode-select stage) --
-        even if re-entering while already active, so on_menu_enter
-        firing twice in a row (e.g. a slightly sloppy gesture release/
-        re-hold) doesn't leave the child stuck deep in a song list (or
-        mid-way through a Power Off/Reboot confirmation)."""
+        so a fresh entry never leaves the child stuck deep in a song
+        list (or mid-way through a Power Off/Reboot confirmation) left
+        over from a previous visit."""
         self.active = True
         self.stage = "mode"
         self.mode_index = 0

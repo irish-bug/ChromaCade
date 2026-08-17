@@ -21,11 +21,14 @@ selection (which nope/yay clip plays when) comes from sound_pools.py's
 build_pools() -- see that module's docstring for the four pools and
 their rules.
 
-Menu gesture (control-layout.md, corrected 2026-08-15 -- see
+Menu gesture (control-layout.md, simplified 2026-08-16 -- see
 hardware_poller.py's docstring for the full why): hold BOTH encoder
-push-buttons, then long-press C (exit) or B (enter) for ~1.5s. Cycle
-options: turn the font encoder (menu takes over that control's normal
-job while a menu is open). Select: short click of the font button.
+push-buttons together for ~1.5s -- no note button involved. One
+gesture toggles: opens the menu (from play, or from an active
+Tutor/Simon session, stopping it first) or closes it (from the menu,
+back to play). Cycle options: turn the font encoder (menu takes over
+that control's normal job while a menu is open). Select: short click
+of the font button.
 Nested menu (mode, then song/sequence within Tutor/Simon) -- see
 menu.py.
 
@@ -483,16 +486,15 @@ def main():
             stop_active_tutor()
         elif app["state"] in ("simon_demo", "simon_active"):
             stop_active_simon()
-        # Bug fixed 2026-08-15: the gesture's own note button (B) always
-        # plays on press, before it's known to be part of a gesture --
-        # if the state flips to "menu" mid-hold, the eventual release
-        # lands in a state where note_off() is a deliberate no-op
-        # ("menu owns input"), so that note_off never fires. Left B (or
-        # any other note held at the same time, e.g. a chord) stuck
-        # sustaining, and left it in `held` too, corrupting the ring/
-        # OLED once back in Play. all_notes_off() + clearing `held`
-        # here guarantees a clean slate on every entry into the menu,
-        # not just the gesture note specifically.
+        # Any note(s) still held the instant the encoder-hold gesture
+        # fires need an explicit note_off here: the state flip to
+        # "menu" happens on the gesture's own timer, independent of
+        # when those notes get released, and once in "menu" state
+        # ordinary note releases are a deliberate no-op ("menu owns
+        # input") -- so a held note/chord would otherwise stay stuck
+        # sustaining, and stuck in `held` too, corrupting the ring/OLED
+        # once back in Play. all_notes_off() + clearing `held` here
+        # guarantees a clean slate on every entry into the menu.
         audio.all_notes_off()
         held.clear()
         play_state["shown"] = None
@@ -504,23 +506,21 @@ def main():
         print("MENU    entered")
 
     def menu_exit():
-        state = app["state"]
-        if state == "menu":
-            menu.exit()
-            app["state"] = "play"
-            update_play_oled(force=True)
-            print("MENU    exited -> play")
-        elif state in ("tutor_demo", "tutor_active"):
-            stop_active_tutor()
-            app["state"] = "play"
-            update_play_oled(force=True)
-            print("MENU    exited tutor -> play")
-        elif state in ("simon_demo", "simon_active"):
-            stop_active_simon()
-            app["state"] = "play"
-            update_play_oled(force=True)
-            print("MENU    exited simon -> play")
-        # "play": nothing to exit, no-op
+        menu.exit()
+        app["state"] = "play"
+        update_play_oled(force=True)
+        print("MENU    exited -> play")
+
+    def menu_toggle():
+        """The menu-toggle gesture (hardware_poller.py's
+        on_menu_toggle) always calls this -- one hold-both-encoders
+        gesture, contextually opening the menu from anywhere else or
+        closing it from the menu itself, rather than separate
+        enter/exit gestures needing different note buttons."""
+        if app["state"] == "menu":
+            menu_exit()
+        else:
+            menu_enter()
 
     def system_action(action):
         """Power Off / Reboot -- only ever called after menu.py's
@@ -568,8 +568,7 @@ def main():
         on_volume_change=volume_change,
         on_font_change=font_change,
         on_font_click=font_click,
-        on_menu_enter=menu_enter,
-        on_menu_exit=menu_exit,
+        on_menu_toggle=menu_toggle,
     )
 
     print("ChromaCade is live. Ctrl+C to quit.")

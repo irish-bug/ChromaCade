@@ -310,13 +310,15 @@ class ChromaCadeAudio:
     def all_notes_off(self):
         """Stops everything currently sounding, regardless of how many
         notes/chords happen to be held. Needed for mode transitions
-        (chromacade.py's menu_enter()) -- a note that started playing
-        on press, before a gesture is known to be forming, still needs
-        an explicit note_off if the state flips to "menu" mid-hold and
-        the eventual release lands in a state that (correctly) ignores
-        note releases. Confirmed live 2026-08-15: without this, the
-        gesture's own note-button hold (B or C) left stuck sustaining
-        after the gesture fired."""
+        (chromacade.py's menu_enter()) -- any note(s) still held the
+        instant the menu-toggle gesture fires still need an explicit
+        note_off, since the state flip to "menu" happens on the
+        gesture's own timer, independent of when those notes get
+        released, and once in "menu" state ordinary note releases are
+        (correctly) ignored. Confirmed live 2026-08-15 (under an
+        earlier version of the gesture where a note button was part of
+        the combo itself): without this, a held note was left stuck
+        sustaining after the gesture fired."""
         with self._lock:
             for letter in list(self.playing):
                 self.note_off(letter)
