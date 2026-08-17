@@ -27,11 +27,11 @@ One song per `.py` file. Each file defines:
   pitch notation (`"C4"`, `"F#5"`, `"Bb3"`) or `None` for a rest. `duration`
   is in beats, independent of tempo.
 - `PROMPTS` (dict of `int -> str`, optional) — instructional text shown on the
-  OLED during the color-matching phase at a specific note *index* (position in
-  the letter-only, rest-stripped sequence — not the same indexing as `SCORE`,
-  which still includes rests). Purely a teaching cue, never enforced — see
-  `tutor_songs.py`'s module docstring for why matching stays letter-only
-  regardless of octave/accidental.
+  OLED during the color-matching phase at a specific **note index**: the Nth
+  real note, counting only actual notes and skipping rests entirely (not the
+  same as position in `SCORE`, which does include rests). Purely a teaching
+  cue, never enforced — matching itself only ever checks the letter, not
+  octave/accidental, see `tutor_songs.py`'s module docstring for why.
 
 Example (`user-songs/example.py`):
 
@@ -39,16 +39,16 @@ Example (`user-songs/example.py`):
 NAME = "Example Song"
 
 SCORE = [
-    ("G4", 1),      # letter-only index 0
-    ("A4", 1),      # letter-only index 1
-    ("B4", 0.5),    # letter-only index 2
-    (None, 0.5),    # rest -- doesn't get a letter-only index at all
-    ("C5", 1),      # letter-only index 3 (NOT 4 -- the rest above isn't counted)
+    ("G4", 1),      # note index 0
+    ("A4", 1),      # note index 1
+    ("B4", 0.5),    # note index 2
+    (None, 0.5),    # rest -- doesn't get a note index at all
+    ("C5", 1),      # note index 3 (NOT 4 -- the rest above isn't counted)
 ]
 
-# PROMPTS is keyed by letter-only index (see the comments on SCORE
+# PROMPTS is keyed by note index (see the comments on SCORE
 # above), not by position in SCORE. The rest at SCORE position 3
-# doesn't count, so letter-only index 3 is actually C5 (SCORE
+# doesn't count, so note index 3 is actually C5 (SCORE
 # position 4) -- this shows "OCTAVE UP!" when C5 becomes the target,
 # not when the rest does (a rest is never a target, so a rest index
 # would never show anyway, but the position 3 vs. 4 offset is the
