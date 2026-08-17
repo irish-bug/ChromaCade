@@ -40,12 +40,13 @@ phrase-accurate rhythm (both are about as universally known as
 children's-song rhythm gets); Mary Had a Little Lamb, Ode to Joy, and
 Frere Jacques use a flat quarter-note placeholder rhythm, not a
 verified transcription. Happy Birthday's notes came directly from a
-phrase-by-phrase breakdown (see _phrase() calls below); its rhythm is
-the standard well-known 3/4 shape, not a placeholder, but hasn't been
-demo-verified by ear yet either. Run tutor_mode.py's demo phase for
-real and listen before trusting the placeholder/unverified ones --
-same verify-on-real-hardware culture as the rest of this project, just
-applied to song data instead of GPIO.
+phrase-by-phrase breakdown, then transposed up a fifth (see _phrase()
+calls below and the comment above SCORES); its rhythm is the standard
+well-known 3/4 shape, not a placeholder, but neither the transposition
+nor the rhythm has been demo-verified by ear yet. Run tutor_mode.py's
+demo phase for real and listen before trusting the placeholder/
+unverified ones -- same verify-on-real-hardware culture as the rest of
+this project, just applied to song data instead of GPIO.
 """
 
 import re
@@ -103,6 +104,13 @@ _TWINKLE_RHYTHM = [1, 1, 1, 1, 1, 1, 2] * 6
 _HB_LINE_RHYTHM = [0.5, 0.5, 1, 1, 1, 2]
 _HB_DEAR_LINE_RHYTHM = [0.5, 0.5, 1, 1, 1, 1, 2]
 
+# Happy Birthday's melody, transposed up a perfect fifth (C major ->
+# G major) from a direct phrase-by-phrase transcription -- see git
+# history for the original C-major/Bb4 version. Transposing moves the
+# original's borrowed "flat-7 relative to the tonic" note (Bb4,
+# relative to C) to a plain natural (F, relative to the new G tonic)
+# -- same relative scale degree, no accidental needed in this key.
+
 SCORES = {
     "Hot Cross Buns": _score("EDCEDCCCCCDDDDEDC", 4, _HOT_CROSS_BUNS_RHYTHM),
     "Mary Had a Little Lamb": _score(
@@ -117,14 +125,15 @@ SCORES = {
     "Frere Jacques": _score(
         "CDECCDECEFGEFGGAGFECGAGFECCGCCGC", 4, [1] * 32  # placeholder rhythm
     ),
-    # Only bundled song that crosses octaves (C4 up to C5, "dear") or
-    # uses an accidental (Bb4 in the closing line) -- see _phrase()
-    # above vs. _score() for the existing single-octave songs.
+    # Only bundled song that crosses octaves: the "dear" phrase rides
+    # up to G5 for three notes (G5-E5-C5) before landing back at
+    # B4-and-below for the rest of the song -- see _phrase() above vs.
+    # _score() for the existing single-octave songs.
     "Happy Birthday": (
-        _phrase(["C4", "C4", "D4", "C4", "F4", "E4"], _HB_LINE_RHYTHM)
-        + _phrase(["C4", "C4", "D4", "C4", "G4", "F4"], _HB_LINE_RHYTHM)
-        + _phrase(["C4", "C4", "C5", "A4", "F4", "E4", "D4"], _HB_DEAR_LINE_RHYTHM)
-        + _phrase(["Bb4", "Bb4", "A4", "F4", "G4", "F4"], _HB_LINE_RHYTHM)
+        _phrase(["G4", "G4", "A4", "G4", "C5", "B4"], _HB_LINE_RHYTHM)
+        + _phrase(["G4", "G4", "A4", "G4", "D5", "C5"], _HB_LINE_RHYTHM)
+        + _phrase(["G4", "G4", "G5", "E5", "C5", "B4", "A4"], _HB_DEAR_LINE_RHYTHM)
+        + _phrase(["F5", "F5", "E5", "C5", "D5", "C5"], _HB_LINE_RHYTHM)
     ),
 }
 
@@ -149,10 +158,9 @@ SONGS = {
 PROMPTS = {
     "Happy Birthday": {
         14: "OCTAVE UP!",
-        15: "OCTAVE BACK DOWN!",
-        19: "PLAY THIS FLAT!!",
-        20: "PLAY THIS FLAT!!",
-        21: "BACK TO NATURAL",
+        15: "OCTAVE UP!",
+        16: "OCTAVE UP!",
+        17: "OCTAVE BACK DOWN!",
     },
 }
 
