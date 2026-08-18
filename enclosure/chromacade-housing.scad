@@ -2,15 +2,20 @@
 $fn = 60;
 
 // --- Global Dimensions ---
+// Overall case scaled +10% in every direction (case_w, case_d, front_h, panel_l)
+// for more interior room; the controller shelf (shelf_d) scaled +25% instead,
+// for extra clearance around the 4-control shelf cluster. Hardware cutout
+// sizes below are NOT scaled — those match real component footprints and
+// must stay as-is regardless of overall case size.
 in2mm = 25.4;
-case_w = 7    * in2mm;
-case_d = 4.5  * in2mm;
+case_w = 7.7   * in2mm; // 7in + 10%
+case_d = 4.95  * in2mm; // 4.5in + 10%
 wall   = 5;
 
-front_h = 1.75 * in2mm;
-shelf_d = 1.5  * in2mm;
+front_h = 1.925 * in2mm; // 1.75in + 10%
+shelf_d = 1.875 * in2mm; // 1.5in + 25% (controller shelf)
 shelf_a = 8;
-panel_l = 2.5  * in2mm;
+panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
 
 // Grille is a portrait stadium (pill) matched exactly to the cone area;
@@ -28,19 +33,25 @@ p5 = [0, p4[1]];
 
 case_h = p4[1];
 
+// Mounting bosses for the separate, removable bottom+back L-bracket piece
+// (chromacade-bottom-back.scad) — see decision-log.md/open-questions.md:
+// bottom and back combine into one removable piece (screwed on) for interior
+// wiring/assembly access, joined at their own 90°+fillet corner; this shell
+// (sides, front wall, shelf, panel) stays open at the bottom and back for it.
 boss_x     = case_w/2 - wall - 5;
-boss_z_top = case_h - wall - 15;
-boss_z_bot = wall + 15;
 boss_len   = 10;
 
-// Center top/bottom bosses (back-panel anti-bowing support). Unlike boss_z_top/
-// boss_z_bot above, these aren't inset for X-flush contact with a side wall —
-// there's no side wall at x=0. Instead they're offset 5mm in from the ceiling/
-// floor's inner surface so the *square* boss (see mounting_boss) sits Z-flush
-// against the ceiling/floor. (A previous attempt reused boss_z_top/boss_z_bot
-// unchanged at x=0, which touched nothing on any side — floating, unprintable.)
+// Back-wall bosses (point in -Y, screw in from behind)
+boss_z_top = case_h - wall - 15;
+boss_z_bot = wall + 15;
 boss_z_top_ctr = case_h - wall - 5;
 boss_z_bot_ctr = wall + 5;
+
+// Bottom-wall bosses (point in +Z, screw in from underneath), near the front
+// edge — the back edge of the bottom is already anchored by boss_z_bot above,
+// shared with the L-bracket's corner.
+boss_y_front     = case_d - wall - 15;
+boss_y_front_ctr = case_d - wall - 5;
 
 // --- Assembly ---
 difference() {
@@ -60,6 +71,7 @@ module main_chassis() {
         offset(delta = -wall) outer_profile();
 
         back_hole();
+        bottom_hole();
     }
 
     translate([boss_x, wall, 0]) {
@@ -74,6 +86,10 @@ module main_chassis() {
         translate([0, 0, boss_z_top_ctr]) rotate([-90, 0, 0]) mounting_boss(boss_len);
         translate([0, 0, boss_z_bot_ctr]) rotate([-90, 0, 0]) mounting_boss(boss_len);
     }
+
+    translate([ boss_x, boss_y_front, 0]) mounting_boss(boss_len);
+    translate([-boss_x, boss_y_front, 0]) mounting_boss(boss_len);
+    translate([0, boss_y_front_ctr, 0]) mounting_boss(boss_len);
 }
 
 module outer_profile() {
@@ -88,6 +104,14 @@ module back_hole() {
     rotate([90, 0, 0])
     linear_extrude(wall * 3, center=true)
     offset(r=3) offset(r=-3) square([w, h], center=true);
+}
+
+module bottom_hole() {
+    w = case_w - wall*2;
+    d = case_d - wall*2;
+    translate([0, case_d/2, 0])
+    linear_extrude(wall * 3, center=true)
+    offset(r=3) offset(r=-3) square([w, d], center=true);
 }
 
 module mounting_boss(len) {
@@ -158,6 +182,10 @@ module hardware_cutouts() {
     translate([-case_w/2, case_d/3, case_h/1.5])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
+
+    // Note: the power-cable passthrough and fan vent live on the separate
+    // removable chromacade-bottom-back.scad piece now (its back-wall
+    // portion), not here — this shell's own back face is fully open.
 }
 
 // Toddler-safe portrait stadium hex grill — validated on test-mk2.scad's plate E.

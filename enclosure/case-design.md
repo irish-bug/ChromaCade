@@ -4,23 +4,30 @@
 Chosen because it naturally solves the problem of putting several control types at different, ergonomically-appropriate hand angles on one small device — flat-facing controls (speakers), a near-horizontal control surface (encoders, switch, joystick), and an angled display/note surface (buttons, OLED, LED ring), without forcing everything onto one flat plane.
 
 ## Cross-section, front to back
-1. **Stability foot** — the base extends forward of the front wall specifically to resist tipping. Given the case is otherwise fairly tall/chunky, err generous here.
-2. **Front wall** — short, vertical, ~3" tall. Holds the two speaker grilles.
-3. **Shelf** — flat, with a slight tilt (5–10°, arcade-cabinet-style) rather than dead flat, to shed dust/spills and feel deliberate to reach for. Its front edge is flush with the front wall's outer face (no recess). Depth was extended (originally 1", grown to accommodate all 4 shelf controls with real spacing) as the main panel's control load shrank.
-4. **Main panel** — angled at 45°, holds the 7 note buttons + OLED + LED ring only (toggle and font encoder were relocated to the shelf, which is what let this panel shrink). Panel width stays at 7" (buttons fit comfortably; see hardware-bom.md for the switch-pitch math).
-5. **Back wall** — vertical, tall enough to close off the interior cavity created by the angled panel; height derives from front-wall height + shelf + the panel's vertical rise at 45°. Houses/backs the charging port (back-mounted, out of reach during play).
+1. **Stability foot / base** — extends forward of the front wall specifically to resist tipping. Now part of the removable bottom+back piece (see below), not the main shell.
+2. **Front wall** — short, vertical, ~3" tall. Holds the two speaker grilles. Part of the main shell.
+3. **Shelf** — flat, with a slight tilt (5–10°, arcade-cabinet-style) rather than dead flat, to shed dust/spills and feel deliberate to reach for. Its front edge is flush with the front wall's outer face (no recess). Depth was extended (originally 1", grown to accommodate all 4 shelf controls with real spacing) as the main panel's control load shrank. Part of the main shell.
+4. **Main panel** — angled at 45°, holds the 7 note buttons + OLED + LED ring only (toggle and font encoder were relocated to the shelf, which is what let this panel shrink). Panel width stays at 7" (buttons fit comfortably; see hardware-bom.md for the switch-pitch math). Part of the main shell.
+5. **Back wall** — vertical, tall enough to close off the interior cavity created by the angled panel; height derives from front-wall height + shelf + the panel's vertical rise at 45°. Part of the removable bottom+back piece (see below) — houses the power-cable passthrough and the unpopulated fan vent.
 
-**Base is continuous** — one unbroken slab running the full depth from the front foot, under the front wall, under the shelf, under the panel's footprint, to the back wall. This is both a stability requirement (single flat base is a stronger platform than a stepped one) and simpler to print as one piece.
+## Two-piece split (changed 2026-08-17)
+The case is now two printed pieces, not one:
+- **Main shell** (`chromacade-housing-embossed.scad`, or the plain `chromacade-housing.scad`) — sides, front wall, shelf, and panel. Open at the bottom and the back.
+- **Bottom+back bracket** (`chromacade-bottom-back.scad`, new) — the base/foot and the back wall combined into one removable, L-shaped piece: two flat wall-thick plates meeting at a 90° corner with a small fillet radius (avoids a sharp inside corner). Screws into 9 mounting bosses on the shell (6 around the back opening, 3 along the front edge of the bottom opening) — undo those screws and the whole floor+back lifts away, exposing the full interior.
 
-## Rough dimensions (working numbers, not final — confirm against real component footprints before finalizing OpenSCAD)
-- Overall width: ~7" (matches panel and shelf width)
-- Overall depth: ~6.5"
-- Overall height: ~5" (down from an earlier ~6.2" estimate, after the panel shrank)
-- Panel length along the slope: ~2.5" (down from an initial 4", once toggle + font moved to the shelf)
-- Shelf depth: ~2" (up from an initial 1", to fit both shelf control clusters with real spacing)
-- Front wall height: ~3"
+This replaces two earlier designs in sequence: originally just the back was a separate screw-on plate (`chromacade-back-panel.scad`, now retired) with the base fused to the shell; unit #1 found that back-only access still left the interior too cramped for wiring (see `docs/open-questions.md`'s former "lid/access panel" entry, now resolved here). The current split gives full interior access for wiring/assembly, not just battery/SD swaps — accepted tradeoff: two pieces to align and screw together instead of one, and a visible seam around the bottom+back.
 
-These numbers came from trigonometry on the 45° angle (rise = run = length × sin/cos 45°) plus stacking wall/shelf heights — recompute if any single dimension changes, since they're all coupled.
+The bottom+back bracket's power-cable passthrough and fan-vent cutouts are carried over unchanged (position and size) from the old `chromacade-back-panel.scad`.
+
+## Dimensions (updated 2026-08-17: scaled +10% overall, shelf +25%, for more interior room)
+- Overall width: ~7.7" (7" + 10%)
+- Overall depth: ~4.95" (4.5" + 10%)
+- Panel length along the slope: ~2.75" (2.5" + 10%)
+- Shelf depth: ~1.875" (1.5" + 25% — extra clearance for the 4-control shelf cluster specifically)
+- Front wall height: ~1.925" (1.75" + 10%)
+- Overall height: derived from the trig chain below (not set directly)
+
+Hardware cutout sizes/positions (button spacing, encoder bushings, grille hole size, etc.) are **not** scaled — those match real component footprints regardless of overall case size. Only the six shape-defining constants above changed; recompute if any single dimension changes further, since they're all coupled via trigonometry on the 45° panel angle (rise = run = length × sin/cos 45°) plus stacked wall/shelf heights.
 
 ## Interior volume / component placement
 The angled panel creates a triangular interior cavity, deepest near the back wall and tapering to nothing near the front foot. Plan to place the tallest/bulkiest components (LiPo battery, boards mounted on edge) near the back wall, and flatter components (ADS1115, wiring) in the shallower front part of the cavity.
