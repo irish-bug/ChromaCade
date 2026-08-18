@@ -44,13 +44,15 @@ There's no build script — each `.scad` file under `enclosure/` is a standalone
 
 ## Branching & PR workflow
 
-Main is protected. For every task: branch off `main` as `yourname/short-task-description`, commit there, open a PR into `main`. Keep PRs scoped to one task. See `CONTRIBUTING.md` for full details — this is a hard rule for this repo, not a suggestion.
+Main is protected (GitHub ruleset scoped to `~DEFAULT_BRANCH`: no deletion, no force-push, requires 1 approving PR review before merge). For every task: branch off `main` as `yourname/short-task-description`, commit there, open a PR into `main`. Keep PRs scoped to one task. See `CONTRIBUTING.md` for full details — this is a hard rule for this repo, not a suggestion.
+
+**Temporary exception, unit #2 (`plinkplonk`) development — started 2026-08-17, remove this note once merged back to `main`:** there's a long-running `plinkplonk` branch (unprotected, unlike `main`) acting as the integration point for the whole next-build effort (new board, enclosure redesign) so exploratory/WIP hardware-fit churn doesn't land on `main` piece by piece. While this is active: branch new tasks off `plinkplonk` instead of `main` (`git checkout plinkplonk && git pull && git checkout -b shane/task-name`), and target PRs at `plinkplonk` as the base (`gh pr create --base plinkplonk`), not `main`. The user still does all final merges by hand on GitHub, same as `main` always has — `plinkplonk` having no branch protection doesn't change who clicks merge. Once unit #2 is stable, `plinkplonk` merges into `main` as its own PR (through the real protected review), and this whole exception goes away — check whether `plinkplonk` still exists before assuming this note is current.
 
 ## Syncing the physical board after a push
 
-`chromacade` is an SSH host alias (see `~/.ssh/config`) for the physical Pi running this build; it has its own separate git checkout of this repo at `/home/shane/ChromaCade/`. After pushing commits to GitHub (a branch push, a merge, etc.), SSH there and `git pull` to keep that checkout in sync — but only if it's safe:
-- Check `git status --short` on `chromacade` first — if the working tree there is dirty (e.g. uncommitted bench-test edits), stop and flag it rather than pulling over local changes.
-- Confirm the branch checked out there is actually meant to track what was just pushed (`git status --branch` / `git rev-parse --abbrev-ref HEAD`) before assuming `git pull` is a no-op-safe fast-forward — don't assume it's on `main` or on whatever branch the push was to.
+**Unit #1 (`chromacade`, Pi Zero 2W) is gone as of 2026-08-17** — its SSH alias/physical device no longer exists, don't try to reach it. **Unit #2 (Pi 4B, hostname `plinkplonk`) is the current build**, not yet online as of this writing; the user will add its SSH alias to `~/.ssh/config` once it's up. Once reachable, it has its own separate git checkout of this repo (path TBD, likely `/home/shane/ChromaCade/` again) — after pushing commits to GitHub (a branch push, a merge, etc.), SSH there and `git pull` to keep that checkout in sync, same pattern unit #1 used, but tracking the `plinkplonk` branch during the "Temporary exception" period noted above, not `main` — only if it's safe:
+- Check `git status --short` on the device first — if the working tree there is dirty (e.g. uncommitted bench-test edits, or a personal `user-songs/*.py` file mid-edit), stop and flag it rather than pulling over local changes.
+- Confirm the branch checked out there is actually meant to track what was just pushed (`git status --branch` / `git rev-parse --abbrev-ref HEAD`) before assuming `git pull` is a no-op-safe fast-forward — don't assume it's on `main`, `plinkplonk`, or whatever branch the push was to.
 
 ## Architecture: the OpenSCAD case model
 
