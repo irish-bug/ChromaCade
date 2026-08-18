@@ -68,11 +68,61 @@ edge_clearance = 0.15;
 // front wall's bottom and top, the shelf/panel joint, the panel/top joint,
 // and the top/back joint — this piece just gets a plain clearance hole for
 // those, through its endcap.
-pilot_d = 3;    // this piece's own thread-engagement bore
-clear_d = 3.5;  // clearance hole for a mount the OTHER piece owns
-engage  = 15;   // pilot bore depth into solid material
+//
+// Sized for M3 screws: 2.5mm self-tapping pilot (~0.83x nominal, standard
+// for 3D-printed plastic), 3.4mm clearance (standard loose fit).
+//
+// Each owned mount gets a square reinforcing boss around its pilot bore —
+// bare wall material alone (wall = 5mm) only leaves ~1mm on each side of
+// the bore, thin enough to risk cracking under screw torque or a drop
+// impact right at these edge-adjacent mount points (this design needs to
+// survive a toddler pushing it off a table onto a hard floor, landing
+// directly on an edge). The boss flushes with this face's own exterior
+// surface (no visible bump) and extends boss_w further into the interior,
+// giving the bore full radial coverage inside reinforced material instead
+// of the bare 5mm wall. Square, not round, cross-section — a round boss
+// against a flat wall only ever line-contacts it along a curve; square
+// meets it on a full flush face, the same rationale the original (pre-split)
+// mounting_boss() module used (see docs/decision-log.md).
+pilot_d   = 2.5;
+clear_d   = 3.4;
+engage    = 15;  // pilot bore depth into solid material
+boss_w    = 12;  // square boss cross-section (also the bore's radial center)
+boss_body = 14;  // boss length along X, full cross-section
+boss_ramp = 10;  // 45°-taper length beyond boss_body, toward this piece's own bed/endcap side
 
 edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-side
+
+// Square boss with a 45° taper toward -X (this piece's own endcap/bed
+// side, since it prints side-down) so it doesn't need support in that
+// orientation — a boss is a *localized* feature (not part of the uniform
+// extrusion the rest of the shell relies on for being support-free), so
+// without the taper it would be an abrupt, unsupported step as the print
+// builds up through X. thick_axis picks which face this boss flushes with:
+// "z" for a bottom-strip mount (flush at Z=0), "y" for a back-strip mount
+// (flush at Y=0). `pos` is the position along the strip (Y for "z", Z for
+// "y") — the bore's own translate() must use the same `pos` and the same
+// boss_w/2 for its other coordinate, or the bore won't be centered in the
+// reinforced material.
+module square_boss(x0, pos, thick_axis) {
+    if (thick_axis == "z") {
+        translate([x0 - boss_body, pos - boss_w/2, 0])
+        cube([boss_body, boss_w, boss_w]);
+
+        translate([x0 - boss_body, pos, boss_w/2])
+        rotate([0, -90, 0])
+        linear_extrude(height=boss_ramp, scale=0)
+        square([boss_w, boss_w], center=true);
+    } else {
+        translate([x0 - boss_body, 0, pos - boss_w/2])
+        cube([boss_body, boss_w, boss_w]);
+
+        translate([x0 - boss_body, boss_w/2, pos])
+        rotate([0, -90, 0])
+        linear_extrude(height=boss_ramp, scale=0)
+        square([boss_w, boss_w], center=true);
+    }
+}
 
 // Blank-side's 5 mount positions (Y,Z) — computed against the p1..p5
 // profile points the same way hardware_cutouts() derives shelf_my/panel_my
@@ -81,19 +131,33 @@ edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-si
 // clearance holes. Regenerate (see chromacade-blank-side.scad's matching
 // own_mount_yz, which must stay identical) if the dimension constants above
 // change.
+// front_bottom's Z and top_back's Y are shifted from the original 15%-
+// along-segment wall-inset points (7.33 and 4.38) to 14 each — must match
+// chromacade-blank-side.scad's own_mount_boss_centers exactly; see that
+// file's comment for why (clearance from this piece's own bottom/back
+// strips, which extend almost the full case width).
 blank_side_mount_yz = [
-    [123.23, 7.33],   // front wall, near bottom
-    [123.23, 41.56],  // front wall, near top
-    [85.29, 52.05],   // shelf/panel joint
-    [34.82, 95.74],   // panel/top joint
-    [4.38, 102.41],   // top/back joint
+    [123.23, 14],      // front wall, near bottom
+    [123.23, 41.56],   // front wall, near top
+    [85.29, 52.05],    // shelf/panel joint
+    [34.82, 95.74],    // panel/top joint
+    [14, 102.41],       // top/back joint
 ];
 
+module pot_side_mount_bosses() {
+    square_boss(edge_x, 100, "z");
+    square_boss(edge_x, 30, "z");
+    square_boss(edge_x, 85, "y");
+    square_boss(edge_x, 20, "y");
+}
+
 module pot_side_mounts() {
-    translate([edge_x, 100, wall/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, 30, wall/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, wall/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, wall/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    // Centered at boss_w/2, matching square_boss()'s own reinforced
+    // material, not the bare wall thickness.
+    translate([edge_x, 100, boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, 30, boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
 }
 
 module pot_side_clearance_holes() {
@@ -108,6 +172,7 @@ difference() {
     union() {
         endcap(-1);
         strips();
+        pot_side_mount_bosses();
     }
     hardware_cutouts();
     pot_side_mounts();

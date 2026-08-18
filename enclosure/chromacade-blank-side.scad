@@ -58,22 +58,70 @@ edge_clearance = 0.15;
 // each a pilot bore into this piece's own material, starting right at this
 // piece's edge nearest pot-side. Pot-side owns 4 more (2 bottom, 2 back);
 // this piece just gets clearance holes through its endcap for those.
-pilot_d = 3;
-clear_d = 3.5;
-engage  = 15;
+//
+// Sized for M3 screws: 2.5mm self-tapping pilot, 3.4mm clearance — see
+// chromacade-pot-side.scad's matching comment for the boss rationale (bare
+// wall material alone only gives ~1mm on each side of the bore, thin
+// enough to risk cracking at these edge-adjacent points, which need to
+// survive a toddler pushing the case off a table onto a hard floor).
+pilot_d   = 2.5;
+clear_d   = 3.4;
+engage    = 15;
+boss_w    = 12;
+boss_body = 14;
+boss_ramp = 10;
 
 edge_x = -case_w/2 + wall + edge_clearance; // this piece's edge nearest pot-side
 
-// This piece's own 5 mount positions (Y,Z) — must stay identical to
-// chromacade-pot-side.scad's blank_side_mount_yz (that file explains where
-// these numbers come from). Regenerate both together if the dimension
-// constants above change.
-own_mount_yz = [
-    [123.23, 7.33],
-    [123.23, 41.56],
+// Reinforcing boss around each pilot bore, same rationale/taper as
+// chromacade-pot-side.scad's square_boss() (45° toward +X, this piece's
+// own bed side — NOT -X like pot-side's version: blank-side's own
+// territory, and its own endcap/bed side, is in the +X direction from
+// edge_x, which sits near pot-side at negative X. Copying pot-side's -X
+// direction here extends the boss straight into pot-side's endcap instead
+// of into this piece's own material — caught via the interference check as
+// a large, very much non-empty overlap, not the usual small sliver).
+//
+// Takes the boss's own (Y,Z) center directly rather than a flush-face +
+// position pair, since only 3 of these 5 mounts sit on an axis-aligned
+// wall (front wall: flush at Y=case_d; top segment: flush at Z=case_h) —
+// the other 2 (shelf/panel and panel/top joints) sit on tilted segments
+// (8° and 45°), where a properly surface-flush boss would need a
+// per-segment local frame; centered symmetrically on the mount point
+// instead (simpler, lower-risk — the mount point is already inset toward
+// the interior of the wall's own material, so a generous symmetric cube
+// still lands solidly in real material even without matching the local
+// tilt exactly).
+module own_mount_boss(y_c, z_c) {
+    translate([edge_x, y_c - boss_w/2, z_c - boss_w/2])
+    cube([boss_body, boss_w, boss_w]);
+
+    translate([edge_x + boss_body, y_c, z_c])
+    rotate([0, 90, 0])
+    linear_extrude(height=boss_ramp, scale=0)
+    square([boss_w, boss_w], center=true);
+}
+
+// This piece's own 5 mount/boss centers (Y,Z) — must stay identical to
+// chromacade-pot-side.scad's blank_side_mount_yz (regenerate both together
+// if the dimension constants above change). front_bottom/front_top flush
+// at Y=case_d (front wall's own exterior); top_back flush at Z=case_h (top
+// segment's own exterior); shelf_panel/panel_top centered on their segment
+// point (see own_mount_boss() above for why).
+//
+// front_bottom's Z and top_back's Y are NOT the original wall-inset points
+// (which were Z=7.33 and Y=4.38, 15% along their segment from p1/p5) —
+// pot-side's bottom/back strips extend almost the full case width (nearly
+// to this piece's own edge_x), so a boss that close to the p1/p5 corner
+// dips into pot-side's strip territory (Z<5 for the bottom strip, Y<5 for
+// the back strip). Shifted to 14 on each, clearing wall(5) + boss_w/2(6)
+// with a few mm of margin — confirmed via the interference check.
+own_mount_boss_centers = [
+    [case_d - boss_w/2, 14],
+    [case_d - boss_w/2, 41.56],
     [85.29, 52.05],
     [34.82, 95.74],
-    [4.38, 102.41],
+    [14, case_h - boss_w/2],
 ];
 
 // Pot-side's 4 mount positions (Y,Z) — must match its pot_side_mounts().
@@ -84,8 +132,15 @@ pot_side_mount_yz = [
     [wall/2, 20],
 ];
 
+module blank_side_mount_bosses() {
+    for (yz = own_mount_boss_centers) {
+        own_mount_boss(yz[0], yz[1]);
+    }
+}
+
 module blank_side_mounts() {
-    for (yz = own_mount_yz) {
+    for (yz = own_mount_boss_centers) {
+        // Bore centered on the boss, not the bare-wall own_mount_yz point.
         translate([edge_x, yz[0], yz[1]]) rotate([0, 90, 0]) cylinder(h=engage, d=pilot_d);
     }
 }
@@ -102,6 +157,7 @@ difference() {
     union() {
         endcap(1);
         strips();
+        blank_side_mount_bosses();
     }
     hardware_cutouts();
     blank_side_mounts();
