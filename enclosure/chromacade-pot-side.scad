@@ -121,18 +121,38 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
         translate([x0 - boss_body, pos - boss_w/2, z_start])
         cube([boss_body, boss_w, height]);
 
-        translate([x0 - boss_body, pos, z_start + height/2])
-        rotate([0, -90, 0])
-        linear_extrude(height=boss_ramp, scale=0)
-        square([boss_w, height], center=true);
+        // Wedge, not a pyramid -- corrected 2026-08-18, third pass. A
+        // linear_extrude(scale=0) taper shrinks BOTH cross-section
+        // dimensions to a single point, which isn't printable
+        // support-free (it needs an overhang-avoiding slope down to
+        // one surface, not a point floating in space). hull() between
+        // the boss's own -X face (full Y/Z cross-section) and a thin
+        // sliver pinned at z_start (this strip's own interior surface,
+        // same value the main cube above starts from) keeps the bottom
+        // flush throughout the taper and only collapses the height --
+        // an actual ramp down to the bottom, printable face-down with
+        // no support.
+        hull() {
+            translate([x0 - boss_body - 0.01, pos - boss_w/2, z_start])
+            cube([0.01, boss_w, height]);
+
+            translate([x0 - boss_body - boss_ramp, pos - boss_w/2, z_start])
+            cube([0.01, boss_w, 0.01]);
+        }
     } else {
         translate([x0 - boss_body, 0, pos - boss_w/2])
         cube([boss_body, boss_w, boss_w]);
 
-        translate([x0 - boss_body, boss_w/2, pos])
-        rotate([0, -90, 0])
-        linear_extrude(height=boss_ramp, scale=0)
-        square([boss_w, boss_w], center=true);
+        // Same wedge-not-pyramid correction, pinned at y=0 (this
+        // strip's own back-wall reference) instead of z_start -- a ramp
+        // down to the back, not a point.
+        hull() {
+            translate([x0 - boss_body - 0.01, 0, pos - boss_w/2])
+            cube([0.01, boss_w, boss_w]);
+
+            translate([x0 - boss_body - boss_ramp, 0, pos - boss_w/2])
+            cube([0.01, 0.01, boss_w]);
+        }
     }
 }
 

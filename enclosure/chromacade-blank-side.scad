@@ -105,20 +105,49 @@ module interior_void() {
 // it inherits whatever shape the clipping actually produced instead of
 // assuming a square boss_w cross-section that may not match here.
 module own_mount_boss(y_c, z_c) {
-    margin = 40; // comfortably bigger than any wall thickness/tilt offset here
+    // 15, not the original 40 -- 40 (an 80mm-square block) was way
+    // oversized relative to this case's ~126x105mm interior, so the
+    // intersection with interior_void() wasn't landing a small boss
+    // near the mount point at all -- it was capturing a huge chunk of
+    // the interior cross-section (most of the actual profile boundary
+    // nearby), producing the profile's own multi-segment steps instead
+    // of a boss. 15 is still comfortably more than any wall thickness/
+    // tilt offset here (wall=5, worst case ~7mm crossing a 45° segment)
+    // while actually staying local to the mount point.
+    margin = 15;
     intersection() {
         translate([edge_x, y_c - margin, z_c - margin])
         cube([boss_body, margin * 2, margin * 2]);
         interior_void();
     }
+    // Taper toward a point -- corrected 2026-08-18, third pass, same
+    // wedge-not-pyramid issue as chromacade-pot-side.scad's
+    // square_boss(): hull()-ing the clipped cross-section with a single
+    // point tapers BOTH dimensions to nothing, which isn't printable
+    // support-free. Unlike pot-side's axis-aligned case, this mount
+    // sits on a tilted/joint segment (8°/45°, or the corner between
+    // them) where there's no single known-good axis to pin a wedge to
+    // by hand. Approximation used instead: shrink the same
+    // interior_void()-clipped footprint down to a small margin at the
+    // far end rather than collapsing it to a literal point -- both ends
+    // stay genuinely flush with the real local wall shape (still
+    // derived from interior_void(), not guessed), tapering the boss's
+    // stand-off distance down without relying on a hand-picked normal.
+    // Not a textbook-perfect wedge (constant width, only depth
+    // shrinking) the way pot-side's is -- worth a live check on these
+    // two specifically (shelf/panel and panel/top joints).
+    far_margin = 3;
     hull() {
         intersection() {
             translate([edge_x + boss_body - 0.01, y_c - margin, z_c - margin])
             cube([0.01, margin * 2, margin * 2]);
             interior_void();
         }
-        translate([edge_x + boss_body + boss_ramp, y_c, z_c])
-        cube([0.01, 0.01, 0.01], center=true);
+        intersection() {
+            translate([edge_x + boss_body + boss_ramp - 0.01, y_c - far_margin, z_c - far_margin])
+            cube([0.01, far_margin * 2, far_margin * 2]);
+            interior_void();
+        }
     }
 }
 
