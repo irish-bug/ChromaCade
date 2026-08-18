@@ -274,7 +274,7 @@ module hardware_cutouts() {
     // mounting bushing, not a bare 8mm hole (regression; unit #1 was
     // hand-drilled out to fit -- fixed here so future prints don't need
     // that workaround).
-    translate([-case_w/2, case_d/3, case_h/1.5])
+    translate([-case_w/2, case_d/4, case_h/1.5])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 
