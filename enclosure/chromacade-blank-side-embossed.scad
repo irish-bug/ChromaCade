@@ -130,6 +130,12 @@ own_mount_yz = [
 ];
 
 // Pot-side's 4 mount positions (Y,Z) — must match its pot_side_mounts().
+// The first two (bottom-strip, Z=wall/2) didn't actually match until
+// 2026-08-18 -- pot-side's bores had drifted to boss_w/2 when its
+// reinforcing bosses were added, a real 3.5mm misalignment from these
+// values, found and fixed alongside a visual issue (those same bosses'
+// full boss_w height stuck up above the bottom strip's own rim). These
+// values themselves were already correct and didn't need to change.
 pot_side_mount_yz = [
     [100, wall/2],
     [30, wall/2],
