@@ -73,33 +73,53 @@ boss_ramp = 10;
 
 edge_x = -case_w/2 + wall + edge_clearance; // this piece's edge nearest pot-side
 
-// Reinforcing boss around each pilot bore, same rationale/taper as
-// chromacade-pot-side.scad's square_boss() (45° toward +X, this piece's
-// own bed side — NOT -X like pot-side's version: blank-side's own
-// territory, and its own endcap/bed side, is in the +X direction from
-// edge_x, which sits near pot-side at negative X. Copying pot-side's -X
-// direction here extends the boss straight into pot-side's endcap instead
-// of into this piece's own material — caught via the interference check as
-// a large, very much non-empty overlap, not the usual small sliver).
-//
-// Takes the boss's own (Y,Z) center directly rather than a flush-face +
-// position pair, since only 3 of these 5 mounts sit on an axis-aligned
-// wall (front wall: flush at Y=case_d; top segment: flush at Z=case_h) —
-// the other 2 (shelf/panel and panel/top joints) sit on tilted segments
-// (8° and 45°), where a properly surface-flush boss would need a
-// per-segment local frame; centered symmetrically on the mount point
-// instead (simpler, lower-risk — the mount point is already inset toward
-// the interior of the wall's own material, so a generous symmetric cube
-// still lands solidly in real material even without matching the local
-// tilt exactly).
-module own_mount_boss(y_c, z_c) {
-    translate([edge_x, y_c - boss_w/2, z_c - boss_w/2])
-    cube([boss_body, boss_w, boss_w]);
+// The hollow interior volume -- exactly what shell_solid() subtracts
+// from outer_profile() to get wall thickness, factored out so
+// own_mount_boss() below can intersect against it directly.
+module interior_void() {
+    rotate([90, 0, 90])
+    linear_extrude(case_w - (wall * 2), center=true)
+    offset(delta = -wall) outer_profile();
+}
 
-    translate([edge_x + boss_body, y_c, z_c])
-    rotate([0, 90, 0])
-    linear_extrude(height=boss_ramp, scale=0)
-    square([boss_w, boss_w], center=true);
+// Reinforcing boss around each pilot bore, extending toward +X (this
+// piece's own bed/endcap side — NOT -X like pot-side's version: see git
+// history for why that direction matters, caught via the interference
+// check as a large overlap into pot-side's endcap when it was wrong).
+//
+// Rebuilt 2026-08-18 (was: a boss_w cube centered symmetrically on the
+// mount point, sized generously on the theory that it'd land in real
+// material even without matching the local wall's tilt exactly). Live
+// visual check found that theory wrong at the shelf/panel and panel/top
+// joints specifically (8°/45° tilted segments, further complicated by
+// being *at* the joint between two different tilts) -- the symmetric
+// cube stuck out through the exterior surface there, clearly visible
+// and centered oddly rather than flush with anything.
+//
+// Now: build the cross-section oversized (generous `margin` past any
+// plausible local wall thickness/tilt) and intersect with interior_void()
+// -- the actual hollow-interior shape already correctly accounts for
+// any segment angle or joint, so this doesn't need to know the local
+// wall normal at all. The taper is built the same way, then hull()'d
+// from the clipped cross-section out to a point at the bed-side end, so
+// it inherits whatever shape the clipping actually produced instead of
+// assuming a square boss_w cross-section that may not match here.
+module own_mount_boss(y_c, z_c) {
+    margin = 40; // comfortably bigger than any wall thickness/tilt offset here
+    intersection() {
+        translate([edge_x, y_c - margin, z_c - margin])
+        cube([boss_body, margin * 2, margin * 2]);
+        interior_void();
+    }
+    hull() {
+        intersection() {
+            translate([edge_x + boss_body - 0.01, y_c - margin, z_c - margin])
+            cube([0.01, margin * 2, margin * 2]);
+            interior_void();
+        }
+        translate([edge_x + boss_body + boss_ramp, y_c, z_c])
+        cube([0.01, 0.01, 0.01], center=true);
+    }
 }
 
 // This piece's own 5 mount/boss centers (Y,Z) — must stay identical to

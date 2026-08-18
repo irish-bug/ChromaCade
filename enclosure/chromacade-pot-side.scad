@@ -104,20 +104,24 @@ edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-si
 // "y") — the bore's own translate() must use the same `pos` and the same
 // boss_w/2 for its other coordinate, or the bore won't be centered in the
 // reinforced material.
-// height overrides the boss's Z-extent for thick_axis="z" only (defaults
-// to boss_w, i.e. no change from before) — added 2026-08-18 because the
-// two bottom-strip mounts' full boss_w(12) height stuck up well above the
-// bottom strip's own perimeter rim (just `wall`(5) tall there), visibly
-// poking above the case's silhouette in that isolated-piece render. The
-// back-strip ("y") mounts don't have this problem — they extend into open
-// interior depth, not up past a short rim — so thick_axis="y" still
-// ignores this param and always uses the full boss_w cube, unchanged.
-module square_boss(x0, pos, thick_axis, height=boss_w) {
+// z_start/height override the boss's Z-extent for thick_axis="z" only
+// (default z_start=0/height=boss_w, i.e. no change from before, still
+// used by the back-strip "y" case). Corrected 2026-08-18, second pass —
+// first attempt (height=wall, z_start=0) capped the boss at the bottom
+// strip's own bare-wall thickness, which just made it coincide exactly
+// with material that's already there (effectively no reinforcement at
+// all, and visually "centered in"/embedded in the panel rather than a
+// distinct standing feature). What's actually wanted: the boss's BOTTOM
+// face flush with the bottom strip's own INTERIOR surface (z=wall, not
+// z=0 -- z=0 is the exterior), standing up from there into the open
+// interior by `height`, same shape/reinforcement-depth as the back-strip
+// bosses just rotated 90° -- so z_start=wall, height=boss_w here.
+module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
     if (thick_axis == "z") {
-        translate([x0 - boss_body, pos - boss_w/2, 0])
+        translate([x0 - boss_body, pos - boss_w/2, z_start])
         cube([boss_body, boss_w, height]);
 
-        translate([x0 - boss_body, pos, height/2])
+        translate([x0 - boss_body, pos, z_start + height/2])
         rotate([0, -90, 0])
         linear_extrude(height=boss_ramp, scale=0)
         square([boss_w, height], center=true);
@@ -153,22 +157,23 @@ blank_side_mount_yz = [
 ];
 
 module pot_side_mount_bosses() {
-    square_boss(edge_x, 100, "z", height=wall);
-    square_boss(edge_x, 30, "z", height=wall);
+    square_boss(edge_x, 100, "z", z_start=wall, height=boss_w);
+    square_boss(edge_x, 30, "z", z_start=wall, height=boss_w);
     square_boss(edge_x, 85, "y");
     square_boss(edge_x, 20, "y");
 }
 
 module pot_side_mounts() {
-    // Bottom-strip (z-axis) bores centered at wall/2, matching the
-    // height-capped boss above -- also, not incidentally, exactly what
-    // chromacade-blank-side.scad's pot_side_mount_yz already expected
-    // for these two (was boss_w/2 before, a real 3.5mm mismatch from
-    // blank-side's clearance holes, found and fixed alongside the
-    // sticking-up-above-the-rim issue 2026-08-18). Back-strip (y-axis)
-    // bores stay at boss_w/2, matching their unchanged full-height boss.
-    translate([edge_x, 100, wall/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, 30, wall/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    // Bottom-strip (z-axis) bores centered at wall + boss_w/2, matching
+    // the boss above: flush with the bottom strip's own interior surface
+    // (z=wall) at its bottom face, standing up boss_w into the interior
+    // from there -- corrected 2026-08-18, second pass (see square_boss()
+    // comment). NOT wall/2 -- that was this module's first-pass fix,
+    // which just embedded the boss inside material that's already there.
+    // chromacade-blank-side.scad's pot_side_mount_yz must be updated to
+    // match this new Z value.
+    translate([edge_x, 100, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, 30, wall + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([edge_x, boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([edge_x, boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
 }
