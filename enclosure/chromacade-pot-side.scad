@@ -38,80 +38,57 @@ p5 = [0, p4[1]];
 
 case_h = p4[1];
 
-// Mounting bosses joining this piece to chromacade-blank-side(-embossed).scad
-// at the p1 (bottom<->front) and p5 (back<->top) seams. All 6 bosses live on
-// this piece; the blank-side piece just gets plain clearance through-holes
-// (no matching pockets needed) — simpler than mirroring bosses on both
-// pieces, at the cost of all the screw-retention material being here.
+// Mounting holes joining this piece to chromacade-blank-side(-embossed).scad
+// — fastened from the SIDES (screws run along X), not across the diagonal
+// p1/p5 seam (an earlier attempt put bosses there, ~6" from where the screw
+// would actually enter, since a piece's own wall material is already cut
+// back well short of the seam corner at any real distance from the exact
+// edge — see docs/decision-log.md). Screwing along X instead needs no added
+// boss geometry at all: each piece's strips and endcap are already
+// continuous, print-safe solid material (part of the uniform extrusion), so
+// a bore straight into that existing material, right at the piece's own
+// edge, gives a short, direct screw path with plenty of engagement depth
+// and nothing that needs a support-avoiding chamfer.
 //
-// Printed side-down (this piece's own -X endcap on the bed) to avoid the
-// support a 45°-angled panel would need — see chromacade-blank-side.scad's
-// header. Each boss's solid material stays fully within this piece's own
-// (Y,Z) bounds (inset by boss_r + edge_clearance from the seam) so it can't
-// collide with the other piece; only the bore (a hole, not solid) crosses
-// the gap. Ramped 45° toward -X (this piece's own endcap/print-bed side)
-// via a cone, rather than an abrupt step, so the boss itself prints without
-// support in this orientation.
-boss_r       = 5;
-boss_bore_d  = 3.5;
-boss_body_len = 14;
-boss_ramp    = 8;
-boss_x_positions = [-70, 0, 70];
+// This piece (pot-side) owns 4 mounts — 2 on the bottom strip, 2 on the
+// back strip — each a pilot bore (screw threads into this piece's own
+// plastic) starting right at this piece's edge nearest blank-side and
+// reaching backward into solid material. Blank-side owns 5 more — near the
+// front wall's bottom and top, the shelf/panel joint, the panel/top joint,
+// and the top/back joint — this piece just gets a plain clearance hole for
+// those, through its endcap.
+pilot_d = 3;    // this piece's own thread-engagement bore
+clear_d = 3.5;  // clearance hole for a mount the OTHER piece owns
+engage  = 15;   // pilot bore depth into solid material
 
-module chamfered_boss(x0, y0, z0, axis) {
-    translate([x0, y0, z0]) {
-        rotate([0, -90, 0])
-        cylinder(h=boss_ramp, r1=boss_r, r2=0);
+edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-side
 
-        if (axis == "y")
-            rotate([90, 0, 0]) cylinder(h=boss_body_len, r=boss_r);
-        else
-            rotate([180, 0, 0]) cylinder(h=boss_body_len, r=boss_r);
-    }
+// Blank-side's 5 mount positions (Y,Z) — computed against the p1..p5
+// profile points the same way hardware_cutouts() derives shelf_my/panel_my
+// (point along a segment, inset half a wall-thickness toward the interior);
+// hardcoded here as plain numbers since this file only needs them for
+// clearance holes. Regenerate (see chromacade-blank-side.scad's matching
+// own_mount_yz, which must stay identical) if the dimension constants above
+// change.
+blank_side_mount_yz = [
+    [123.23, 7.33],   // front wall, near bottom
+    [123.23, 41.56],  // front wall, near top
+    [85.29, 52.05],   // shelf/panel joint
+    [34.82, 95.74],   // panel/top joint
+    [4.38, 102.41],   // top/back joint
+];
+
+module pot_side_mounts() {
+    translate([edge_x, 100, wall/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, 30, wall/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, wall/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, wall/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
 }
 
-module boss_bore(x0, y0, z0, axis, seam_coord) {
-    // Explicitly spans from within the boss body (back_edge) out past the
-    // seam (front_edge = seam_coord + margin) — the boss anchors are now
-    // well back from the seam (see all_bosses()' comment), so a small fixed
-    // length isn't enough; this reaches however far is actually needed.
-    // center=true on the cylinder makes the rotate direction irrelevant
-    // here (unlike the solid boss shapes, which do care about sign).
-    anchor = (axis == "y") ? y0 : z0;
-    back_edge = anchor - boss_body_len - 5;
-    front_edge = seam_coord + 10;
-    mid = (back_edge + front_edge) / 2;
-    len = front_edge - back_edge;
-    if (axis == "y")
-        translate([x0, mid, z0]) rotate([90, 0, 0]) cylinder(h=len, d=boss_bore_d, center=true);
-    else
-        translate([x0, y0, mid]) rotate([180, 0, 0]) cylinder(h=len, d=boss_bore_d, center=true);
-}
-
-// Boss anchor positions: NOT simply "inset boss_r from the seam" — the
-// p1-p5 seam is a diagonal line (in the Y,Z profile plane), so this piece's
-// own strip material is already cut back well short of the seam corner at
-// any Z (for the p1 boss) or Y (for the p5 boss) above/beyond a few mm. The
-// anchor also has to clear the OTHER piece's full wall thickness, not just
-// edge_clearance, since that piece's front wall / top segment occupies a
-// real Y (or Z) range right at the seam, not just a hairline. Computed
-// numerically (see PR description) against both constraints with a safety
-// margin — don't shrink these back toward the seam without re-deriving.
-module all_bosses() {
-    y1 = 85; // p1 seam anchor (bottom side)
-    z5 = 70; // p5 seam anchor (back side)
-    for (x0 = boss_x_positions) {
-        chamfered_boss(x0, y1, wall + boss_r, "y");
-        chamfered_boss(x0, wall + boss_r, z5, "z");
-    }
-}
-
-module all_boss_bores() {
-    y1 = 85;
-    z5 = 70;
-    for (x0 = boss_x_positions) {
-        boss_bore(x0, y1, wall + boss_r, "y", case_d);
-        boss_bore(x0, wall + boss_r, z5, "z", case_h);
+module pot_side_clearance_holes() {
+    for (yz = blank_side_mount_yz) {
+        translate([-case_w/2 + wall/2, yz[0], yz[1]])
+        rotate([0, 90, 0]) cylinder(h=wall + 10, d=clear_d, center=true);
     }
 }
 
@@ -120,10 +97,10 @@ difference() {
     union() {
         endcap(-1);
         strips();
-        all_bosses();
     }
     hardware_cutouts();
-    all_boss_bores();
+    pot_side_mounts();
+    pot_side_clearance_holes();
 }
 
 module outer_profile() {
@@ -163,8 +140,19 @@ module yz_half_plane(side) {
     // Verified numerically before writing this file. side=-1 flips it.
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
+    // Retreat the mask line a few mm from the exact p1-p5 line, into this
+    // piece's own kept side. outer_profile()'s offset(r=6)/offset(r=-6)
+    // rounding doesn't pass through p1/p5 exactly, so a mask cut at the
+    // literal coordinates leaves a sliver of near-touching material where
+    // the rounded wall surface and the straight mask line diverge near the
+    // corner (found via the pot-side/blank-side interference check — small,
+    // but non-empty). 3mm comfortably clears the 6mm rounding radius's
+    // local effect.
+    seam_margin = 3;
+    p1m = p1 + perp_unit*seam_margin;
+    p5m = p5 + perp_unit*seam_margin;
     big = 2000;
-    pts = [p1, p5, p5 + perp_unit*big, p1 + perp_unit*big];
+    pts = [p1m, p5m, p5m + perp_unit*big, p1m + perp_unit*big];
     rotate([90, 0, 90])
     linear_extrude(case_w, center=true)
     polygon(pts);

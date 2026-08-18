@@ -94,28 +94,52 @@ wordmark_paths = [
     [288,289,290,291,292,293,294,295,296,297,298,299,300,301,302,303,304,305,306,307,308], [309,310,311,312,313,314,315,316,317,318,319,320,321,322], // 'e'
 ];
 
-// Clearance through-holes for the mounting bosses on chromacade-pot-side.scad
-// (all 6 bosses live there — see that file's header for why). Positions
-// must match its boss_x_positions/boss_r exactly, or the screws won't line up.
-boss_r      = 5;
-boss_bore_d = 3.5;
-boss_x_positions = [-70, 0, 70];
+// Mounting holes joining this piece to chromacade-pot-side.scad — screwed
+// together from the sides (X axis), right at each piece's own edge; see
+// that file's header comment for the full rationale (an earlier attempt
+// bridging the diagonal p1/p5 seam needed ~6" screws).
+//
+// This piece (blank-side) owns 5 mounts — near the front wall's bottom and
+// top, the shelf/panel joint, the panel/top joint, and the top/back joint —
+// each a pilot bore into this piece's own material, starting right at this
+// piece's edge nearest pot-side. Pot-side owns 4 more (2 bottom, 2 back);
+// this piece just gets clearance holes through its endcap for those.
+pilot_d = 3;
+clear_d = 3.5;
+engage  = 15;
 
-module boss_clearance_holes() {
-    // Centered on the seam itself (Y=case_d for p1, Z=case_h for p5) with a
-    // generous symmetric length — guaranteed to fully perforate this piece's
-    // own wall thickness there regardless of exact centering, same
-    // "generous rather than precisely trimmed" approach as the matching
-    // bore in chromacade-pot-side.scad.
-    len = 60;
-    for (x0 = boss_x_positions) {
-        // p1 seam: screw enters through the front wall, axis along Y
-        translate([x0, case_d, wall + boss_r])
-        rotate([90, 0, 0]) cylinder(h=len, d=boss_bore_d, center=true);
+edge_x = -case_w/2 + wall + edge_clearance; // this piece's edge nearest pot-side
 
-        // p5 seam: screw enters through the top/ceiling, axis along Z
-        translate([x0, wall + boss_r, case_h])
-        rotate([180, 0, 0]) cylinder(h=len, d=boss_bore_d, center=true);
+// This piece's own 5 mount positions (Y,Z) — must stay identical to
+// chromacade-pot-side.scad's blank_side_mount_yz (that file explains where
+// these numbers come from) and to chromacade-blank-side.scad's own copy.
+// Regenerate all three together if the dimension constants above change.
+own_mount_yz = [
+    [123.23, 7.33],
+    [123.23, 41.56],
+    [85.29, 52.05],
+    [34.82, 95.74],
+    [4.38, 102.41],
+];
+
+// Pot-side's 4 mount positions (Y,Z) — must match its pot_side_mounts().
+pot_side_mount_yz = [
+    [100, wall/2],
+    [30, wall/2],
+    [wall/2, 85],
+    [wall/2, 20],
+];
+
+module blank_side_mounts() {
+    for (yz = own_mount_yz) {
+        translate([edge_x, yz[0], yz[1]]) rotate([0, 90, 0]) cylinder(h=engage, d=pilot_d);
+    }
+}
+
+module blank_side_clearance_holes() {
+    for (yz = pot_side_mount_yz) {
+        translate([case_w/2 - wall/2, yz[0], yz[1]])
+        rotate([0, 90, 0]) cylinder(h=wall + 10, d=clear_d, center=true);
     }
 }
 
@@ -127,7 +151,8 @@ union() {
             strips();
         }
         hardware_cutouts();
-        boss_clearance_holes();
+        blank_side_mounts();
+        blank_side_clearance_holes();
     }
     wordmark_emboss();
 }
@@ -156,8 +181,15 @@ module yz_half_plane(side) {
     seam = p5 - p1;
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
+    // Retreat the mask line a few mm from the exact p1-p5 line — see
+    // chromacade-pot-side.scad's matching comment (outer_profile()'s
+    // rounding doesn't pass through p1/p5 exactly, leaving a sliver of
+    // near-touching material at a literal-coordinate mask cut).
+    seam_margin = 3;
+    p1m = p1 + perp_unit*seam_margin;
+    p5m = p5 + perp_unit*seam_margin;
     big = 2000;
-    pts = [p1, p5, p5 + perp_unit*big, p1 + perp_unit*big];
+    pts = [p1m, p5m, p5m + perp_unit*big, p1m + perp_unit*big];
     rotate([90, 0, 90])
     linear_extrude(case_w, center=true)
     polygon(pts);
