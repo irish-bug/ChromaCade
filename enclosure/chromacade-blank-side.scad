@@ -41,6 +41,13 @@ p5 = [0, p4[1]];
 
 case_h = p4[1];
 
+// Small deliberate gap between the two pieces' strip walls and the other
+// piece's endcap — see chromacade-pot-side.scad's matching comment. Defined
+// here (not down by strips()) because edge_x below needs it — a forward
+// reference makes OpenSCAD warn "Ignoring unknown variable" and silently
+// drop every mount hole positioned from it.
+edge_clearance = 0.15;
+
 // Mounting holes joining this piece to chromacade-pot-side.scad — screwed
 // together from the sides (X axis), right at each piece's own edge; see
 // that file's header comment for the full rationale (an earlier attempt
@@ -151,13 +158,7 @@ module endcap(side) {
 
 // This piece's front+shelf+panel+top wall strips, spanning from its own
 // endcap's outer face to just short of the OTHER piece's endcap inner face
-// — pulled back by edge_clearance rather than touching it exactly. See
-// chromacade-pot-side.scad's edge_clearance comment: an exact shared
-// boundary plane produces razor-thin sliver artifacts in boolean
-// intersection checks (pure floating-point noise, confirmed via the
-// pot-side/blank-side interference check) and relies on unrealistic print
-// tolerance anyway.
-edge_clearance = 0.15;
+// (see edge_clearance, defined near the top of this file).
 module strips() {
     intersection() {
         shell_solid();
