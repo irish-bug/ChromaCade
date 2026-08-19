@@ -2,7 +2,7 @@
  * ChromaCade — Mk 2 Component Fit Test Plates
  *
  * Tests only the cutouts revised since test-component-holes.scad.
- * Print all 5 before committing to the full case print.
+ * Print all 4 before committing to the full case print.
  *
  * Plate   Component           What changed / what to check
  * ─────────────────────────────────────────────────────────────────────────────
@@ -24,25 +24,27 @@
  *   D     0.96" OLED          28×15mm front window (2mm off-center) + 30×30mm back
  *                             countersink (~3mm deep) -- all confirmed correct 2026-08-19
  *                             Check: viewable area fully open; module PCB drops into pocket squarely
- *   E     Speaker grille      1"×1.5" portrait stadium, toddler-safe ø5.4mm hex holes
- *                             Check: pattern looks clean, overall shape correct
+ *
+ * Plate E (old single-cone stadium speaker grille) removed 2026-08-19 -- the
+ * speaker design changed to a dual-cone housing with round grilles (see
+ * chromacade-blank-side.scad's spk_cone_d/spk_cone_offset); the old stadium
+ * shape no longer matches anything real. No replacement test plate yet.
  *
  * Print orientation: BACK FACE UP (countersinks and recesses face up toward you).
  * Insert parts from the underside to test fit and thread engagement.
  *
- * Bed footprint (PART="ALL"): ~138mm × 105mm — fits an 8"×8" bed with margin.
- * Set PART below to print just one plate instead of all 5 -- e.g. "B" for a
+ * Bed footprint (PART="ALL"): ~132mm × 94mm — fits an 8"×8" bed with margin.
+ * Set PART below to print just one plate instead of all 4 -- e.g. "B" for a
  * fast joystick-only iteration.
  */
 
 /* [Render Selection] */
 PART = "ALL";
-// [ALL, A, B, C, D, E]
+// [ALL, A, B, C, D]
 
 $fn = 60;
 
 wall   = 5;      // matches case wall thickness
-in2mm  = 25.4;
 
 // ─── A: EC11 Rotary Encoder ───────────────────────────────────────────────────
 module test_encoder_mk2() {
@@ -162,62 +164,23 @@ module test_oled_mk2() {
     }
 }
 
-// ─── E: Speaker Grille ────────────────────────────────────────────────────────
-module test_speaker_mk2() {
-    gw = 1.0 * in2mm;   // 25.4mm — stadium width
-    gh = 1.5 * in2mm;   // 38.1mm — stadium height
-    pw = gw + 10;       // 35.4mm — plate width
-    ph = gh + 20;       // 58.1mm — plate height (margin around the grille)
-
-    difference() {
-        linear_extrude(wall) square([pw, ph], center=true);
-        translate([0, 0, wall/2])
-            stadium_hex_grill_cut(gw, gh);
-    }
-}
-
-// Stadium hex grill cutter — mirrors chromacade.scad, used inside difference().
-module stadium_hex_grill_cut(gw, gh) {
-    r          = gw / 2;
-    cap_offset = (gh - gw) / 2;
-    hole_radius = 2.7;
-    spacing    = 6;
-
-    intersection() {
-        hull() {
-            translate([0,  cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
-            translate([0, -cap_offset, 0]) cylinder(h=wall*5, r=r, center=true);
-        }
-        union() {
-            for (x = [-gw/2 : spacing : gw/2]) {
-                for (y = [-gh/2 : spacing*0.866 : gh/2]) {
-                    x_offset = x + (round(y/(spacing*0.866)) % 2) * (spacing/2);
-                    translate([x_offset, y, 0])
-                        cylinder(h=wall*5, r=hole_radius, $fn=6, center=true);
-                }
-            }
-        }
-    }
-}
-
 // ─── Layout ───────────────────────────────────────────────────────────────────
 //  Row 0 (Y=0):     A Encoder    B Joystick    C LED Ring
-//  Row 1 (below):   D OLED       E Speaker
+//  Row 1 (below):   D OLED
 
 pitch_sm = 40 + 6;  // 46mm between 40mm-plate centres
 
-// Row 1 Y: gap from bottom edge of row 0 plates (±20mm) to top of row 1 plates
-row1_y = -(20 + 6 + 58.1/2);  // −55.05mm — driven by tallest row-1 plate (speaker)
+// Row 1 Y: gap from bottom edge of row 0 plates (tallest is B/C at 44mm ->
+// half=22) to top of row 1 plates (D, also 44mm tall -> half=22)
+row1_y = -(22 + 6 + 22);  // −50mm
 
 if (PART == "ALL") {
     translate([0,           0,       0]) test_encoder_mk2();
     translate([pitch_sm,    0,       0]) test_joystick_mk2();
     translate([pitch_sm*2,  0,       0]) test_led_ring_mk2();
     translate([0,           row1_y,  0]) test_oled_mk2();
-    translate([50,          row1_y,  0]) test_speaker_mk2();
 }
 else if (PART == "A") test_encoder_mk2();
 else if (PART == "B") test_joystick_mk2();
 else if (PART == "C") test_led_ring_mk2();
 else if (PART == "D") test_oled_mk2();
-else if (PART == "E") test_speaker_mk2();
