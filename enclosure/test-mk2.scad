@@ -19,7 +19,7 @@
  *                             bosses nearest center are close enough to the
  *                             hole edge that they may print thin/undercut,
  *                             confirm they're solid before trusting this
- *   C     WS2812 LED ring     ø24mm front aperture + ø28mm back recess 1mm deep
+ *   C     WS2812 LED ring     ø24mm front aperture + ø28mm back recess (~3mm deep)
  *                             Check: LED circle fully visible; PCB sits in recess, glue gap ~1.3mm
  *   D     0.96" OLED          28×15mm front window (2mm off-center) + 30×30mm back
  *                             countersink (~3mm deep) -- all confirmed correct 2026-08-19
@@ -141,9 +141,10 @@ module test_led_ring_mk2() {
         // Front aperture — d=24 exposes full 23mm LED circle (0.5mm margin)
         translate([0, 0, wall/2])
             cylinder(h=wall*3, d=24, center=true);
-        // Back recess — d=28, 1mm deep; PCB ~25.4mm glues in with ~1.3mm gap
-        translate([0, 0, wall - 0.5])
-            cylinder(h=1, d=28, center=true);
+        // Back recess — d=28, centered on the back face (~3mm effective depth);
+        // PCB ~25.4mm glues in with ~1.3mm gap
+        translate([0, 0, wall])
+            cylinder(h=6, d=28, center=true);
     }
 }
 
