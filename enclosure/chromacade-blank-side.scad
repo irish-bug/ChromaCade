@@ -225,7 +225,13 @@ module blank_side_clearance_holes() {
 // full print. See enclosure/test-mk2.scad plate B for a small printable
 // test of this exact boss layout before committing to a full blank-side
 // print.
-joy_x             = 70; // matches the shelf's existing stick-hole X position
+//
+// joy_x corrected 2026-08-18 from 70 to -65: confirmed in play position
+// (facing the front of the case from outside) RIGHT is the -X direction
+// here, and the joystick sits far right (paired with the font encoder at
+// x=-35) -- the rocker (paired with the octave encoder at x=45) is the one
+// at x=70, far left. Was backwards in the first pass.
+joy_x             = -65; // matches the shelf's joystick stick-hole X position
 joy_hole_dx       = 9;
 joy_hole_front_dy = 14;
 joy_hole_back_dy  = -12.5;
@@ -350,18 +356,24 @@ module hardware_cutouts() {
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        translate([-65, 0, 0]) cylinder(h=wall*4, d=28, center=true);
-        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        // UNDER ACTIVE TEST -- first validated print was 28mm (test-mk2.scad's
-        // original plate B, before the mounting bosses existed); trying
-        // 26.5mm this round (see test-mk2.scad plate B). Confirm with a
-        // printed test before trusting this on a full case print.
-        translate([70, 0, 0]) cylinder(h=wall*4, d=26.5, center=true);
+        // Joystick (far right in play position = negative X here, confirmed
+        // 2026-08-18). UNDER ACTIVE TEST -- first validated print was 28mm
+        // (test-mk2.scad's original plate B, before the mounting bosses
+        // existed); trying 26.5mm this round (see test-mk2.scad plate B).
+        // Confirm with a printed test before trusting this on a full print.
+        // Corrected 2026-08-18: this hole (x=-65) was previously mislabeled
+        // as the rocker's -- it's the joystick's, per the same correction
+        // that moved joy_x below.
+        translate([-65, 0, 0]) cylinder(h=wall*4, d=26.5, center=true);
+        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
+        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
+        // Rocker switch (far left in play position = positive X here) --
+        // MEASURED correct as-is, do not resize.
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
 
         // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
-        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
-        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
+        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // font
+        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // octave
     }
 
     panel_my = (p3[0] + p4[0]) / 2;

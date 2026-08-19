@@ -473,13 +473,15 @@ module blank_hardware_cutouts() {
 
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        translate([-65, 0, 0]) cylinder(h=wall*4, d=28, center=true);
-        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        translate([70, 0, 0]) cylinder(h=wall*4, d=JOY_STICK_D, center=true); // UNDER TEST, see JOY_STICK_D
+        // Joystick, far right in play position (-X here) -- see JOY_STICK_D
+        translate([-65, 0, 0]) cylinder(h=wall*4, d=JOY_STICK_D, center=true);
+        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
+        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
+        // Rocker switch, far left in play position (+X here) -- MEASURED correct
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
 
-        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
-        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
+        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // font
+        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // octave
     }
 
     translate([0, panel_my, panel_mz])
@@ -508,7 +510,10 @@ module blank_hardware_cutouts() {
 // own joystick_mount_bosses()/joystick_mount_pilot_holes(), kept in sync by
 // hand (see header note at the top of this file). See that file's comment
 // for the full measurement rationale.
-joy_x             = 70; // matches the shelf's existing stick-hole X position
+// joy_x corrected 2026-08-18 from 70 to -65 -- joystick is far right in play
+// position (-X here, paired with the font encoder at x=-35); the rocker
+// (paired with the octave encoder at x=45) is the one at x=70, far left.
+joy_x             = -65; // matches the shelf's joystick stick-hole X position
 joy_hole_dx       = 9;
 joy_hole_front_dy = 14;
 joy_hole_back_dy  = -12.5;
@@ -631,16 +636,18 @@ module pi4_stack_mockup() {
     }
 }
 
+// Far left in play position (+X here) -- corrected 2026-08-18 from x=-65.
 module rocker_mockup() {
     color("Crimson")
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        translate([-65, 0, 1]) cylinder(h = 2, d = ROCKER_FLANGE_D, center = true);
-        translate([-65, 0, -ROCKER_BODY_H/2]) cylinder(h = ROCKER_BODY_H, d = ROCKER_BODY_D, center = true);
+        translate([70, 0, 1]) cylinder(h = 2, d = ROCKER_FLANGE_D, center = true);
+        translate([70, 0, -ROCKER_BODY_H/2]) cylinder(h = ROCKER_BODY_H, d = ROCKER_BODY_D, center = true);
     }
 }
 
-// Shared by both octave (x=-35) and font (x=45) encoders -- same part.
+// Shared by both octave (x=45) and font (x=-35) encoders -- same part,
+// corrected 2026-08-18 (was swapped).
 module encoder_mockup(x, c = "Goldenrod") {
     color(c)
     translate([0, shelf_my, shelf_mz])
@@ -707,8 +714,8 @@ module assembly() {
     led_strip_mockup();
     pi4_stack_mockup();
     rocker_mockup();
-    encoder_mockup(-35, "Goldenrod");
-    encoder_mockup(45, "DarkGoldenrod");
+    encoder_mockup(45, "Goldenrod");
+    encoder_mockup(-35, "DarkGoldenrod");
     joystick_mockup();
     note_switches_mockup();
 }
@@ -726,7 +733,7 @@ else if (PART == "LED_RING") led_ring_mockup();
 else if (PART == "LED_STRIP") led_strip_mockup();
 else if (PART == "PI4_STACK") pi4_stack_mockup();
 else if (PART == "ROCKER_SWITCH") rocker_mockup();
-else if (PART == "OCTAVE_ENCODER") encoder_mockup(-35);
-else if (PART == "FONT_ENCODER") encoder_mockup(45);
+else if (PART == "OCTAVE_ENCODER") encoder_mockup(45);
+else if (PART == "FONT_ENCODER") encoder_mockup(-35);
 else if (PART == "JOYSTICK") joystick_mockup();
 else if (PART == "NOTE_SWITCHES") note_switches_mockup();
