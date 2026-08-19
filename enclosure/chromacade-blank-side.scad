@@ -357,14 +357,13 @@ module hardware_cutouts() {
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
         // Joystick (far right in play position = negative X here, confirmed
-        // 2026-08-18). UNDER ACTIVE TEST -- first validated print was 28mm
-        // (test-mk2.scad's original plate B, before the mounting bosses
-        // existed); trying 26.5mm this round (see test-mk2.scad plate B).
-        // Confirm with a printed test before trusting this on a full print.
-        // Corrected 2026-08-18: this hole (x=-65) was previously mislabeled
-        // as the rocker's -- it's the joystick's, per the same correction
-        // that moved joy_x below.
-        translate([-65, 0, 0]) cylinder(h=wall*4, d=26.5, center=true);
+        // 2026-08-18). UNDER ACTIVE TEST -- 28mm (original pre-boss print)
+        // then 26.5mm (a tiny bit too small) then 27mm as of 2026-08-19, see
+        // test-mk2.scad plate B. Confirm with a printed test before trusting
+        // this on a full print. Corrected 2026-08-18: this hole (x=-65) was
+        // previously mislabeled as the rocker's -- it's the joystick's, per
+        // the same correction that moved joy_x below.
+        translate([-65, 0, 0]) cylinder(h=wall*4, d=27, center=true);
         translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
         // Rocker switch (far left in play position = positive X here) --

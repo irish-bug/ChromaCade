@@ -177,16 +177,16 @@ ENC_PIN_LEN   = 5;    // ESTIMATE: 5-pin header stub length
 // KY-023 dual-axis analog joystick module. Board size and its 4 mounting-
 // hole positions (relative to the joystick's own center) MEASURED against
 // the real board 2026-08-18. Stick hole diameter is UNDER ACTIVE TEST --
-// the first print validated 28mm (test-mk2.scad's original plate B,
-// before the mounting bosses existed); currently trying 26.5mm (see
-// test-mk2.scad plate B and chromacade-blank-side.scad) -- update
-// JOY_STICK_D here once a size is confirmed by a real print. Mounting
-// boss positions/sizes are defined down in the BLANK-SIDE section
-// (joystick_boss_xy() etc.), shared by the real piece and this mockup.
+// 28mm (original pre-boss print), then 26.5mm (a tiny bit too small), now
+// 27mm as of 2026-08-19 (see test-mk2.scad plate B and
+// chromacade-blank-side.scad) -- update JOY_STICK_D here once a size is
+// confirmed by a real print. Mounting boss positions/sizes are defined
+// down in the BLANK-SIDE section (joystick_boss_xy() etc.), shared by the
+// real piece and this mockup.
 JOY_PCB_W      = 26;   // MEASURED
 JOY_PCB_H      = 33;   // MEASURED
 JOY_PCB_T      = 1.6;  // ESTIMATE
-JOY_STICK_D    = 26.5; // UNDER TEST -- see note above
+JOY_STICK_D    = 27;   // UNDER TEST -- see note above
 JOY_BALL_D     = 15;   // ESTIMATE: stick ball-cap diameter
 JOY_STICK_H    = 20;   // ESTIMATE: stick height above the panel exterior
 JOY_HEADER_LEN = 5;    // MEASURED: 4-pin header stub off the board's back

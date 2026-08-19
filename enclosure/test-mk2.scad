@@ -6,10 +6,10 @@
  *
  * Plate   Component           What changed / what to check
  * ─────────────────────────────────────────────────────────────────────────────
- *   A     EC11 encoder        ø7mm through + 13×13mm back countersink (~1.5mm deep)
+ *   A     EC11 encoder        ø7mm through + 13×13mm back countersink (~3mm deep)
  *                             Check: bushing seats flush, nut threads catch in pocket
- *   B     KY-023 joystick     ø26.5mm stick hole (was ø28, before the mounting
- *                             bosses existed) + 4 mounting bosses (12mm tall,
+ *   B     KY-023 joystick     ø27mm stick hole (26.5mm was a tiny bit too small,
+ *                             28mm was the original pre-boss print) + 4 mounting bosses (12mm tall,
  *                             ø6mm, ø2.5mm pilot) at the real board's 4 corner
  *                             holes -- MEASURED 2026-08-18, see
  *                             chromacade-blank-side.scad's joystick_boss_xy()
@@ -22,7 +22,7 @@
  *   C     WS2812 LED ring     ø24mm front aperture + ø28mm back recess 1mm deep
  *                             Check: LED circle fully visible; PCB sits in recess, glue gap ~1.3mm
  *   D     0.96" OLED          28×15mm front window (2mm off-center) + 30×30mm back
- *                             countersink (~1.5mm deep)
+ *                             countersink (~3mm deep) -- all confirmed correct 2026-08-19
  *                             Check: viewable area fully open; module PCB drops into pocket squarely
  *   E     Speaker grille      1"×1.5" portrait stadium, toddler-safe ø5.4mm hex holes
  *                             Check: pattern looks clean, overall shape correct
@@ -52,21 +52,21 @@ module test_encoder_mk2() {
         // M7 bushing through-hole — enters from bottom (front of panel)
         translate([0, 0, wall/2])
             cylinder(h=wall*3, d=7, center=true);
-        // Back countersink — 13×13mm, centered on the back face (~1.5mm effective depth)
+        // Back countersink — 13×13mm, centered on the back face (~3mm effective depth)
         translate([0, 0, wall])
-            cube([13, 13, 3], center=true);
+            cube([13, 13, 6], center=true);
     }
 }
 
 // ─── B: KY-023 Joystick ───────────────────────────────────────────────────────
-// Stick hole under active test (26.5mm, see header) plus the 4 real mounting
+// Stick hole under active test (27mm, see header) plus the 4 real mounting
 // bosses -- board is 26x33mm, front pair (toward the speaker wall) 14mm off
 // center, back pair 12.5mm off center, both pairs +/-9mm left-right. Boss
 // positions/sizes MUST stay in sync with chromacade-blank-side.scad's
 // joystick_boss_xy()/joy_boss_h/joy_boss_d/joy_pilot_d.
 module test_joystick_mk2() {
     pw = 40; ph = 40;
-    hole_d  = 26.5; // UNDER TEST -- see header note
+    hole_d  = 27; // UNDER TEST -- see header note
     boss_h  = 12;
     boss_d  = 6;    // ESTIMATE
     pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
@@ -117,9 +117,9 @@ module test_oled_mk2() {
         // Front window — 28×15mm viewable area, offset 2mm off-center
         translate([0, 2, wall/2])
             cube([28, 15, wall*3], center=true);
-        // Back countersink — 30×30mm, centered on the back face (~1.5mm effective depth)
+        // Back countersink — 30×30mm, centered on the back face (~3mm effective depth)
         translate([0, 0, wall])
-            cube([30, 30, 3], center=true);
+            cube([30, 30, 6], center=true);
     }
 }
 
