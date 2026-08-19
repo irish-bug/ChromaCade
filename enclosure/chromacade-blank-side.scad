@@ -26,11 +26,18 @@ shelf_a = 8;
 panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
 
-// Grille is a portrait stadium (pill) matched exactly to the cone area;
-// rotated 90° at the cut site to sit landscape on the (landscape) front wall enclosure.
-spk_grille_w = 1.0 * in2mm;  // 25.4mm = 1"   (stadium width  = cone width)
-spk_grille_h = 1.5 * in2mm;  // 38.1mm = 1.5" (stadium height = cone height)
-spk_cx       = 45;
+// NEW dual-cone speaker housing (2026-08-19) -- ONE 98x43x20mm housing,
+// centered on the front wall, replacing the old two single-cone positions.
+// Housing has 2x 35mm cones, each 22.5mm off the housing's own center
+// (45mm apart total), vertically centered on the front wall -- MEASURED
+// against the real part. Two separate housings (4 total cones) were
+// considered and don't fit: even edge-to-edge with zero margin they'd
+// need case_w >= 206mm, over the 203.2mm (8in) print bed limit -- see
+// docs/decision-log.md. Each cone gets its own round grille (a
+// stadium_hex_grill() with equal w/h degenerates to a circle, no rotation
+// needed since it's now symmetric).
+spk_cone_d      = 35;
+spk_cone_offset = 22.5;
 
 p0 = [0, 0];
 p1 = [case_d, 0];
@@ -384,12 +391,12 @@ module strips() {
 
 module hardware_cutouts() {
     // Speaker grilles — hex-hole pattern cut straight into the front wall
-    // (no separate insert). Stadium shape is portrait-native in the module;
-    // rotated 90° here so it sits landscape on the landscape enclosure.
+    // (no separate insert), one round grille per cone on the single
+    // dual-cone housing (see spk_cone_d/spk_cone_offset above).
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
-        translate([ spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([-spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
+        translate([ spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
     }
 
     shelf_my = (p2[0] + p3[0]) / 2;

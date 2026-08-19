@@ -60,9 +60,8 @@ shelf_a = 8;
 panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
 
-spk_grille_w = 1.0 * in2mm;
-spk_grille_h = 1.5 * in2mm;
-spk_cx       = 45;
+spk_cone_d      = 35;
+spk_cone_offset = 22.5;
 
 p0 = [0, 0];
 p1 = [case_d, 0];
@@ -196,19 +195,16 @@ JOY_HEADER_LEN = 5;    // MEASURED: 4-pin header stub off the board's back
 // the panel's back face, MEASURED 2026-08-18.
 MX_SWITCH_DEPTH = 8; // MEASURED
 
-// NEW dual-cone speaker housing (2026-08-18) -- replaces the single-cone
-// speaker the existing grille cutouts (spk_grille_w/h, spk_cx above) were
-// sized for. Landscape housing, 20mm deep, 98x43mm footprint, with 2x
+// NEW dual-cone speaker housing (2026-08-18, resolved to ONE housing
+// 2026-08-19) -- landscape housing, 20mm deep, 98x43mm footprint, with 2x
 // 35mm cones inside, each centered 22.5mm off the housing's own center
 // (i.e. 45mm apart), vertically centered on the 43mm dimension. MEASURED
-// against the real part. NOT YET reflected in blank_hardware_cutouts()'s
-// grille cutout itself -- this mockup is placed at the existing spk_cx
-// (+/-45) positions on purpose, to check fit against the CURRENT grille
-// layout: at 98mm wide and 90mm apart, the two housings overlap by about
-// 8mm. That's a real conflict, not a mockup bug -- the grille layout
-// likely needs to change (wider spacing, or one housing spanning both
-// existing grille positions) before this can be finalized; see the
-// ASSEMBLY render.
+// against the real part. Two separate housings (4 total cones) were
+// considered and don't fit within the 8in print bed (would need
+// case_w >= 206mm minimum, just to sit edge-to-edge with zero margin) --
+// see docs/decision-log.md. This build uses ONE housing centered on the
+// front wall (2 total cones), matching blank_hardware_cutouts()'s
+// spk_cone_d/spk_cone_offset above.
 SPK_HOUSING_W   = 98; // MEASURED
 SPK_HOUSING_H   = 43; // MEASURED
 SPK_HOUSING_D   = 20; // MEASURED
@@ -487,8 +483,8 @@ module blank_strips() {
 module blank_hardware_cutouts() {
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
-        translate([ spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([-spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
+        translate([ spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
     }
 
     translate([0, shelf_my, shelf_mz])
@@ -747,9 +743,9 @@ module note_switches_mockup() {
 
 // Front wall, rotate([90,0,0]) puts local +z toward the interior here
 // (opposite sign convention from the shelf/panel frames above -- this is a
-// different rotation). cx is the housing's center, matching spk_cx's +/-45
-// convention in blank_hardware_cutouts().
-module speaker_housing_mockup(cx) {
+// different rotation). Single housing, centered on the front wall (cx=0),
+// matching blank_hardware_cutouts()'s spk_cone_offset convention.
+module speaker_housing_mockup(cx = 0) {
     color("SaddleBrown")
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
@@ -779,8 +775,7 @@ module assembly() {
     encoder_mockup(-35, "DarkGoldenrod");
     joystick_mockup();
     note_switches_mockup();
-    speaker_housing_mockup(-45);
-    speaker_housing_mockup(45);
+    speaker_housing_mockup();
 }
 
 // ============================================================================
@@ -800,4 +795,4 @@ else if (PART == "OCTAVE_ENCODER") encoder_mockup(45);
 else if (PART == "FONT_ENCODER") encoder_mockup(-35);
 else if (PART == "JOYSTICK") joystick_mockup();
 else if (PART == "NOTE_SWITCHES") note_switches_mockup();
-else if (PART == "SPEAKER_HOUSING") { speaker_housing_mockup(-45); speaker_housing_mockup(45); }
+else if (PART == "SPEAKER_HOUSING") speaker_housing_mockup();
