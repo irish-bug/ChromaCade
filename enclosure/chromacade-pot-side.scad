@@ -169,11 +169,11 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
 // file's comment for why (clearance from this piece's own bottom/back
 // strips, which extend almost the full case width).
 blank_side_mount_yz = [
-    [123.23, 14],      // front wall, near bottom
-    [123.23, 41.56],   // front wall, near top
-    [85.29, 52.05],    // shelf/panel joint
-    [34.82, 95.74],    // panel/top joint
-    [14, 102.41],       // top/back joint
+    [100, 12],      // front wall, near bottom
+    [100, 42],   // front wall, near top
+    [74, 48],    // shelf/panel joint
+    [45, 73],    // panel/top joint
+    [14, 95],       // top/back joint
 ];
 
 module pot_side_mount_bosses() {
@@ -262,7 +262,7 @@ module yz_half_plane(side) {
     // corner (found via the pot-side/blank-side interference check — small,
     // but non-empty). 3mm comfortably clears the 6mm rounding radius's
     // local effect.
-    seam_margin = 3;
+    seam_margin = 1;
     p1m = p1 + perp_unit*seam_margin;
     p5m = p5 + perp_unit*seam_margin;
     big = 2000;
@@ -299,7 +299,7 @@ module hardware_cutouts() {
     // mounting bushing, not a bare 8mm hole (regression; unit #1 was
     // hand-drilled out to fit -- fixed here so future prints don't need
     // that workaround).
-    translate([-case_w/2, case_d/4, case_h/1.5])
+    translate([-case_w/2, case_d/4, case_h/3])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 
@@ -307,9 +307,9 @@ module hardware_cutouts() {
     // retired chromacade-back-panel.scad / chromacade-bottom-back.scad.
     // Unit #1 is bring-up-powered via a micro-USB cable routed straight
     // through instead of the LiPo/boost-charge board (decision-log.md).
-    h_back  = case_h - wall*2 - 1;
-    cable_z = case_h/2 + (-h_back/2 + 1.5);
-    translate([-40, wall, cable_z]) rotate([-90, 0, 0]) cylinder(h=wall*3, d=4, center=true);
+    //h_back  = case_h - wall*2 - 1;
+    //cable_z = case_h/2 + (-h_back/2 + 1.5);
+    //translate([-40, wall, cable_z]) rotate([-90, 0, 0]) cylinder(h=wall*3, d=4, center=true);
 
     // Fan vent — kept as unpopulated geometry (decision-log.md: dropped
     // from unit #1, revisit for the next build). 39mm hex grille + 4x M3
