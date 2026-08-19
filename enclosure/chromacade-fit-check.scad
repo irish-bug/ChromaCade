@@ -41,7 +41,8 @@ $fn = 60;
 PART = "ASSEMBLY";
 // [ASSEMBLY, BLANK_SIDE, POT_SIDE,
 //  POT, OLED, LED_RING, LED_STRIP, PI4_STACK,
-//  ROCKER_SWITCH, OCTAVE_ENCODER, FONT_ENCODER, JOYSTICK, NOTE_SWITCHES]
+//  ROCKER_SWITCH, OCTAVE_ENCODER, FONT_ENCODER, JOYSTICK, NOTE_SWITCHES,
+//  SPEAKER_HOUSING]
 
 // ============================================================================
 // GLOBAL DIMENSIONS -- must match chromacade-blank-side.scad and
@@ -155,7 +156,7 @@ CABLE_BUNDLE_D = 6;  // ESTIMATE: rough wiring-bundle visual placeholder
 // cylinder (factory wire leads included in that reach) unless the leads
 // get desoldered and rewired directly by hand, which is a last resort,
 // not the default plan -- don't shrink this to "just the switch" depth.
-ROCKER_HOLE_D   = 28; // MEASURED: confirmed correct as already cut
+ROCKER_HOLE_D   = 20; // MEASURED: confirmed correct as already cut (corrected 2026-08-18, was 28 -- stale from the rocker/joystick mixup)
 ROCKER_FLANGE_D = 32; // ESTIMATE: cap/flange OD beyond the hole
 ROCKER_BODY_D   = 20; // MEASURED
 ROCKER_BODY_H   = 40; // MEASURED (factory wire leads included)
@@ -194,6 +195,25 @@ JOY_HEADER_LEN = 5;    // MEASURED: 4-pin header stub off the board's back
 // changing here -- switches reach MX_SWITCH_DEPTH into the interior below
 // the panel's back face, MEASURED 2026-08-18.
 MX_SWITCH_DEPTH = 8; // MEASURED
+
+// NEW dual-cone speaker housing (2026-08-18) -- replaces the single-cone
+// speaker the existing grille cutouts (spk_grille_w/h, spk_cx above) were
+// sized for. Landscape housing, 20mm deep, 98x43mm footprint, with 2x
+// 35mm cones inside, each centered 22.5mm off the housing's own center
+// (i.e. 45mm apart), vertically centered on the 43mm dimension. MEASURED
+// against the real part. NOT YET reflected in blank_hardware_cutouts()'s
+// grille cutout itself -- this mockup is placed at the existing spk_cx
+// (+/-45) positions on purpose, to check fit against the CURRENT grille
+// layout: at 98mm wide and 90mm apart, the two housings overlap by about
+// 8mm. That's a real conflict, not a mockup bug -- the grille layout
+// likely needs to change (wider spacing, or one housing spanning both
+// existing grille positions) before this can be finalized; see the
+// ASSEMBLY render.
+SPK_HOUSING_W   = 98; // MEASURED
+SPK_HOUSING_H   = 43; // MEASURED
+SPK_HOUSING_D   = 20; // MEASURED
+SPK_CONE_D      = 35; // MEASURED
+SPK_CONE_OFFSET = 22.5; // MEASURED: each cone's offset from the housing center
 
 // ============================================================================
 // SHARED PROFILE HELPERS -- identical between chromacade-blank-side.scad and
@@ -478,7 +498,7 @@ module blank_hardware_cutouts() {
         translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
         // Rocker switch, far left in play position (+X here) -- MEASURED correct
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20, center=true);
 
         translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // font
         translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // octave
@@ -700,6 +720,22 @@ module note_switches_mockup() {
     }
 }
 
+// Front wall, rotate([90,0,0]) puts local +z toward the interior here
+// (opposite sign convention from the shelf/panel frames above -- this is a
+// different rotation). cx is the housing's center, matching spk_cx's +/-45
+// convention in blank_hardware_cutouts().
+module speaker_housing_mockup(cx) {
+    color("SaddleBrown")
+    translate([0, case_d, front_h/2])
+    rotate([90, 0, 0]) {
+        translate([cx - SPK_HOUSING_W/2, -SPK_HOUSING_H/2, wall])
+            cube([SPK_HOUSING_W, SPK_HOUSING_H, SPK_HOUSING_D]);
+        for (dx = [-SPK_CONE_OFFSET, SPK_CONE_OFFSET])
+            translate([cx + dx, 0, wall - 2])
+                cylinder(h = 2, d = SPK_CONE_D);
+    }
+}
+
 // ============================================================================
 // ASSEMBLY (preview only) -- both real pieces rendered translucent so every
 // mockup component is visible inside.
@@ -718,6 +754,8 @@ module assembly() {
     encoder_mockup(-35, "DarkGoldenrod");
     joystick_mockup();
     note_switches_mockup();
+    speaker_housing_mockup(-45);
+    speaker_housing_mockup(45);
 }
 
 // ============================================================================
@@ -737,3 +775,4 @@ else if (PART == "OCTAVE_ENCODER") encoder_mockup(45);
 else if (PART == "FONT_ENCODER") encoder_mockup(-35);
 else if (PART == "JOYSTICK") joystick_mockup();
 else if (PART == "NOTE_SWITCHES") note_switches_mockup();
+else if (PART == "SPEAKER_HOUSING") { speaker_housing_mockup(-45); speaker_housing_mockup(45); }

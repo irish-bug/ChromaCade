@@ -369,7 +369,7 @@ module hardware_cutouts() {
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
         // Rocker switch (far left in play position = positive X here) --
         // MEASURED correct as-is, do not resize.
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20, center=true);
 
         // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
         translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // font

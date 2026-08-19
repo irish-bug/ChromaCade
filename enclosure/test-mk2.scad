@@ -29,8 +29,14 @@
  * Print orientation: BACK FACE UP (countersinks and recesses face up toward you).
  * Insert parts from the underside to test fit and thread engagement.
  *
- * Bed footprint: ~138mm × 105mm — fits an 8"×8" bed with margin.
+ * Bed footprint (PART="ALL"): ~138mm × 105mm — fits an 8"×8" bed with margin.
+ * Set PART below to print just one plate instead of all 5 -- e.g. "B" for a
+ * fast joystick-only iteration.
  */
+
+/* [Render Selection] */
+PART = "ALL";
+// [ALL, A, B, C, D, E]
 
 $fn = 60;
 
@@ -178,8 +184,15 @@ pitch_sm = 40 + 6;  // 46mm between 40mm-plate centres
 // Row 1 Y: gap from bottom edge of row 0 plates (±20mm) to top of row 1 plates
 row1_y = -(20 + 6 + 58.1/2);  // −55.05mm — driven by tallest row-1 plate (speaker)
 
-translate([0,           0,       0]) test_encoder_mk2();
-translate([pitch_sm,    0,       0]) test_joystick_mk2();
-translate([pitch_sm*2,  0,       0]) test_led_ring_mk2();
-translate([0,           row1_y,  0]) test_oled_mk2();
-translate([50,          row1_y,  0]) test_speaker_mk2();
+if (PART == "ALL") {
+    translate([0,           0,       0]) test_encoder_mk2();
+    translate([pitch_sm,    0,       0]) test_joystick_mk2();
+    translate([pitch_sm*2,  0,       0]) test_led_ring_mk2();
+    translate([0,           row1_y,  0]) test_oled_mk2();
+    translate([50,          row1_y,  0]) test_speaker_mk2();
+}
+else if (PART == "A") test_encoder_mk2();
+else if (PART == "B") test_joystick_mk2();
+else if (PART == "C") test_led_ring_mk2();
+else if (PART == "D") test_oled_mk2();
+else if (PART == "E") test_speaker_mk2();
