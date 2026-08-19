@@ -41,7 +41,7 @@ $fn = 60;
 PART = "ASSEMBLY";
 // [ASSEMBLY, BLANK_SIDE, POT_SIDE,
 //  POT, OLED, LED_RING, LED_STRIP, PI4_STACK,
-//  ROCKER_SWITCH, OCTAVE_ENCODER, FONT_ENCODER, JOYSTICK]
+//  ROCKER_SWITCH, OCTAVE_ENCODER, FONT_ENCODER, JOYSTICK, NOTE_SWITCHES]
 
 // ============================================================================
 // GLOBAL DIMENSIONS -- must match chromacade-blank-side.scad and
@@ -150,32 +150,50 @@ HAT_STACK_GAP = 8.5; // ESTIMATE: standard GPIO stacking header pitch
 CABLE_BUNDLE_D = 6;  // ESTIMATE: rough wiring-bundle visual placeholder
 
 // XINYIELE 3-way round rocker switch (flat/natural/sharp). Hole diameter
-// matches the d=28 hole already cut on the shelf in
-// chromacade-blank-side.scad -- UNVERIFIED against the real part (28mm is
-// large for a round panel rocker; flag this for measurement specifically).
-ROCKER_HOLE_D   = 28; // matches the cut hole -- verify against real part
+// and interior body size MEASURED against the real part 2026-08-18 -- the
+// hole is confirmed correct as already cut; the body is a full 40mm-deep
+// cylinder (factory wire leads included in that reach) unless the leads
+// get desoldered and rewired directly by hand, which is a last resort,
+// not the default plan -- don't shrink this to "just the switch" depth.
+ROCKER_HOLE_D   = 28; // MEASURED: confirmed correct as already cut
 ROCKER_FLANGE_D = 32; // ESTIMATE: cap/flange OD beyond the hole
-ROCKER_BODY_D   = 22; // ESTIMATE: body diameter behind the panel
-ROCKER_BODY_H   = 25; // ESTIMATE: body depth behind the panel incl. lugs
+ROCKER_BODY_D   = 20; // MEASURED
+ROCKER_BODY_H   = 40; // MEASURED (factory wire leads included)
 
 // EC11 rotary encoder w/ push-button (octave + font, same part both
-// places). Bushing diameter matches the d=7 hole already cut; body
-// footprint matches the 14.3x14.3 countersink with margin.
-ENC_BODY_W    = 12.8; // ESTIMATE (fits inside the 14.3x14.3 countersink)
-ENC_BODY_H    = 12.8; // ESTIMATE
-ENC_BODY_D    = 13;   // ESTIMATE: metal can depth behind the panel
+// places). Bushing diameter and body footprint MEASURED against the real
+// part 2026-08-18 -- body (15x12mm) is slightly WIDER than the existing
+// 14.3x14.3mm back countersink in chromacade-blank-side.scad's
+// hardware_cutouts(), so that countersink pocket likely needs to grow to
+// actually clear it. Flagged here, not fixed -- not part of this pass.
+ENC_BODY_W    = 15;   // MEASURED
+ENC_BODY_H    = 12;   // MEASURED
+ENC_BODY_D    = 10;   // MEASURED: body depth behind the panel
 ENC_BUSHING_D = 7;    // MEASURED (matches the cut hole)
 ENC_SHAFT_H   = 15;   // ESTIMATE: shaft length beyond the bushing (knob not modeled)
 ENC_PIN_LEN   = 5;    // ESTIMATE: 5-pin header stub length
 
-// KY-023 dual-axis analog joystick module. Stick hole matches the d=20.5
-// hole already cut on the shelf.
-JOY_PCB_W   = 27;   // ESTIMATE: common KY-023 module size
-JOY_PCB_H   = 27;   // ESTIMATE
-JOY_PCB_T   = 1.6;  // ESTIMATE
-JOY_STICK_D = 20.5; // MEASURED (matches the cut hole)
-JOY_BALL_D  = 15;   // ESTIMATE: stick ball-cap diameter
-JOY_STICK_H = 20;   // ESTIMATE: stick height above the panel exterior
+// KY-023 dual-axis analog joystick module. Board size and its 4 mounting-
+// hole positions (relative to the joystick's own center) MEASURED against
+// the real board 2026-08-18. Stick hole diameter is UNDER ACTIVE TEST --
+// the first print validated 28mm (test-mk2.scad's original plate B,
+// before the mounting bosses existed); currently trying 26.5mm (see
+// test-mk2.scad plate B and chromacade-blank-side.scad) -- update
+// JOY_STICK_D here once a size is confirmed by a real print. Mounting
+// boss positions/sizes are defined down in the BLANK-SIDE section
+// (joystick_boss_xy() etc.), shared by the real piece and this mockup.
+JOY_PCB_W      = 26;   // MEASURED
+JOY_PCB_H      = 33;   // MEASURED
+JOY_PCB_T      = 1.6;  // ESTIMATE
+JOY_STICK_D    = 26.5; // UNDER TEST -- see note above
+JOY_BALL_D     = 15;   // ESTIMATE: stick ball-cap diameter
+JOY_STICK_H    = 20;   // ESTIMATE: stick height above the panel exterior
+JOY_HEADER_LEN = 5;    // MEASURED: 4-pin header stub off the board's back
+
+// MX note-key switches (7x, panel). Cutout is already correct and not
+// changing here -- switches reach MX_SWITCH_DEPTH into the interior below
+// the panel's back face, MEASURED 2026-08-18.
+MX_SWITCH_DEPTH = 8; // MEASURED
 
 // ============================================================================
 // SHARED PROFILE HELPERS -- identical between chromacade-blank-side.scad and
@@ -458,7 +476,7 @@ module blank_hardware_cutouts() {
         translate([-65, 0, 0]) cylinder(h=wall*4, d=28, center=true);
         translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
+        translate([70, 0, 0]) cylinder(h=wall*4, d=JOY_STICK_D, center=true); // UNDER TEST, see JOY_STICK_D
 
         translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
         translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
@@ -486,16 +504,55 @@ module blank_hardware_cutouts() {
     }
 }
 
+// Joystick (KY-023) mounting bosses -- copy of chromacade-blank-side.scad's
+// own joystick_mount_bosses()/joystick_mount_pilot_holes(), kept in sync by
+// hand (see header note at the top of this file). See that file's comment
+// for the full measurement rationale.
+joy_x             = 70; // matches the shelf's existing stick-hole X position
+joy_hole_dx       = 9;
+joy_hole_front_dy = 14;
+joy_hole_back_dy  = -12.5;
+joy_boss_h  = 12;
+joy_boss_d  = 6;    // ESTIMATE
+joy_pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
+
+function joystick_boss_xy() = [
+    [joy_x - joy_hole_dx, joy_hole_front_dy],
+    [joy_x + joy_hole_dx, joy_hole_front_dy],
+    [joy_x - joy_hole_dx, joy_hole_back_dy],
+    [joy_x + joy_hole_dx, joy_hole_back_dy],
+];
+
+module joystick_mount_bosses() {
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0]) {
+        for (p = joystick_boss_xy())
+            translate([p[0], p[1], -wall - joy_boss_h])
+                cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
+    }
+}
+
+module joystick_mount_pilot_holes() {
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0]) {
+        for (p = joystick_boss_xy())
+            translate([p[0], p[1], -wall - joy_boss_h - 0.5])
+                cylinder(h = joy_boss_h + 1, d = joy_pilot_d);
+    }
+}
+
 module blank_side_piece() {
     difference() {
         union() {
             endcap(1);
             blank_strips();
             blank_side_mount_bosses();
+            joystick_mount_bosses();
         }
         blank_hardware_cutouts();
         blank_side_mounts();
         blank_side_clearance_holes();
+        joystick_mount_pilot_holes();
     }
 }
 
@@ -602,17 +659,37 @@ module encoder_mockup(x, c = "Goldenrod") {
 }
 
 module joystick_mockup() {
+    color("Orange") joystick_mount_bosses();
+
     color("DarkSlateBlue")
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        jx = 70;
-        // PCB, mounted just inside the shelf
-        translate([jx - JOY_PCB_W/2, -JOY_PCB_H/2, -wall - JOY_PCB_T])
+        // board's near (top) face rests flush on the 4 boss tips
+        board_z = -wall - joy_boss_h;
+        board_cy = (joy_hole_front_dy + joy_hole_back_dy) / 2;
+
+        // PCB, screwed to the boss tips
+        translate([joy_x - JOY_PCB_W/2, board_cy - JOY_PCB_H/2, board_z - JOY_PCB_T])
             cube([JOY_PCB_W, JOY_PCB_H, JOY_PCB_T]);
-        // stick shaft, through the panel hole
-        translate([jx, 0, -wall]) cylinder(h = wall + JOY_STICK_H, d = 6);
-        // ball cap, above the panel exterior
-        translate([jx, 0, JOY_STICK_H]) sphere(d = JOY_BALL_D);
+
+        // 4-pin header, off the board's far (more-interior) face
+        translate([joy_x - 4, board_cy - 1, board_z - JOY_PCB_T - JOY_HEADER_LEN])
+            cube([8, 2, JOY_HEADER_LEN]);
+
+        // stick shaft, from the board's near face up through the shelf hole
+        translate([joy_x, 0, board_z]) cylinder(h = JOY_STICK_H - board_z, d = 6);
+        // ball cap, above the shelf exterior
+        translate([joy_x, 0, JOY_STICK_H]) sphere(d = JOY_BALL_D);
+    }
+}
+
+module note_switches_mockup() {
+    color("SlateGray")
+    translate([0, panel_my, panel_mz])
+    rotate([-panel_a, 0, 0]) {
+        for (i = [-3:3])
+            translate([i * 19.05, 15, -wall - MX_SWITCH_DEPTH/2])
+                cube([14, 14, MX_SWITCH_DEPTH], center = true);
     }
 }
 
@@ -633,6 +710,7 @@ module assembly() {
     encoder_mockup(-35, "Goldenrod");
     encoder_mockup(45, "DarkGoldenrod");
     joystick_mockup();
+    note_switches_mockup();
 }
 
 // ============================================================================
@@ -651,3 +729,4 @@ else if (PART == "ROCKER_SWITCH") rocker_mockup();
 else if (PART == "OCTAVE_ENCODER") encoder_mockup(-35);
 else if (PART == "FONT_ENCODER") encoder_mockup(45);
 else if (PART == "JOYSTICK") joystick_mockup();
+else if (PART == "NOTE_SWITCHES") note_switches_mockup();

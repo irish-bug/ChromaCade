@@ -8,8 +8,17 @@
  * ─────────────────────────────────────────────────────────────────────────────
  *   A     EC11 encoder        ø7mm through + 14.3×14.3mm back countersink 1mm deep
  *                             Check: bushing seats flush, nut threads catch in pocket
- *   B     KY-023 joystick     ø28mm (was ø30)
- *                             Check: thumb cap clears, full range of motion, no rubbing
+ *   B     KY-023 joystick     ø26.5mm stick hole (was ø28, before the mounting
+ *                             bosses existed) + 4 mounting bosses (12mm tall,
+ *                             ø6mm, ø2.5mm pilot) at the real board's 4 corner
+ *                             holes -- MEASURED 2026-08-18, see
+ *                             chromacade-blank-side.scad's joystick_boss_xy()
+ *                             Check: thumb cap clears, full range of motion, no
+ *                             rubbing, AND that the board's real corner holes
+ *                             actually land on the 4 printed bosses -- the two
+ *                             bosses nearest center are close enough to the
+ *                             hole edge that they may print thin/undercut,
+ *                             confirm they're solid before trusting this
  *   C     WS2812 LED ring     ø24mm front aperture + ø28mm back recess 1mm deep
  *                             Check: LED circle fully visible; PCB sits in recess, glue gap ~1.3mm
  *   D     0.96" OLED          28×15mm front window + 30×30mm back countersink 2mm deep
@@ -54,12 +63,40 @@ module test_encoder_mk2() {
 }
 
 // ─── B: KY-023 Joystick ───────────────────────────────────────────────────────
+// Stick hole under active test (26.5mm, see header) plus the 4 real mounting
+// bosses -- board is 26x33mm, front pair (toward the speaker wall) 14mm off
+// center, back pair 12.5mm off center, both pairs +/-9mm left-right. Boss
+// positions/sizes MUST stay in sync with chromacade-blank-side.scad's
+// joystick_boss_xy()/joy_boss_h/joy_boss_d/joy_pilot_d.
 module test_joystick_mk2() {
     pw = 40; ph = 40;
+    hole_d  = 26.5; // UNDER TEST -- see header note
+    boss_h  = 12;
+    boss_d  = 6;    // ESTIMATE
+    pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
+    hole_dx = 9;
+    front_dy = 14;
+    back_dy  = -12.5;
+    boss_xy = [
+        [-hole_dx, front_dy], [hole_dx, front_dy],
+        [-hole_dx, back_dy],  [hole_dx, back_dy],
+    ];
+
     difference() {
-        linear_extrude(wall) square([pw, ph], center=true);
-        translate([0, 0, wall/2])
-            cylinder(h=wall*3, d=28, center=true);
+        union() {
+            difference() {
+                linear_extrude(wall) square([pw, ph], center=true);
+                translate([0, 0, wall/2])
+                    cylinder(h=wall*3, d=hole_d, center=true);
+            }
+            top_label("JOY", pw, ph);
+            for (p = boss_xy)
+                translate([p[0], p[1], wall])
+                    cylinder(h = boss_h, d = boss_d);
+        }
+        for (p = boss_xy)
+            translate([p[0], p[1], wall - 0.5])
+                cylinder(h = boss_h + 1, d = pilot_d);
     }
 }
 

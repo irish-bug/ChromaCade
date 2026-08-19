@@ -209,16 +209,71 @@ module blank_side_clearance_holes() {
     }
 }
 
+// Joystick (KY-023) mounting bosses -- 4 standoffs on the shelf's interior
+// side so the joystick's own PCB can be screwed up into the shelf from
+// underneath, board dropped in through the shelf's own stick-hole opening.
+// Board is 26mm (X) x 33mm (Y), with a mounting hole at each corner --
+// MEASURED against the real board 2026-08-18: the pair nearest the front/
+// speaker wall sits 14mm from the joystick center in the +Y (toward-front)
+// direction, the other pair 12.5mm in the -Y (toward-the-device's-center)
+// direction, both pairs +/-9mm in X either side of center (matches the
+// derivation in chromacade-fit-check.scad's joystick_mockup(), which must
+// stay in sync with this). Boss height (12mm) sets how far below the
+// shelf's interior surface the board ends up sitting -- boss diameter and
+// the pilot bore size are ESTIMATEs (the board's actual screw size hasn't
+// been confirmed), verify against the real board before trusting this on a
+// full print. See enclosure/test-mk2.scad plate B for a small printable
+// test of this exact boss layout before committing to a full blank-side
+// print.
+joy_x             = 70; // matches the shelf's existing stick-hole X position
+joy_hole_dx       = 9;
+joy_hole_front_dy = 14;
+joy_hole_back_dy  = -12.5;
+joy_boss_h  = 12;
+joy_boss_d  = 6;    // ESTIMATE
+joy_pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
+
+function joystick_boss_xy() = [
+    [joy_x - joy_hole_dx, joy_hole_front_dy],
+    [joy_x + joy_hole_dx, joy_hole_front_dy],
+    [joy_x - joy_hole_dx, joy_hole_back_dy],
+    [joy_x + joy_hole_dx, joy_hole_back_dy],
+];
+
+module joystick_mount_bosses() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0]) {
+        for (p = joystick_boss_xy())
+            translate([p[0], p[1], -wall - joy_boss_h])
+                cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
+    }
+}
+
+module joystick_mount_pilot_holes() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0]) {
+        for (p = joystick_boss_xy())
+            translate([p[0], p[1], -wall - joy_boss_h - 0.5])
+                cylinder(h = joy_boss_h + 1, d = joy_pilot_d);
+    }
+}
+
 // --- Assembly ---
 difference() {
     union() {
         endcap(1);
         strips();
         blank_side_mount_bosses();
+        joystick_mount_bosses();
     }
     hardware_cutouts();
     blank_side_mounts();
     blank_side_clearance_holes();
+    joystick_mount_pilot_holes();
 }
 
 module outer_profile() {
@@ -298,7 +353,11 @@ module hardware_cutouts() {
         translate([-65, 0, 0]) cylinder(h=wall*4, d=28, center=true);
         translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
+        // UNDER ACTIVE TEST -- first validated print was 28mm (test-mk2.scad's
+        // original plate B, before the mounting bosses existed); trying
+        // 26.5mm this round (see test-mk2.scad plate B). Confirm with a
+        // printed test before trusting this on a full case print.
+        translate([70, 0, 0]) cylinder(h=wall*4, d=26.5, center=true);
 
         // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
         translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true);
