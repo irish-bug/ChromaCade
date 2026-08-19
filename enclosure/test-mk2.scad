@@ -42,24 +42,13 @@ PART = "ALL";
 $fn = 60;
 
 wall   = 5;      // matches case wall thickness
-lbl_h  = 0.5;
 in2mm  = 25.4;
-
-// ─── Label helper ─────────────────────────────────────────────────────────────
-module top_label(txt, pw, ph) {
-    translate([0, ph/2 - 6, wall])
-    linear_extrude(lbl_h)
-        text(txt, size=5, halign="center", valign="center");
-}
 
 // ─── A: EC11 Rotary Encoder ───────────────────────────────────────────────────
 module test_encoder_mk2() {
     pw = 40; ph = 40;
     difference() {
-        union() {
-            linear_extrude(wall) square([pw, ph], center=true);
-            top_label("", pw, ph);
-        }
+        linear_extrude(wall) square([pw, ph], center=true);
         // M7 bushing through-hole — enters from bottom (front of panel)
         translate([0, 0, wall/2])
             cylinder(h=wall*3, d=7, center=true);
@@ -96,7 +85,6 @@ module test_joystick_mk2() {
                 translate([0, 0, wall/2])
                     cylinder(h=wall*3, d=hole_d, center=true);
             }
-            top_label("", pw, ph);
             for (p = boss_xy)
                 translate([p[0], p[1], wall])
                     cylinder(h = boss_h, d = boss_d);
@@ -140,13 +128,10 @@ module test_speaker_mk2() {
     gw = 1.0 * in2mm;   // 25.4mm — stadium width
     gh = 1.5 * in2mm;   // 38.1mm — stadium height
     pw = gw + 10;       // 35.4mm — plate width
-    ph = gh + 20;       // 58.1mm — plate height (extra room for label above grill)
+    ph = gh + 20;       // 58.1mm — plate height (margin around the grille)
 
     difference() {
-        union() {
-            linear_extrude(wall) square([pw, ph], center=true);
-            top_label("SPK", pw, ph);
-        }
+        linear_extrude(wall) square([pw, ph], center=true);
         translate([0, 0, wall/2])
             stadium_hex_grill_cut(gw, gh);
     }
