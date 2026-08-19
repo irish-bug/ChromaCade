@@ -377,16 +377,66 @@ module pot_hardware_cutouts() {
     }
 }
 
+// Raspberry Pi 4B mounting bosses -- copy of chromacade-pot-side.scad's own
+// pi_mount_boss()/pi_mount_bosses()/pi_mount_pilot_holes(), kept in sync by
+// hand (see header note at the top of this file). See that file's comment
+// for the full measurement rationale (58x49mm official Pi4B hole spacing,
+// 10mm minimum back-wall clearance).
+pi_hole_dx        = 29;
+pi_hole_dy        = 24.5;
+pi_board_h        = 56;
+pi_back_clearance = 10;
+pi_cx             = 0;
+pi_near_y         = wall + pi_back_clearance;
+pi_cy             = pi_near_y + pi_board_h/2;
+pi_boss_h    = 5;
+pi_boss_w    = 6;
+pi_boss_ramp = 6;
+pi_pilot_d   = 2.4;
+
+function pi_mount_xy() = [
+    [pi_cx - pi_hole_dx, pi_cy - pi_hole_dy],
+    [pi_cx + pi_hole_dx, pi_cy - pi_hole_dy],
+    [pi_cx - pi_hole_dx, pi_cy + pi_hole_dy],
+    [pi_cx + pi_hole_dx, pi_cy + pi_hole_dy],
+];
+
+module pi_mount_boss(cx, cy) {
+    translate([cx - pi_boss_w/2, cy - pi_boss_w/2, wall])
+    cube([pi_boss_w, pi_boss_w, pi_boss_h]);
+
+    hull() {
+        translate([cx - pi_boss_w/2 - 0.01, cy - pi_boss_w/2, wall])
+        cube([0.01, pi_boss_w, pi_boss_h]);
+
+        translate([cx - pi_boss_w/2 - pi_boss_ramp, cy - pi_boss_w/2, wall])
+        cube([0.01, pi_boss_w, 0.01]);
+    }
+}
+
+module pi_mount_bosses() {
+    for (p = pi_mount_xy())
+        pi_mount_boss(p[0], p[1]);
+}
+
+module pi_mount_pilot_holes() {
+    for (p = pi_mount_xy())
+        translate([p[0], p[1], wall - 0.5])
+        cylinder(h = pi_boss_h + 1, d = pi_pilot_d);
+}
+
 module pot_side_piece() {
     difference() {
         union() {
             endcap(-1);
             pot_strips();
             pot_side_mount_bosses();
+            pi_mount_bosses();
         }
         pot_hardware_cutouts();
         pot_side_mounts();
         pot_side_clearance_holes();
+        pi_mount_pilot_holes();
     }
 }
 
@@ -661,9 +711,10 @@ module led_strip_mockup() {
         cube([LED_STRIP_LEN, LED_STRIP_T, LED_STRIP_W]);
 }
 
-// Illustrative floor position only -- no standoff bosses exist yet.
+// Resting on the real pi_mount_bosses() standoffs (5mm), added 2026-08-19.
 module pi4_stack_mockup() {
-    translate([-PI4_W/2, 15, wall]) {
+    color("Orange") pi_mount_bosses();
+    translate([pi_cx - PI4_W/2, pi_near_y, wall + pi_boss_h]) {
         color("ForestGreen") cube([PI4_W, PI4_H, PI4_T]);
         translate([(PI4_W - HAT_W)/2, (PI4_H - HAT_H)/2, HAT_STACK_GAP])
             color("DarkOrange") cube([HAT_W, HAT_H, HAT_T]);

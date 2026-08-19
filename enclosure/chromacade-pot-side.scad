@@ -176,6 +176,81 @@ blank_side_mount_yz = [
     [14, 95],       // top/back joint
 ];
 
+// Raspberry Pi 4B mounting bosses (2026-08-19) -- standoffs on this piece's
+// bottom floor for the Pi + WM8960 HAT + breakout HAT + active cooler
+// stack. Official Pi4B mounting hole spacing, 58x49mm (matches the same
+// widely-used spec as the grokwell-PiLC reference this project's
+// fit-check file already follows) -- board's long edge (85mm) runs along
+// X, short edge (56mm) along Y.
+//
+// Positioned near the back wall (low Y), with pi_back_clearance (10mm,
+// the user's stated MINIMUM 2026-08-19) between the board's back-facing
+// edge and the back wall's own interior face -- with both HATs and active
+// cooling, the stack reaches ~53mm off a 5mm standoff, tall enough that
+// this clearance was called out explicitly even though the back wall
+// itself is a flat vertical plane here (doesn't narrow with height, this
+// case profile has no overhang at this Y range up to well past 53mm).
+// Comfortably clear of the shelf's own footprint (shelf begins Y=78.567;
+// board's far edge lands at Y=71, ~7.5mm short of it) and centered in X,
+// nowhere near either endcap (holes at X=+/-29, endcaps at X=+/-97.79).
+pi_hole_dx        = 29;   // 58mm spacing / 2
+pi_hole_dy        = 24.5; // 49mm spacing / 2
+pi_board_h        = 56;   // short edge, along Y
+pi_back_clearance = 10;   // MINIMUM per spec -- don't shrink this
+pi_cx             = 0;
+pi_near_y         = wall + pi_back_clearance;
+pi_cy             = pi_near_y + pi_board_h/2;
+pi_boss_h    = 5;   // standoff height -- matches the 5mm the 53mm stack height assumes
+pi_boss_w    = 6;   // ESTIMATE: boss cross-section, sized for M2.5 (smaller than the
+                     // 12mm case-joining boss_w -- this only needs to hold a light board)
+pi_boss_ramp = 6;   // ESTIMATE: 45°-taper length toward -X (this piece's own bed side)
+pi_pilot_d   = 2.4; // self-tapping pilot for M2.5, matches grokwell-PiLC's SCREW_PILOT_D
+
+function pi_mount_xy() = [
+    [pi_cx - pi_hole_dx, pi_cy - pi_hole_dy],
+    [pi_cx + pi_hole_dx, pi_cy - pi_hole_dy],
+    [pi_cx - pi_hole_dx, pi_cy + pi_hole_dy],
+    [pi_cx + pi_hole_dx, pi_cy + pi_hole_dy],
+];
+
+// Standoff centered at (cx,cy) -- unlike square_boss() above (which
+// anchors its "far" edge at a piece's own X boundary, for the
+// case-joining screws), a Pi standoff's pilot needs to land exactly on
+// the board's real hole position, so this centers the boss cross-section
+// on (cx,cy) instead. Same wedge-not-pyramid technique as square_boss():
+// hull() from the boss's own -X face (full cross-section) to a thin
+// sliver pinned at z_start (this floor's own interior surface) -- ramps
+// down to the bottom, printable face-down with no support, toward this
+// piece's own bed/endcap side (-X), same direction as the case-joining
+// bosses on this same floor.
+module pi_mount_boss(cx, cy) {
+    translate([cx - pi_boss_w/2, cy - pi_boss_w/2, wall])
+    cube([pi_boss_w, pi_boss_w, pi_boss_h]);
+
+    hull() {
+        translate([cx - pi_boss_w/2 - 0.01, cy - pi_boss_w/2, wall])
+        cube([0.01, pi_boss_w, pi_boss_h]);
+
+        translate([cx - pi_boss_w/2 - pi_boss_ramp, cy - pi_boss_w/2, wall])
+        cube([0.01, pi_boss_w, 0.01]);
+    }
+}
+
+module pi_mount_bosses() {
+    for (p = pi_mount_xy())
+        pi_mount_boss(p[0], p[1]);
+}
+
+// Pilot holes drilled straight down (Z axis) from the top of each boss --
+// unlike the case-joining bores (which enter from the piece's own edge
+// along X), the Pi board sits ON TOP of these standoffs, so its mounting
+// screws drive straight down through the board into the boss beneath it.
+module pi_mount_pilot_holes() {
+    for (p = pi_mount_xy())
+        translate([p[0], p[1], wall - 0.5])
+        cylinder(h = pi_boss_h + 1, d = pi_pilot_d);
+}
+
 module pot_side_mount_bosses() {
     square_boss(edge_x, 100, "z", z_start=wall, height=boss_w);
     square_boss(edge_x, 30, "z", z_start=wall, height=boss_w);
@@ -211,10 +286,12 @@ difference() {
         endcap(-1);
         strips();
         pot_side_mount_bosses();
+        pi_mount_bosses();
     }
     hardware_cutouts();
     pot_side_mounts();
     pot_side_clearance_holes();
+    pi_mount_pilot_holes();
 }
 
 module outer_profile() {
