@@ -232,12 +232,33 @@ module blank_side_clearance_holes() {
 // x=-35) -- the rocker (paired with the octave encoder at x=45) is the one
 // at x=70, far left. Was backwards in the first pass.
 joy_x             = -65; // matches the shelf's joystick stick-hole X position
+joy_stick_d       = 27;  // UNDER TEST -- see hardware_cutouts(), test-mk2.scad plate B
 joy_hole_dx       = 9;
 joy_hole_front_dy = 14;
 joy_hole_back_dy  = -12.5;
 joy_boss_h  = 12;
-joy_boss_d  = 6;    // ESTIMATE
 joy_pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
+
+// Bosses redesigned 2026-08-19 as ring-segment wedges curving around the
+// stick hole, instead of plain cylinders -- straight cylinders centered on
+// the screw locations were close enough to the hole that they collided
+// with the joystick's own range of motion, and got an accidentally-thin,
+// unplanned crescent of material wherever the hole clipped through them.
+// A wedge only ever has material outside joy_stick_d/2 + joy_boss_clearance
+// (flush against the hole, never intruding into it), reaching out to the
+// fixed absolute radius joy_boss_outer_r for a generous, DELIBERATE wall
+// around each pilot bore instead of whatever the hole cut happened to
+// leave behind. See enclosure/test-mk2.scad plate B (joy_boss_wedge_2d())
+// for the printable test of this exact shape -- keep both in sync.
+joy_boss_clearance  = 0.3; // gap beyond the hole edge before boss material starts
+joy_boss_outer_r    = 20;  // absolute radius from the hole center -- 21 renders
+                            // as 3 disconnected volumes instead of 2 (a CGAL
+                            // precision issue combining this shell's several
+                            // difference() ops, found empirically 2026-08-19
+                            // by bisecting outer-radius values; 20 is stable
+                            // with margin -- don't push this back up without
+                            // re-checking Volumes: in the render output
+joy_boss_half_angle = 12;  // degrees, wedge angular half-width
 
 function joystick_boss_xy() = [
     [joy_x - joy_hole_dx, joy_hole_front_dy],
@@ -246,15 +267,34 @@ function joystick_boss_xy() = [
     [joy_x + joy_hole_dx, joy_hole_back_dy],
 ];
 
+// 2D wedge, centered on the stick hole's own center -- (cx,cy) only sets
+// the angle (where the real screw sits), the radial footprint is fixed by
+// r_inner/r_outer regardless of the screw's actual distance from center.
+module joy_boss_wedge_2d(cx, cy, r_inner, r_outer, half_angle) {
+    ang = atan2(cy, cx);
+    big = r_outer + 5;
+    intersection() {
+        difference() {
+            circle(r = r_outer);
+            circle(r = r_inner);
+        }
+        polygon(points = [
+            [0, 0],
+            [big*cos(ang - half_angle), big*sin(ang - half_angle)],
+            [big*cos(ang + half_angle), big*sin(ang + half_angle)],
+        ]);
+    }
+}
+
 module joystick_mount_bosses() {
     shelf_my = (p2[0] + p3[0]) / 2;
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
-    rotate([-shelf_a, 0, 0]) {
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, -wall - joy_boss_h])
+    linear_extrude(joy_boss_h + 0.5)
         for (p = joystick_boss_xy())
-            translate([p[0], p[1], -wall - joy_boss_h])
-                cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
-    }
+            joy_boss_wedge_2d(p[0] - joy_x, p[1], joy_stick_d/2 + joy_boss_clearance, joy_boss_outer_r, joy_boss_half_angle);
 }
 
 module joystick_mount_pilot_holes() {
@@ -363,7 +403,7 @@ module hardware_cutouts() {
         // this on a full print. Corrected 2026-08-18: this hole (x=-65) was
         // previously mislabeled as the rocker's -- it's the joystick's, per
         // the same correction that moved joy_x below.
-        translate([-65, 0, 0]) cylinder(h=wall*4, d=27, center=true);
+        translate([-65, 0, 0]) cylinder(h=wall*4, d=joy_stick_d, center=true);
         translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
         translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
         // Rocker switch (far left in play position = positive X here) --

@@ -538,8 +538,17 @@ joy_hole_dx       = 9;
 joy_hole_front_dy = 14;
 joy_hole_back_dy  = -12.5;
 joy_boss_h  = 12;
-joy_boss_d  = 6;    // ESTIMATE
 joy_pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
+
+// Bosses redesigned 2026-08-19 as ring-segment wedges curving around the
+// stick hole instead of plain cylinders -- see chromacade-blank-side.scad's
+// matching comment for the full rationale. joy_boss_outer_r=20, not 21:
+// 21 renders as 3 disconnected volumes on that file (a CGAL precision
+// issue combining several difference() ops), found empirically by
+// bisecting outer-radius values -- keep these two files' value in sync.
+joy_boss_clearance  = 0.3; // gap beyond the hole edge before boss material starts
+joy_boss_outer_r    = 20;  // absolute radius from the hole center
+joy_boss_half_angle = 12;  // degrees, wedge angular half-width
 
 function joystick_boss_xy() = [
     [joy_x - joy_hole_dx, joy_hole_front_dy],
@@ -548,13 +557,29 @@ function joystick_boss_xy() = [
     [joy_x + joy_hole_dx, joy_hole_back_dy],
 ];
 
+module joy_boss_wedge_2d(cx, cy, r_inner, r_outer, half_angle) {
+    ang = atan2(cy, cx);
+    big = r_outer + 5;
+    intersection() {
+        difference() {
+            circle(r = r_outer);
+            circle(r = r_inner);
+        }
+        polygon(points = [
+            [0, 0],
+            [big*cos(ang - half_angle), big*sin(ang - half_angle)],
+            [big*cos(ang + half_angle), big*sin(ang + half_angle)],
+        ]);
+    }
+}
+
 module joystick_mount_bosses() {
     translate([0, shelf_my, shelf_mz])
-    rotate([-shelf_a, 0, 0]) {
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, -wall - joy_boss_h])
+    linear_extrude(joy_boss_h + 0.5)
         for (p = joystick_boss_xy())
-            translate([p[0], p[1], -wall - joy_boss_h])
-                cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
-    }
+            joy_boss_wedge_2d(p[0] - joy_x, p[1], JOY_STICK_D/2 + joy_boss_clearance, joy_boss_outer_r, joy_boss_half_angle);
 }
 
 module joystick_mount_pilot_holes() {
