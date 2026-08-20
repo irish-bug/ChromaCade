@@ -392,7 +392,7 @@ module pot_hardware_cutouts() {
 pi_hole_dx        = 29;
 pi_hole_dy        = 24.5;
 pi_board_h        = 56;
-pi_back_clearance = 10;
+pi_back_clearance = 15;
 pi_cx             = 0;
 pi_near_y         = wall + pi_back_clearance;
 pi_cy             = pi_near_y + pi_board_h/2;
@@ -449,9 +449,39 @@ module pot_side_piece() {
 
 // ============================================================================
 // BLANK-SIDE -- copy of chromacade-blank-side.scad's own geometry (see
-// header note above about keeping this in sync by hand, and about the
-// known-stale own_mount_boss_centers array pending a redesign).
+// header note above about keeping this in sync by hand). own_mount_boss()
+// is now only used for the shelf_panel/panel_top mounts (tilted joints);
+// flat_mount_boss() below handles the other 3 (flat wall segments) -- see
+// chromacade-blank-side.scad's fuller comments on both, kept brief here.
 // ============================================================================
+module flat_mount_boss(pos, thick_axis, height=boss_w) {
+    if (thick_axis == "z") {
+        z0 = case_h - wall - height;
+        translate([blank_edge_x, pos - boss_w/2, z0])
+        cube([boss_body, boss_w, height]);
+
+        hull() {
+            translate([blank_edge_x + boss_body - 0.01, pos - boss_w/2, z0])
+            cube([0.01, boss_w, height]);
+
+            translate([blank_edge_x + boss_body + boss_ramp - 0.01, pos - boss_w/2, z0])
+            cube([0.01, boss_w, 0.01]);
+        }
+    } else {
+        y0 = case_d - wall - height;
+        translate([blank_edge_x, y0, pos - boss_w/2])
+        cube([boss_body, height, boss_w]);
+
+        hull() {
+            translate([blank_edge_x + boss_body - 0.01, y0, pos - boss_w/2])
+            cube([0.01, height, boss_w]);
+
+            translate([blank_edge_x + boss_body + boss_ramp - 0.01, y0, pos - boss_w/2])
+            cube([0.01, 0.01, boss_w]);
+        }
+    }
+}
+
 module own_mount_boss(y_c, z_c) {
     margin = 15;
     intersection() {
@@ -481,24 +511,26 @@ module interior_void() {
 }
 
 own_mount_boss_centers = [
-    [case_d - boss_w/2, 14],
-    [case_d - boss_w/2, 41.56],
-    [85.29, 52.05],
-    [34.82, 95.74],
-    [14, case_h - boss_w/2],
+    [110, 12],
+    [110, 42],
+    [74, 48],
+    [45, 73],
+    [14, 95],
 ];
 
 pot_side_mount_yz = [
-    [100, wall + boss_w/2],
+    [110, wall + boss_w/2],
     [30, wall + boss_w/2],
     [wall + boss_w/2, 85],
     [wall + boss_w/2, 20],
 ];
 
 module blank_side_mount_bosses() {
-    for (yz = own_mount_boss_centers) {
-        own_mount_boss(yz[0], yz[1]);
-    }
+    flat_mount_boss(own_mount_boss_centers[0][1], "y", height=18); // front_bottom
+    flat_mount_boss(own_mount_boss_centers[1][1], "y", height=18); // front_top
+    own_mount_boss(own_mount_boss_centers[2][0], own_mount_boss_centers[2][1]); // shelf_panel (tilted joint)
+    own_mount_boss(own_mount_boss_centers[3][0], own_mount_boss_centers[3][1]); // panel_top (tilted joint)
+    flat_mount_boss(own_mount_boss_centers[4][0], "z"); // top_back
 }
 
 module blank_side_mounts() {

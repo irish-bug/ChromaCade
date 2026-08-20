@@ -89,10 +89,81 @@ module interior_void() {
     offset(delta = -wall) outer_profile();
 }
 
+// Square boss with a taper toward +X (this piece's own bed/endcap side),
+// for the 3 of 5 mounts that flush against a genuinely FLAT wall segment
+// -- front_bottom/front_top (front wall, Y-flush at case_d) and top_back
+// (top segment, Z-flush at case_h). Rebuilt 2026-08-19 to match
+// chromacade-pot-side.scad's square_boss() technique exactly (thrown away
+// and rebuilt "in the correct standard" per direct request, after the
+// position-drift bug above was found): a real flush cube glued directly
+// onto the true wall surface, hull()'d out to a thin sliver for
+// print-support-free tapering -- mirrored left-right from pot-side's
+// version since this piece's flush faces sit at the HIGH side of Y/Z
+// (case_d/case_h) instead of pot-side's low side (0), and the boss's full
+// end sits AT edge_x (this piece's own near-pot-side edge) extending
+// toward +X, not -X.
+//
+// shelf_panel and panel_top are NOT built with this module -- seat 2 of 5
+// mounts sit at the shelf/panel and panel/top JOINTS (8°/45° tilted
+// segments, further complicated by being *at* the corner between two
+// different tilts), where there's no single flat face for a plain cube to
+// flush against; own_mount_boss() below (kept for just these two) handles
+// that generally by clipping against the true interior_void() shape
+// instead of assuming an axis. Forcing those two through a flat cube here
+// would produce a boss that's flush with nothing -- a real geometric
+// constraint, not a style choice.
+//
+// height is NOT always boss_w here -- unlike pot-side's bottom/back strip
+// bores (which sit right at wall+boss_w/2, centered in a standard 12mm
+// boss), front_bottom/front_top's target Y (110, see own_mount_boss_centers
+// below) sits 10.73mm in from the front wall's own interior face
+// (case_d-wall=120.73mm) -- a plain 12mm-deep boss wouldn't reach past it
+// with any real margin (only ~1.3mm of material past the bore on one
+// side -- the same "not enough material between screw and the wall" bug
+// just fixed on pot-side's back strip). height=18 for those two
+// specifically, checked to leave >=7mm of material on both sides of the
+// bore. top_back's target Z=95 sits comfortably inside a standard
+// boss_w=12 boss flush at the top segment's interior face
+// (case_h-wall=99.92mm), so it keeps the default.
+module flat_mount_boss(pos, thick_axis, height=boss_w) {
+    if (thick_axis == "z") {
+        z0 = case_h - wall - height;
+        translate([edge_x, pos - boss_w/2, z0])
+        cube([boss_body, boss_w, height]);
+
+        hull() {
+            translate([edge_x + boss_body - 0.01, pos - boss_w/2, z0])
+            cube([0.01, boss_w, height]);
+
+            translate([edge_x + boss_body + boss_ramp - 0.01, pos - boss_w/2, z0])
+            cube([0.01, boss_w, 0.01]);
+        }
+    } else {
+        y0 = case_d - wall - height;
+        translate([edge_x, y0, pos - boss_w/2])
+        cube([boss_body, height, boss_w]);
+
+        hull() {
+            translate([edge_x + boss_body - 0.01, y0, pos - boss_w/2])
+            cube([0.01, height, boss_w]);
+
+            translate([edge_x + boss_body + boss_ramp - 0.01, y0, pos - boss_w/2])
+            cube([0.01, 0.01, boss_w]);
+        }
+    }
+}
+
 // Reinforcing boss around each pilot bore, extending toward +X (this
 // piece's own bed/endcap side — NOT -X like pot-side's version: see git
 // history for why that direction matters, caught via the interference
 // check as a large overlap into pot-side's endcap when it was wrong).
+//
+// ONLY used for shelf_panel and panel_top now (2026-08-19) -- see
+// flat_mount_boss() above, which replaced this for the other 3 mounts
+// that sit on flat wall segments. Kept here specifically because these
+// two sit at tilted JOINTS (8°/45°, further complicated by being *at* the
+// corner between two different tilts) where a plain flush cube has no
+// single axis to align to.
 //
 // Rebuilt 2026-08-18 (was: a boss_w cube centered symmetrically on the
 // mount point, sized generously on the theory that it'd land in real
@@ -160,24 +231,29 @@ module own_mount_boss(y_c, z_c) {
 
 // This piece's own 5 mount/boss centers (Y,Z) — must stay identical to
 // chromacade-pot-side.scad's blank_side_mount_yz (regenerate both together
-// if the dimension constants above change). front_bottom/front_top flush
-// at Y=case_d (front wall's own exterior); top_back flush at Z=case_h (top
-// segment's own exterior); shelf_panel/panel_top centered on their segment
-// point (see own_mount_boss() above for why).
+// if the dimension constants above change).
 //
-// front_bottom's Z and top_back's Y are NOT the original wall-inset points
-// (which were Z=7.33 and Y=4.38, 15% along their segment from p1/p5) —
-// pot-side's bottom/back strips extend almost the full case width (nearly
-// to this piece's own edge_x), so a boss that close to the p1/p5 corner
-// dips into pot-side's strip territory (Z<5 for the bottom strip, Y<5 for
-// the back strip). Shifted to 14 on each, clearing wall(5) + boss_w/2(6)
-// with a few mm of margin — confirmed via the interference check.
+// CORRECTED 2026-08-19 -- despite both files' comments insisting on exact
+// agreement, this array had drifted from pot-side's blank_side_mount_yz by
+// as much as 22.74mm (panel_top) and was off on all 5 entries (found while
+// investigating the "moved some mounts to adjust for new speakers" front-
+// wall shift). own_mount_boss()'s own clip-against-interior_void()
+// construction was never the problem -- it's general enough to flush
+// correctly against a wall segment at any angle, flat or tilted, so this
+// was purely stale position data, never actually caught because nothing
+// checks the two arrays against each other automatically. Now copied
+// directly from pot-side.scad's blank_side_mount_yz -- that file is the
+// authoritative source for these 5 positions (pot-side's clearance holes
+// were being deliberately repositioned for the new speaker housing; this
+// array needs to track wherever that source of truth puts them, not the
+// reverse). If you need to move one of these, change it in pot-side.scad
+// first and copy the value here, not the other way around.
 own_mount_boss_centers = [
-    [case_d - boss_w/2, 14],
-    [case_d - boss_w/2, 41.56],
-    [85.29, 52.05],
-    [34.82, 95.74],
-    [14, case_h - boss_w/2],
+    [110, 12],
+    [110, 42],
+    [74, 48],
+    [45, 73],
+    [14, 95],
 ];
 
 // Pot-side's 4 mount positions (Y,Z) — must match its pot_side_mounts().
@@ -195,17 +271,32 @@ own_mount_boss_centers = [
 // square_boss()/pot_side_mounts() fix (its "y" case now starts at the
 // back wall's INTERIOR surface, y_start=wall, same as the bottom-strip
 // bosses rotated 90°, not the exterior).
+//
+// The first entry (100) went stale the same way own_mount_boss_centers
+// did -- pot-side's "moved some mounts to adjust for new speakers" commit
+// (2026-08-19) shifted that mount to 110 but only touched
+// chromacade-pot-side.scad, not this mirror. Fixed alongside the
+// own_mount_boss_centers correction above; same lesson -- nothing checks
+// these arrays against their source of truth automatically, so a change
+// in one file silently desyncs its mirror until someone notices by hand.
 pot_side_mount_yz = [
-    [100, wall + boss_w/2],
+    [110, wall + boss_w/2],
     [30, wall + boss_w/2],
     [wall + boss_w/2, 85],
     [wall + boss_w/2, 20],
 ];
 
+// Dispatches per mount rather than a generic loop -- unlike
+// pot_side_mount_bosses() (where all 4 mounts are one of two flat cases),
+// this piece's 5 mounts need two different techniques (see flat_mount_boss()
+// and own_mount_boss()'s own comments for why), so which module handles
+// which mount needs to be explicit, not inferred from position alone.
 module blank_side_mount_bosses() {
-    for (yz = own_mount_boss_centers) {
-        own_mount_boss(yz[0], yz[1]);
-    }
+    flat_mount_boss(own_mount_boss_centers[0][1], "y", height=18); // front_bottom
+    flat_mount_boss(own_mount_boss_centers[1][1], "y", height=18); // front_top
+    own_mount_boss(own_mount_boss_centers[2][0], own_mount_boss_centers[2][1]); // shelf_panel (tilted joint)
+    own_mount_boss(own_mount_boss_centers[3][0], own_mount_boss_centers[3][1]); // panel_top (tilted joint)
+    flat_mount_boss(own_mount_boss_centers[4][0], "z"); // top_back
 }
 
 module blank_side_mounts() {
