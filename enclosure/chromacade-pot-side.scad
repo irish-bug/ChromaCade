@@ -104,9 +104,9 @@ edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-si
 // "y") — the bore's own translate() must use the same `pos` and the same
 // boss_w/2 for its other coordinate, or the bore won't be centered in the
 // reinforced material.
-// z_start/height override the boss's Z-extent for thick_axis="z" only
-// (default z_start=0/height=boss_w, i.e. no change from before, still
-// used by the back-strip "y" case). Corrected 2026-08-18, second pass —
+// z_start/height override the boss's Z-extent for thick_axis="z"; y_start/
+// height do the same for thick_axis="y" (both default z_start=y_start=0,
+// height=boss_w). Corrected 2026-08-18, second pass, for the "z" case --
 // first attempt (height=wall, z_start=0) capped the boss at the bottom
 // strip's own bare-wall thickness, which just made it coincide exactly
 // with material that's already there (effectively no reinforcement at
@@ -114,9 +114,19 @@ edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-si
 // distinct standing feature). What's actually wanted: the boss's BOTTOM
 // face flush with the bottom strip's own INTERIOR surface (z=wall, not
 // z=0 -- z=0 is the exterior), standing up from there into the open
-// interior by `height`, same shape/reinforcement-depth as the back-strip
-// bosses just rotated 90° -- so z_start=wall, height=boss_w here.
-module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
+// interior by `height`.
+//
+// The "y" (back-strip) case had the exact same bug and went uncorrected
+// until 2026-08-19 -- found by direct inspection: with y_start defaulting
+// to 0, the boss (and its centered pilot bore) sat flush with the back
+// wall's EXTERIOR surface and only reached boss_w (12mm) deep, instead of
+// starting at the back wall's INTERIOR surface (y=wall) and reaching
+// boss_w past THAT -- 5mm short of the bottom-strip bosses' actual
+// standoff, and correspondingly too little material between the bore and
+// the exterior back surface (bore center at only boss_w/2=6mm from the
+// exterior, vs the bottom-strip bores' wall+boss_w/2=11mm). Same fix,
+// same axis logic, rotated 90°: y_start=wall, height=boss_w.
+module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
     if (thick_axis == "z") {
         translate([x0 - boss_body, pos - boss_w/2, z_start])
         cube([boss_body, boss_w, height]);
@@ -140,17 +150,18 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
             cube([0.01, boss_w, 0.01]);
         }
     } else {
-        translate([x0 - boss_body, 0, pos - boss_w/2])
-        cube([boss_body, boss_w, boss_w]);
+        translate([x0 - boss_body, y_start, pos - boss_w/2])
+        cube([boss_body, height, boss_w]);
 
-        // Same wedge-not-pyramid correction, pinned at y=0 (this
-        // strip's own back-wall reference) instead of z_start -- a ramp
-        // down to the back, not a point.
+        // Same wedge-not-pyramid correction, pinned at y_start (this
+        // strip's own INTERIOR surface, matching the "z" case) instead
+        // of the back wall's exterior -- a ramp down to the back, not a
+        // point.
         hull() {
-            translate([x0 - boss_body - 0.01, 0, pos - boss_w/2])
-            cube([0.01, boss_w, boss_w]);
+            translate([x0 - boss_body - 0.01, y_start, pos - boss_w/2])
+            cube([0.01, height, boss_w]);
 
-            translate([x0 - boss_body - boss_ramp, 0, pos - boss_w/2])
+            translate([x0 - boss_body - boss_ramp, y_start, pos - boss_w/2])
             cube([0.01, 0.01, boss_w]);
         }
     }
@@ -254,8 +265,8 @@ module pi_mount_pilot_holes() {
 module pot_side_mount_bosses() {
     square_boss(edge_x, 110, "z", z_start=wall, height=boss_w);
     square_boss(edge_x, 30, "z", z_start=wall, height=boss_w);
-    square_boss(edge_x, 85, "y");
-    square_boss(edge_x, 20, "y");
+    square_boss(edge_x, 85, "y", y_start=wall, height=boss_w);
+    square_boss(edge_x, 20, "y", y_start=wall, height=boss_w);
 }
 
 module pot_side_mounts() {
@@ -269,8 +280,16 @@ module pot_side_mounts() {
     // match this new Z value.
     translate([edge_x, 110, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([edge_x, 30, wall + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    //
+    // Back-strip (y-axis) bores: same convention, corrected 2026-08-19 --
+    // centered at wall + boss_w/2 from the back wall's exterior (y=0),
+    // matching the bottom-strip bores' distance from THEIR exterior
+    // exactly (both now 11mm), instead of the old boss_w/2=6mm, which
+    // put the bore too close to the exterior back surface (not enough
+    // material behind it to survive an edge-on drop). Keep
+    // chromacade-blank-side.scad's pot_side_mount_yz in sync with this.
+    translate([edge_x, wall + boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, wall + boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
 }
 
 module pot_side_clearance_holes() {

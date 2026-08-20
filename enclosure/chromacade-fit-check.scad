@@ -278,7 +278,7 @@ module stadium_hex_grill(gw, gh) {
 // POT-SIDE -- copy of chromacade-pot-side.scad's own geometry (see header
 // note above about keeping this in sync by hand).
 // ============================================================================
-module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
+module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
     if (thick_axis == "z") {
         translate([x0 - boss_body, pos - boss_w/2, z_start])
         cube([boss_body, boss_w, height]);
@@ -291,14 +291,14 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
             cube([0.01, boss_w, 0.01]);
         }
     } else {
-        translate([x0 - boss_body, 0, pos - boss_w/2])
-        cube([boss_body, boss_w, boss_w]);
+        translate([x0 - boss_body, y_start, pos - boss_w/2])
+        cube([boss_body, height, boss_w]);
 
         hull() {
-            translate([x0 - boss_body - 0.01, 0, pos - boss_w/2])
-            cube([0.01, boss_w, boss_w]);
+            translate([x0 - boss_body - 0.01, y_start, pos - boss_w/2])
+            cube([0.01, height, boss_w]);
 
-            translate([x0 - boss_body - boss_ramp, 0, pos - boss_w/2])
+            translate([x0 - boss_body - boss_ramp, y_start, pos - boss_w/2])
             cube([0.01, 0.01, boss_w]);
         }
     }
@@ -315,15 +315,15 @@ pot_blank_side_mount_yz = [
 module pot_side_mount_bosses() {
     square_boss(pot_edge_x, 100, "z", z_start=wall, height=boss_w);
     square_boss(pot_edge_x, 30, "z", z_start=wall, height=boss_w);
-    square_boss(pot_edge_x, 85, "y");
-    square_boss(pot_edge_x, 20, "y");
+    square_boss(pot_edge_x, 85, "y", y_start=wall, height=boss_w);
+    square_boss(pot_edge_x, 20, "y", y_start=wall, height=boss_w);
 }
 
 module pot_side_mounts() {
     translate([pot_edge_x, 100, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([pot_edge_x, 30, wall + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([pot_edge_x, boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([pot_edge_x, boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([pot_edge_x, wall + boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([pot_edge_x, wall + boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
 }
 
 module pot_side_clearance_holes() {
@@ -491,8 +491,8 @@ own_mount_boss_centers = [
 pot_side_mount_yz = [
     [100, wall + boss_w/2],
     [30, wall + boss_w/2],
-    [wall/2, 85],
-    [wall/2, 20],
+    [wall + boss_w/2, 85],
+    [wall + boss_w/2, 20],
 ];
 
 module blank_side_mount_bosses() {

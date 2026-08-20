@@ -189,11 +189,17 @@ own_mount_boss_centers = [
 // flush at the z=0 exterior, and not embedded across both). Keep this
 // in sync with pot-side.scad's pot_side_mounts() -- it's the actual
 // source of truth, this array just needs to match it.
+//
+// The last two (back-strip) had the same z=0-vs-z=wall bug, uncorrected
+// until 2026-08-19: wall/2 -> wall + boss_w/2, matching pot-side's own
+// square_boss()/pot_side_mounts() fix (its "y" case now starts at the
+// back wall's INTERIOR surface, y_start=wall, same as the bottom-strip
+// bosses rotated 90°, not the exterior).
 pot_side_mount_yz = [
     [100, wall + boss_w/2],
     [30, wall + boss_w/2],
-    [wall/2, 85],
-    [wall/2, 20],
+    [wall + boss_w/2, 85],
+    [wall + boss_w/2, 20],
 ];
 
 module blank_side_mount_bosses() {
