@@ -70,7 +70,7 @@ COLORS = [
     ("green",  (0, 88, 0)),      # TUNED 2026-08-20 (was full-sat 0,255,0)
     ("blue",   (0, 0, 88)),      # TUNED 2026-08-20 (was full-sat 0,0,255)
     ("purple", (10, 0, 24)),     # TUNED 2026-08-20 (was CSS 128,0,128)
-    ("pink",   (255, 0, 100)),   # TUNED 2026-08-20 (was CSS 255,192,203)
+    ("pink",   (88, 0, 35)),     # TUNED 2026-08-20 (was CSS 255,192,203; first pass 255,0,100)
 ]
 
 
