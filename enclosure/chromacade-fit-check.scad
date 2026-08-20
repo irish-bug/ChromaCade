@@ -63,6 +63,15 @@ panel_a = 45;
 spk_cone_d      = 35;
 spk_cone_offset = 22.5;
 
+// Both shelf encoders shifted -7mm along the shelf (toward the back, away
+// from the front wall) 2026-08-19 -- their bodies were colliding with the
+// new single speaker housing by ~1.7mm at pos_y=0; -7mm clears it with
+// 5.27mm to spare (>= the 5mm minimum specified). Shared by
+// blank_hardware_cutouts() and encoder_mockup() below -- must be a
+// top-level constant, not declared inside hardware_cutouts()'s own block,
+// or encoder_mockup() can't see it.
+enc_pos_y = -7;
+
 p0 = [0, 0];
 p1 = [case_d, 0];
 p2 = [case_d, front_h];
@@ -155,7 +164,7 @@ CABLE_BUNDLE_D = 6;  // ESTIMATE: rough wiring-bundle visual placeholder
 // cylinder (factory wire leads included in that reach) unless the leads
 // get desoldered and rewired directly by hand, which is a last resort,
 // not the default plan -- don't shrink this to "just the switch" depth.
-ROCKER_HOLE_D   = 20; // MEASURED: confirmed correct as already cut (corrected 2026-08-18, was 28 -- stale from the rocker/joystick mixup)
+ROCKER_HOLE_D   = 20.5; // MEASURED: confirmed correct as already cut (corrected 2026-08-19, was briefly set to 20 exact then reverted)
 ROCKER_FLANGE_D = 32; // ESTIMATE: cap/flange OD beyond the hole
 ROCKER_BODY_D   = 20; // MEASURED
 ROCKER_BODY_H   = 40; // MEASURED (factory wire leads included)
@@ -541,13 +550,16 @@ module blank_hardware_cutouts() {
     rotate([-shelf_a, 0, 0]) {
         // Joystick, far right in play position (-X here) -- see JOY_STICK_D
         translate([-65, 0, 0]) cylinder(h=wall*4, d=JOY_STICK_D, center=true);
-        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
-        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
+        // Both encoders shifted -7mm along the shelf (toward the back) --
+        // see chromacade-blank-side.scad for the full rationale (clears
+        // the speaker housing collision, 5.27mm to spare).
+        translate([-35, enc_pos_y, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
+        translate([45, enc_pos_y, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
         // Rocker switch, far left in play position (+X here) -- MEASURED correct
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20, center=true);
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
 
-        translate([-35, 0, -wall]) cube([13, 13, 6], center=true); // font
-        translate([ 45, 0, -wall]) cube([13, 13, 6], center=true); // octave
+        translate([-35, enc_pos_y, -wall]) cube([13, 13, 6], center=true); // font
+        translate([ 45, enc_pos_y, -wall]) cube([13, 13, 6], center=true); // octave
     }
 
     translate([0, panel_my, panel_mz])
@@ -745,20 +757,23 @@ module rocker_mockup() {
 }
 
 // Shared by both octave (x=45) and font (x=-35) encoders -- same part,
-// corrected 2026-08-18 (was swapped).
+// corrected 2026-08-18 (was swapped). Shifted -7mm along the shelf
+// (enc_pos_y, matching blank_hardware_cutouts() above) as of 2026-08-19
+// to clear the speaker housing.
 module encoder_mockup(x, c = "Goldenrod") {
+    y = enc_pos_y;
     color(c)
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
         // shaft, poking outward -- knob not modeled
-        translate([x, 0, 0]) cylinder(h = ENC_SHAFT_H, d = 4);
+        translate([x, y, 0]) cylinder(h = ENC_SHAFT_H, d = 4);
         // bushing, crossing the panel
-        translate([x, 0, -wall]) cylinder(h = wall + 1, d = ENC_BUSHING_D);
+        translate([x, y, -wall]) cylinder(h = wall + 1, d = ENC_BUSHING_D);
         // body/can, fully inside the case
-        translate([x - ENC_BODY_W/2, -ENC_BODY_H/2, -wall - ENC_BODY_D])
+        translate([x - ENC_BODY_W/2, y - ENC_BODY_H/2, -wall - ENC_BODY_D])
             cube([ENC_BODY_W, ENC_BODY_H, ENC_BODY_D]);
         // 5-pin header stub
-        translate([x, 0, -wall - ENC_BODY_D - ENC_PIN_LEN])
+        translate([x, y, -wall - ENC_BODY_D - ENC_PIN_LEN])
             cube([8, 2, ENC_PIN_LEN], center = true);
     }
 }

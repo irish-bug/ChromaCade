@@ -411,17 +411,26 @@ module hardware_cutouts() {
         // previously mislabeled as the rocker's -- it's the joystick's, per
         // the same correction that moved joy_x below.
         translate([-65, 0, 0]) cylinder(h=wall*4, d=joy_stick_d, center=true);
-        translate([-35, 0, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
-        translate([45, 0, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
+        // Both encoders shifted -7mm along the shelf (toward the back,
+        // away from the front wall) -- 2026-08-19, the encoder bodies
+        // (15x12x10mm, reaching ENC_BODY_D=10mm behind the panel) were
+        // colliding with the new single speaker housing by ~1.7mm at
+        // pos_y=0. -7mm clears it with 5.27mm to spare (>= the 5mm
+        // minimum specified) -- see chromacade-fit-check.scad's
+        // encoder_mockup()/speaker_housing_mockup() for the check. Don't
+        // shrink this margin without re-verifying against the housing.
+        enc_pos_y = -7;
+        translate([-35, enc_pos_y, 0]) cylinder(h=wall*4, d=7,  center=true); // font encoder
+        translate([45, enc_pos_y, 0]) cylinder(h=wall*4, d=7,  center=true);  // octave encoder
         // Rocker switch (far left in play position = positive X here) --
         // MEASURED correct as-is, do not resize.
-        translate([70, 0, 0]) cylinder(h=wall*4, d=20, center=true);
+        translate([70, 0, 0]) cylinder(h=wall*4, d=20.5, center=true);
 
         // EC11 encoder bushing countersinks -- 13x13mm, centered on the
         // interior face (~3mm effective depth) -- MEASURED correct via
         // test-mk2.scad plate A, confirmed 2026-08-19 (was 14.3x14.3x1mm)
-        translate([-35, 0, -wall]) cube([13, 13, 6], center=true); // font
-        translate([ 45, 0, -wall]) cube([13, 13, 6], center=true); // octave
+        translate([-35, enc_pos_y, -wall]) cube([13, 13, 6], center=true); // font
+        translate([ 45, enc_pos_y, -wall]) cube([13, 13, 6], center=true); // octave
     }
 
     panel_my = (p3[0] + p4[0]) / 2;
