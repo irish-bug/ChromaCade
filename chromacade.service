@@ -12,8 +12,18 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 -u /home/shane/ChromaCade/chromacade.py
-WorkingDirectory=/home/shane/ChromaCade
+# Path/user are per-device -- these were /home/shane/ChromaCade (unit #1's
+# builder account) until 2026-08-20, never updated when unit #1 was lost and
+# unit #2 (plinkplonk, checkout owned by user "plink") became current. Update
+# both lines to match whatever device/checkout this is actually installed
+# on -- see docs/device-rebuild-guide.md for plinkplonk's current values.
+ExecStart=/usr/bin/python3 -u /home/plink/ChromaCade/chromacade.py
+WorkingDirectory=/home/plink/ChromaCade
+# root, not the checkout owner above -- needed for the LED ring/strip's
+# PWM/DMA access (neopixel), not for GPIO/I2C/audio in general, which a
+# normal user can get via group membership instead (gpio/i2c/audio groups).
+# See docs/open-questions.md's "dedicated non-root user" entry -- still
+# open, deliberately not resolved by this file.
 User=root
 
 # Auto-restart safety net -- added 2026-08-16 specifically because a
