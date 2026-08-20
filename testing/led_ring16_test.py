@@ -54,21 +54,22 @@ except ImportError:
 
 # Full-saturation primaries for red/green/blue (matching led_ring_test.py's
 # own COLOR_STEPS convention) -- confirmed correct as-is on this candidate
-# ring 2026-08-20. Remaining entries started as generic/textbook CSS
-# named-color values, then got replaced one at a time with values tuned
-# live against this specific ring via --rgb (green reads stronger than its
-# numeric value on this hardware, same effect docs/color-palette.md found
-# on the project's real ring -- see that file for the general phenomenon).
-# Each replaced entry is flagged TUNED with the date; anything still
-# marked CSS hasn't been checked against this ring yet.
+# ring 2026-08-20. All other entries live-tuned against this specific ring
+# via --rgb the same day, replacing generic/textbook CSS starting points --
+# green reads stronger than its numeric value on this hardware, same
+# effect docs/color-palette.md found on the project's real ring (see that
+# file for the general phenomenon). Purple in particular ended up far
+# dimmer than the CSS starting point (128,0,128), not just rebalanced --
+# at full CSS brightness it read as pink, same as the too-bright/washed-
+# out pastel effect color-palette.md describes.
 COLORS = [
     ("red",    (255, 0, 0)),
     ("orange", (255, 50, 0)),    # TUNED 2026-08-20 (was CSS 255,165,0)
-    ("yellow", (255, 255, 0)),   # CSS -- not yet re-checked on this ring
+    ("yellow", (255, 190, 0)),   # TUNED 2026-08-20 (was CSS 255,255,0)
     ("green",  (0, 255, 0)),
     ("blue",   (0, 0, 255)),
-    ("purple", (128, 0, 128)),   # CSS -- not yet re-checked on this ring
-    ("pink",   (255, 192, 203)), # CSS -- not yet re-checked on this ring
+    ("purple", (10, 0, 24)),     # TUNED 2026-08-20 (was CSS 128,0,128)
+    ("pink",   (255, 0, 100)),   # TUNED 2026-08-20 (was CSS 255,192,203)
 ]
 
 
