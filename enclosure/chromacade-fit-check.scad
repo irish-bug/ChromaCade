@@ -28,13 +28,12 @@
 //     against the real part in hand is flagged ESTIMATE in a comment right
 //     there -- update the constant once you've calipered the actual part,
 //     which is the entire point of this file existing.
-//   - blank-side's own 5 mount bosses are a known-stale placeholder right
-//     now (own_mount_boss_centers in chromacade-blank-side.scad hasn't been
-//     updated to match pot-side's corrected hole positions -- see that
-//     file's comments and docs/decision-log.md). ASSEMBLY will show the two
-//     pieces' mount points NOT lining up until that redesign happens; that's
-//     expected, not a bug in this file, and doesn't affect the component
-//     clearance checks this file is actually for.
+//   - blank-side's own 5 mount bosses are now correct (2026-08-19) --
+//     positions match pot-side's blank_side_mount_yz exactly, and all 5
+//     use the same square-cylinder boss technique, wall-anchored, as
+//     pot-side's square_boss(). See that file's comments for the earlier
+//     history if it comes up (both a position-drift bug and a wrong-
+//     anchor/wrong-shape bug were found and fixed the same day).
 $fn = 60;
 
 /* [Render Selection] */
@@ -449,65 +448,45 @@ module pot_side_piece() {
 
 // ============================================================================
 // BLANK-SIDE -- copy of chromacade-blank-side.scad's own geometry (see
-// header note above about keeping this in sync by hand). own_mount_boss()
-// is now only used for the shelf_panel/panel_top mounts (tilted joints);
-// flat_mount_boss() below handles the other 3 (flat wall segments) -- see
+// header note above about keeping this in sync by hand). All 5 mounts use
+// the same flat_mount_boss() square-cylinder technique now (2026-08-19) --
+// front_bottom/front_top/top_back unrotated (flush against a global-frame
+// wall), shelf_panel/panel_top wrapped in the panel's own rotate()
+// (panel_mount_boss()) since they sit at tilted joints -- see
 // chromacade-blank-side.scad's fuller comments on both, kept brief here.
 // ============================================================================
-module flat_mount_boss(pos, thick_axis, height=boss_w) {
+module flat_mount_boss(pos, thick_axis, wall_z=-wall, wall_y=-wall) {
     if (thick_axis == "z") {
-        z0 = case_h - wall - height;
-        translate([blank_edge_x, pos - boss_w/2, z0])
-        cube([boss_body, boss_w, height]);
+        translate([blank_edge_x, pos - boss_w/2, wall_z - boss_w])
+        cube([boss_body, boss_w, boss_w]);
 
         hull() {
-            translate([blank_edge_x + boss_body - 0.01, pos - boss_w/2, z0])
-            cube([0.01, boss_w, height]);
+            translate([blank_edge_x + boss_body - 0.01, pos - boss_w/2, wall_z - boss_w])
+            cube([0.01, boss_w, boss_w]);
 
-            translate([blank_edge_x + boss_body + boss_ramp - 0.01, pos - boss_w/2, z0])
+            translate([blank_edge_x + boss_body + boss_ramp - 0.01, pos - boss_w/2, wall_z - 0.01])
             cube([0.01, boss_w, 0.01]);
         }
     } else {
-        y0 = case_d - wall - height;
-        translate([blank_edge_x, y0, pos - boss_w/2])
-        cube([boss_body, height, boss_w]);
+        translate([blank_edge_x, wall_y - boss_w, pos - boss_w/2])
+        cube([boss_body, boss_w, boss_w]);
 
         hull() {
-            translate([blank_edge_x + boss_body - 0.01, y0, pos - boss_w/2])
-            cube([0.01, height, boss_w]);
+            translate([blank_edge_x + boss_body - 0.01, wall_y - boss_w, pos - boss_w/2])
+            cube([0.01, boss_w, boss_w]);
 
-            translate([blank_edge_x + boss_body + boss_ramp - 0.01, y0, pos - boss_w/2])
+            translate([blank_edge_x + boss_body + boss_ramp - 0.01, wall_y - 0.01, pos - boss_w/2])
             cube([0.01, 0.01, boss_w]);
         }
     }
 }
 
-module own_mount_boss(y_c, z_c) {
-    margin = 15;
-    intersection() {
-        translate([blank_edge_x, y_c - margin, z_c - margin])
-        cube([boss_body, margin * 2, margin * 2]);
-        interior_void();
-    }
-    far_margin = 3;
-    hull() {
-        intersection() {
-            translate([blank_edge_x + boss_body - 0.01, y_c - margin, z_c - margin])
-            cube([0.01, margin * 2, margin * 2]);
-            interior_void();
-        }
-        intersection() {
-            translate([blank_edge_x + boss_body + boss_ramp - 0.01, y_c - far_margin, z_c - far_margin])
-            cube([0.01, far_margin * 2, far_margin * 2]);
-            interior_void();
-        }
-    }
-}
-
-module interior_void() {
-    rotate([90, 0, 90])
-    linear_extrude(case_w - (wall * 2), center=true)
-    offset(delta = -wall) outer_profile();
+module panel_mount_boss(pos_y) {
+    panel_my = (p3[0] + p4[0]) / 2;
+    panel_mz = (p3[1] + p4[1]) / 2;
+    translate([0, panel_my, panel_mz])
+    rotate([-panel_a, 0, 0])
+    flat_mount_boss(pos_y, "z");
 }
 
 own_mount_boss_centers = [
@@ -526,11 +505,11 @@ pot_side_mount_yz = [
 ];
 
 module blank_side_mount_bosses() {
-    flat_mount_boss(own_mount_boss_centers[0][1], "y", height=18); // front_bottom
-    flat_mount_boss(own_mount_boss_centers[1][1], "y", height=18); // front_top
-    own_mount_boss(own_mount_boss_centers[2][0], own_mount_boss_centers[2][1]); // shelf_panel (tilted joint)
-    own_mount_boss(own_mount_boss_centers[3][0], own_mount_boss_centers[3][1]); // panel_top (tilted joint)
-    flat_mount_boss(own_mount_boss_centers[4][0], "z"); // top_back
+    flat_mount_boss(own_mount_boss_centers[0][1], "y", wall_y=case_d-wall); // front_bottom
+    flat_mount_boss(own_mount_boss_centers[1][1], "y", wall_y=case_d-wall); // front_top
+    panel_mount_boss(37.014); // shelf_panel (tilted joint, panel's own frame)
+    panel_mount_boss(-1.170); // panel_top (tilted joint, panel's own frame)
+    flat_mount_boss(own_mount_boss_centers[4][0], "z", wall_z=case_h-wall); // top_back
 }
 
 module blank_side_mounts() {

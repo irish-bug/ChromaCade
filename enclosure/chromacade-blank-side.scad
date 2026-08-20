@@ -80,153 +80,94 @@ boss_ramp = 10;
 
 edge_x = -case_w/2 + wall + edge_clearance; // this piece's edge nearest pot-side
 
-// The hollow interior volume -- exactly what shell_solid() subtracts
-// from outer_profile() to get wall thickness, factored out so
-// own_mount_boss() below can intersect against it directly.
-module interior_void() {
-    rotate([90, 0, 90])
-    linear_extrude(case_w - (wall * 2), center=true)
-    offset(delta = -wall) outer_profile();
-}
-
-// Square boss with a taper toward +X (this piece's own bed/endcap side),
-// for the 3 of 5 mounts that flush against a genuinely FLAT wall segment
-// -- front_bottom/front_top (front wall, Y-flush at case_d) and top_back
-// (top segment, Z-flush at case_h). Rebuilt 2026-08-19 to match
-// chromacade-pot-side.scad's square_boss() technique exactly (thrown away
-// and rebuilt "in the correct standard" per direct request, after the
-// position-drift bug above was found): a real flush cube glued directly
-// onto the true wall surface, hull()'d out to a thin sliver for
-// print-support-free tapering -- mirrored left-right from pot-side's
-// version since this piece's flush faces sit at the HIGH side of Y/Z
-// (case_d/case_h) instead of pot-side's low side (0), and the boss's full
-// end sits AT edge_x (this piece's own near-pot-side edge) extending
-// toward +X, not -X.
+// Square boss (true boss_w x boss_w cross-section throughout -- "the same
+// square cylinder" for all 5 mounts, per direct instruction 2026-08-19) --
+// matches chromacade-pot-side.scad's square_boss() technique exactly: a
+// flush cube glued directly onto the true wall surface, hull()'d out to a
+// thin sliver for print-support-free tapering.
 //
-// shelf_panel and panel_top are NOT built with this module -- seat 2 of 5
-// mounts sit at the shelf/panel and panel/top JOINTS (8°/45° tilted
-// segments, further complicated by being *at* the corner between two
-// different tilts), where there's no single flat face for a plain cube to
-// flush against; own_mount_boss() below (kept for just these two) handles
-// that generally by clipping against the true interior_void() shape
-// instead of assuming an axis. Forcing those two through a flat cube here
-// would produce a boss that's flush with nothing -- a real geometric
-// constraint, not a style choice.
+// REBUILT 2026-08-19, second pass -- the first version of this module had
+// the taper's thin end anchored at the FREE (interior-facing) side instead
+// of the WALL side, exactly backwards from pot-side's proven technique.
+// pot-side's square_boss() keeps the wall-touching face (z_start, or y=0
+// for its back strip) at a FIXED coordinate across both the full cube and
+// both taper end-slices, and only shrinks the standoff reach on the free
+// side -- so the taper's thinnest point still touches the wall (which is
+// solid, present at every X-slice, since it's part of the uniform
+// extrusion) and grows outward from there. The first version instead kept
+// the FREE side fixed and shrank the wall-touching side down to a point
+// floating in open interior air, touching nothing -- exactly the
+// unsupported-overhang problem the taper exists to avoid, caught by direct
+// inspection of the actual print orientation (this piece prints with its
+// own +X endcap face-down, building toward -X -- see file header -- so the
+// mount region near edge_x, far from that endcap, prints LATE; a taper
+// that doesn't stay wall-anchued the whole time needs tall support
+// reaching from the bed, adding hours to the print). Fixed here by keeping
+// wall_y/wall_z (the true wall-flush coordinate) as the fixed anchor for
+// both the cube and both taper slices, and by using this SAME module,
+// wrapped in a rotate(), for shelf_panel/panel_top too (see
+// panel_mount_boss() below) instead of a separate oversized CSG-clip
+// module -- there is no case where this needs to be huge.
 //
-// height is NOT always boss_w here -- unlike pot-side's bottom/back strip
-// bores (which sit right at wall+boss_w/2, centered in a standard 12mm
-// boss), front_bottom/front_top's target Y (110, see own_mount_boss_centers
-// below) sits 10.73mm in from the front wall's own interior face
-// (case_d-wall=120.73mm) -- a plain 12mm-deep boss wouldn't reach past it
-// with any real margin (only ~1.3mm of material past the bore on one
-// side -- the same "not enough material between screw and the wall" bug
-// just fixed on pot-side's back strip). height=18 for those two
-// specifically, checked to leave >=7mm of material on both sides of the
-// bore. top_back's target Z=95 sits comfortably inside a standard
-// boss_w=12 boss flush at the top segment's interior face
-// (case_h-wall=99.92mm), so it keeps the default.
-module flat_mount_boss(pos, thick_axis, height=boss_w) {
+// wall_z/wall_y (NOT pos) is the wall-flush coordinate; default -wall
+// matches the LOCAL convention used everywhere in hardware_cutouts()
+// (z=0 exterior, z=-wall interior) so this module can be wrapped directly
+// in a segment's own rotate()+translate() (see panel_mount_boss()) without
+// passing anything extra. front_bottom/front_top/top_back instead pass the
+// real GLOBAL flush coordinate (case_d-wall / case_h-wall) since they're
+// called unrotated.
+module flat_mount_boss(pos, thick_axis, wall_z=-wall, wall_y=-wall) {
     if (thick_axis == "z") {
-        z0 = case_h - wall - height;
-        translate([edge_x, pos - boss_w/2, z0])
-        cube([boss_body, boss_w, height]);
+        translate([edge_x, pos - boss_w/2, wall_z - boss_w])
+        cube([boss_body, boss_w, boss_w]);
 
         hull() {
-            translate([edge_x + boss_body - 0.01, pos - boss_w/2, z0])
-            cube([0.01, boss_w, height]);
+            translate([edge_x + boss_body - 0.01, pos - boss_w/2, wall_z - boss_w])
+            cube([0.01, boss_w, boss_w]);
 
-            translate([edge_x + boss_body + boss_ramp - 0.01, pos - boss_w/2, z0])
+            translate([edge_x + boss_body + boss_ramp - 0.01, pos - boss_w/2, wall_z - 0.01])
             cube([0.01, boss_w, 0.01]);
         }
     } else {
-        y0 = case_d - wall - height;
-        translate([edge_x, y0, pos - boss_w/2])
-        cube([boss_body, height, boss_w]);
+        translate([edge_x, wall_y - boss_w, pos - boss_w/2])
+        cube([boss_body, boss_w, boss_w]);
 
         hull() {
-            translate([edge_x + boss_body - 0.01, y0, pos - boss_w/2])
-            cube([0.01, height, boss_w]);
+            translate([edge_x + boss_body - 0.01, wall_y - boss_w, pos - boss_w/2])
+            cube([0.01, boss_w, boss_w]);
 
-            translate([edge_x + boss_body + boss_ramp - 0.01, y0, pos - boss_w/2])
+            translate([edge_x + boss_body + boss_ramp - 0.01, wall_y - 0.01, pos - boss_w/2])
             cube([0.01, 0.01, boss_w]);
         }
     }
 }
 
-// Reinforcing boss around each pilot bore, extending toward +X (this
-// piece's own bed/endcap side — NOT -X like pot-side's version: see git
-// history for why that direction matters, caught via the interference
-// check as a large overlap into pot-side's endcap when it was wrong).
+// shelf_panel and panel_top sit at the shelf/panel and panel/top JOINTS,
+// not cleanly on either adjacent segment -- per direct instruction, both
+// use the PANEL's own angle (panel_a, 45°) rather than the shelf's (8°) or
+// a hand-picked joint compromise. Reuses flat_mount_boss()'s "z" case
+// UNROTATED (flush at local z=-wall, the panel's own interior surface,
+// matching hardware_cutouts()'s panel-local frame exactly) -- the wrapping
+// rotate()+translate() here is copied from hardware_cutouts()'s own panel
+// block, so this lands in the identical local frame as the OLED/encoder/
+// LED cutouts already placed there.
 //
-// ONLY used for shelf_panel and panel_top now (2026-08-19) -- see
-// flat_mount_boss() above, which replaced this for the other 3 mounts
-// that sit on flat wall segments. Kept here specifically because these
-// two sit at tilted JOINTS (8°/45°, further complicated by being *at* the
-// corner between two different tilts) where a plain flush cube has no
-// single axis to align to.
-//
-// Rebuilt 2026-08-18 (was: a boss_w cube centered symmetrically on the
-// mount point, sized generously on the theory that it'd land in real
-// material even without matching the local wall's tilt exactly). Live
-// visual check found that theory wrong at the shelf/panel and panel/top
-// joints specifically (8°/45° tilted segments, further complicated by
-// being *at* the joint between two different tilts) -- the symmetric
-// cube stuck out through the exterior surface there, clearly visible
-// and centered oddly rather than flush with anything.
-//
-// Now: build the cross-section oversized (generous `margin` past any
-// plausible local wall thickness/tilt) and intersect with interior_void()
-// -- the actual hollow-interior shape already correctly accounts for
-// any segment angle or joint, so this doesn't need to know the local
-// wall normal at all. The taper is built the same way, then hull()'d
-// from the clipped cross-section out to a point at the bed-side end, so
-// it inherits whatever shape the clipping actually produced instead of
-// assuming a square boss_w cross-section that may not match here.
-module own_mount_boss(y_c, z_c) {
-    // 15, not the original 40 -- 40 (an 80mm-square block) was way
-    // oversized relative to this case's ~126x105mm interior, so the
-    // intersection with interior_void() wasn't landing a small boss
-    // near the mount point at all -- it was capturing a huge chunk of
-    // the interior cross-section (most of the actual profile boundary
-    // nearby), producing the profile's own multi-segment steps instead
-    // of a boss. 15 is still comfortably more than any wall thickness/
-    // tilt offset here (wall=5, worst case ~7mm crossing a 45° segment)
-    // while actually staying local to the mount point.
-    margin = 15;
-    intersection() {
-        translate([edge_x, y_c - margin, z_c - margin])
-        cube([boss_body, margin * 2, margin * 2]);
-        interior_void();
-    }
-    // Taper toward a point -- corrected 2026-08-18, third pass, same
-    // wedge-not-pyramid issue as chromacade-pot-side.scad's
-    // square_boss(): hull()-ing the clipped cross-section with a single
-    // point tapers BOTH dimensions to nothing, which isn't printable
-    // support-free. Unlike pot-side's axis-aligned case, this mount
-    // sits on a tilted/joint segment (8°/45°, or the corner between
-    // them) where there's no single known-good axis to pin a wedge to
-    // by hand. Approximation used instead: shrink the same
-    // interior_void()-clipped footprint down to a small margin at the
-    // far end rather than collapsing it to a literal point -- both ends
-    // stay genuinely flush with the real local wall shape (still
-    // derived from interior_void(), not guessed), tapering the boss's
-    // stand-off distance down without relying on a hand-picked normal.
-    // Not a textbook-perfect wedge (constant width, only depth
-    // shrinking) the way pot-side's is -- worth a live check on these
-    // two specifically (shelf/panel and panel/top joints).
-    far_margin = 3;
-    hull() {
-        intersection() {
-            translate([edge_x + boss_body - 0.01, y_c - margin, z_c - margin])
-            cube([0.01, margin * 2, margin * 2]);
-            interior_void();
-        }
-        intersection() {
-            translate([edge_x + boss_body + boss_ramp - 0.01, y_c - far_margin, z_c - far_margin])
-            cube([0.01, far_margin * 2, far_margin * 2]);
-            interior_void();
-        }
-    }
+// pos is LOCAL y within that rotated frame, NOT the target's global Y --
+// found by inverting hardware_cutouts()' forward transform (Y = panel_my +
+// y*cos(panel_a) + z*sin(panel_a), Z = panel_mz - y*sin(panel_a) +
+// z*cos(panel_a)) for the real target (Y,Z) from own_mount_boss_centers
+// below, since neither target sits exactly on the panel's own centerline
+// (local z=0) -- verified numerically (not by hand) that both round-trip
+// back to their exact target global (Y,Z), and that a standard boss_w=12
+// boss flush at local z=-wall comfortably contains each target's local z
+// (shelf_panel: z=-8.55, 3.55mm/8.45mm margin; panel_top: z=-11.38,
+// 6.38mm/5.62mm margin -- both well inside [-17,-5]).
+module panel_mount_boss(pos_y) {
+    panel_my = (p3[0] + p4[0]) / 2;
+    panel_mz = (p3[1] + p4[1]) / 2;
+    translate([0, panel_my, panel_mz])
+    rotate([-panel_a, 0, 0])
+    flat_mount_boss(pos_y, "z");
 }
 
 // This piece's own 5 mount/boss centers (Y,Z) — must stay identical to
@@ -286,17 +227,16 @@ pot_side_mount_yz = [
     [wall + boss_w/2, 20],
 ];
 
-// Dispatches per mount rather than a generic loop -- unlike
-// pot_side_mount_bosses() (where all 4 mounts are one of two flat cases),
-// this piece's 5 mounts need two different techniques (see flat_mount_boss()
-// and own_mount_boss()'s own comments for why), so which module handles
-// which mount needs to be explicit, not inferred from position alone.
+// Dispatches per mount rather than a generic loop -- front_bottom/
+// front_top/top_back flush directly against a global-frame wall (pass the
+// real wall_y/wall_z); shelf_panel/panel_top go through panel_mount_boss()
+// (local frame, rotated) instead -- see both modules' own comments.
 module blank_side_mount_bosses() {
-    flat_mount_boss(own_mount_boss_centers[0][1], "y", height=18); // front_bottom
-    flat_mount_boss(own_mount_boss_centers[1][1], "y", height=18); // front_top
-    own_mount_boss(own_mount_boss_centers[2][0], own_mount_boss_centers[2][1]); // shelf_panel (tilted joint)
-    own_mount_boss(own_mount_boss_centers[3][0], own_mount_boss_centers[3][1]); // panel_top (tilted joint)
-    flat_mount_boss(own_mount_boss_centers[4][0], "z"); // top_back
+    flat_mount_boss(own_mount_boss_centers[0][1], "y", wall_y=case_d-wall); // front_bottom
+    flat_mount_boss(own_mount_boss_centers[1][1], "y", wall_y=case_d-wall); // front_top
+    panel_mount_boss(37.014); // shelf_panel (tilted joint, panel's own frame)
+    panel_mount_boss(-1.170); // panel_top (tilted joint, panel's own frame)
+    flat_mount_boss(own_mount_boss_centers[4][0], "z", wall_z=case_h-wall); // top_back
 }
 
 module blank_side_mounts() {
