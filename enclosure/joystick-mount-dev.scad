@@ -88,7 +88,7 @@ $fn = 60;
 
 /* [Render Selection] */
 PART = "ASSEMBLY";
-// [ASSEMBLY, SINGLE, PRINTABLE]
+// [ASSEMBLY, SINGLE, PRINTABLE, PLATE_PREVIEW]
 single_which = 0; // 0-3, only used when PART="SINGLE" -- see joy_positions below
 
 wall = 5; // matches case wall thickness
@@ -191,13 +191,29 @@ module single_dev(i) {
 // confirmed by direct derivation (rotation about Y by 90 deg sends
 // (x,y,z) -> (z,y,-x), so a point at local x=X0>0 lands at new z=-X0, i.e.
 // below the origin).
-plate_w = 70; plate_h = 60; plate_t = 4;
+// plate_w matters more than it looks like it should: it becomes the
+// PRINTED HEIGHT after rotation (see printable_dev()'s own comment) since
+// local +X has to map to vertical for the ramps to work -- kept tight
+// (44mm, matching the size you had in mind) rather than an arbitrary
+// round number, sized to the posts' actual X-spread: leftmost point is a
+// front/back-left post's own true position (x=-9), rightmost is a
+// front/back-right post's shifted ramp end (x=9+ramp_x=17), plus ~4mm
+// margin each side for the post's own half-width -> -13 to 21, 34mm,
+// centered at x=4 with room to spare at 44mm.
+plate_w = 44; plate_h = 44; plate_t = 4;
+plate_cx = 4; // see plate_w comment -- NOT 0, the post spread isn't symmetric
 
 module printable_dev() {
+    // WARNING: this print comes out TALL AND NARROW-FOOTPRINT (plate_w=44mm
+    // tall in Z, only plate_t=4mm x plate_h=44mm on the bed) -- unavoidable
+    // given local +X (the ramp axis) has to become vertical for the posts
+    // to print without support; there's no way to also make the bed
+    // footprint square without breaking that. Add a brim in your slicer
+    // for bed adhesion; this isn't a sign anything is wrong.
     rotate([0, 90, 0])
     difference() {
         union() {
-            translate([-plate_w/2, -plate_h/2, -wall - plate_t])
+            translate([plate_cx - plate_w/2, -plate_h/2, -wall - plate_t])
             cube([plate_w, plate_h, plate_t]);
             assembly_dev();
         }
@@ -212,6 +228,25 @@ module printable_dev() {
     }
 }
 
+// Same content as PRINTABLE (plate + posts + all cuts) but WITHOUT the
+// print rotation -- for visually checking the plate/post relationship in
+// this file's natural local frame (matching ASSEMBLY's camera-friendly
+// orientation). Not for printing -- use PRINTABLE for that.
+module plate_preview_dev() {
+    difference() {
+        union() {
+            translate([plate_cx - plate_w/2, -plate_h/2, -wall - plate_t])
+            cube([plate_w, plate_h, plate_t]);
+            assembly_dev();
+        }
+        joy_stick_hole_dev();
+        joy_gimbal_clearance_dev();
+        for (p = joy_positions)
+            joy_pilot_hole_dev(p[0], p[1]);
+    }
+}
+
 if (PART == "ASSEMBLY") assembly_dev();
 else if (PART == "PRINTABLE") printable_dev();
 else if (PART == "SINGLE") single_dev(single_which);
+else if (PART == "PLATE_PREVIEW") plate_preview_dev();
