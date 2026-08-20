@@ -391,12 +391,78 @@ module strips() {
     }
 }
 
+// Cooling fan cutout -- side-panel mounted (2026-08-19), one per endcap
+// (this file's own -X endcap here; blank-side.scad's +X endcap gets the
+// matching cutout at the same Y,Z for a straight cross-case draft over
+// the Pi/HAT stack, rather than two fans on one wall recirculating
+// locally). Replaces the old unpopulated 39mm/32mm-spacing back-wall
+// vent entirely -- that was sized for a hypothetical fan that was never
+// actually sourced; the real part (hardware-bom.md's "Cooling" section,
+// spec logged commit 08a6143, dimensioned in enclosure/fan-dimensions.jpg)
+// is a 30x30x7mm side-panel fan, M2.5 hardware, 24mm hole spacing --
+// completely different size/mounting/location, not a resize of the old
+// cutout.
+//
+// Position CORRECTED 2026-08-19/20, second pass -- per direct instruction,
+// centered on the Pi board itself rather than pushed aside to dodge the
+// volume-pot hole: target was Y=48 (midpoint between the Pi's own
+// mounting holes, pi_cy +/- pi_hole_dy = 23.5 and 72.5) and Z=30 (blows
+// straight across the top of the active cooler rather than past its
+// edge). That exact target overlapped the volume-pot hole's original
+// position (-3.2mm, a real collision) -- fixed by moving the pot hole
+// (see hardware_cutouts() below) -- AND, checked while verifying that
+// fix, would have mostly covered one of blank-side's owned-mount
+// clearance holes on THIS endcap (only 3.3mm clear -- the fan's solid
+// body would sit almost on top of the screw access, not just a thin-
+// wall concern but blocking a screwdriver from ever reaching it) and,
+// symmetrically, one of pot-side's OWN clearance holes on blank-side's
+// endcap. Nudged the minimum amount that clears every mount-clearance
+// hole on BOTH endcaps with >=10mm real margin (searched, not guessed):
+// Y=53, Z=35 -- 5mm off the exact target in each direction, still
+// centered on the Pi board and still blowing across the cooler in any
+// practical sense.
+fan_y = 53;
+fan_z = 35;
+fan_grille_d   = 26;   // ESTIMATE -- inside the fan's 30mm outer frame,
+                        // clearing its corner screw bosses; not yet
+                        // measured against the real fan's blade housing.
+fan_hole_spacing = 24;  // MEASURED, enclosure/fan-dimensions.jpg
+fan_pilot_d      = 2.4; // self-tapping for M2.5, matches pi_pilot_d below
+                         // -- NOT the fan's own 3.5mm clearance holes
+                         // (those are already in the fan itself, sized
+                         // for the screw shaft to pass through freely;
+                         // this side needs to grip the threads).
+
+module fan_cutout() {
+    translate([-case_w/2, fan_y, fan_z])
+    rotate([0, 90, 0]) {
+        stadium_hex_grill(fan_grille_d, fan_grille_d);
+        for (dy = [-fan_hole_spacing/2, fan_hole_spacing/2])
+            for (dz = [-fan_hole_spacing/2, fan_hole_spacing/2])
+                translate([dy, dz, 0])
+                cylinder(h=wall*4, d=fan_pilot_d, center=true);
+    }
+}
+
 module hardware_cutouts() {
     // Volume pot hole for the Fender 500K -- needs its 3/8" (9.525mm)
     // mounting bushing, not a bare 8mm hole (regression; unit #1 was
     // hand-drilled out to fit -- fixed here so future prints don't need
     // that workaround).
-    translate([-case_w/2, case_d/4, case_h/3])
+    //
+    // MOVED 2026-08-19/20 from the simple (case_d/4, case_h/3) fractional
+    // placement to a fixed (15, 48) -- the fan cutout's new position
+    // (centered on the Pi board, see fan_cutout() above) collided with
+    // the old spot by -3.2mm, a real overlap, not a near-miss. New spot
+    // computed (not eyeballed) for >=10mm clearance from everything on
+    // this endcap -- 18.2mm from the final fan position, ~37mm from the
+    // nearest of blank-side's 4 owned-mount clearance holes, ~10mm from
+    // the case profile edge itself. Still "side panel, deliberately less
+    // convenient" per control-layout.md -- moving within the same
+    // endcap doesn't change that; only moving it to the back wall
+    // (considered, not needed -- this fits) would've been a bigger
+    // ergonomic change.
+    translate([-case_w/2, 15, 48])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 
@@ -408,25 +474,7 @@ module hardware_cutouts() {
     //cable_z = case_h/2 + (-h_back/2 + 1.5);
     //translate([-40, wall, cable_z]) rotate([-90, 0, 0]) cylinder(h=wall*3, d=4, center=true);
 
-    // Fan vent — kept as unpopulated geometry (decision-log.md: dropped
-    // from unit #1, revisit for the next build). 39mm hex grille + 4x M3
-    // corner mounting holes, 32mm spacing; unscaled (real fan footprint).
-    // fan_cy=10 in the old back-panel file's own local frame -> Z=case_h/2+10 here.
-    fan_cx = 0;
-    fan_cz = case_h/2 + 10;
-    fan_hole_spacing = 32;
-
-    translate([fan_cx, wall, fan_cz])
-    rotate([-90, 0, 0])
-    rotate([0, 0, 45])
-    stadium_hex_grill(39, 39);
-
-    for (dx = [-fan_hole_spacing/2, fan_hole_spacing/2]) {
-        for (dz = [-fan_hole_spacing/2, fan_hole_spacing/2]) {
-            translate([fan_cx + dx, wall, fan_cz + dz])
-            rotate([-90, 0, 0]) cylinder(h=wall*3, d=3.5, center=true);
-        }
-    }
+    fan_cutout();
 }
 
 // Copied verbatim from chromacade-blank-side(-embossed).scad's speaker

@@ -445,7 +445,41 @@ module strips() {
     }
 }
 
+// Cooling fan cutout -- side-panel mounted (2026-08-19), one per endcap;
+// see chromacade-pot-side.scad's matching fan_cutout() for the full
+// rationale (replaces the old back-wall vent concept entirely, real part
+// is a 30x30x7mm side fan per hardware-bom.md/enclosure/fan-dimensions.jpg)
+// and exact position derivation, including why it's Y=53/Z=35 rather than
+// the original Y=48/Z=30 target (centered on the Pi board and blowing
+// across the active cooler, per direct instruction) -- that exact target
+// would have mostly covered one of pot-side's OWN clearance holes on
+// THIS endcap (only 3.3mm clear -- blocking screwdriver access to that
+// screw, not just a thin-wall concern) and, symmetrically, one of
+// blank-side's owned-mount holes on pot-side's endcap. Same Y,Z as
+// pot-side's cutout for a straight cross-case draft, not offset --
+// re-verified clear on THIS endcap specifically against pot-side's 4
+// owned-mount clearance holes it carries (pot_side_mount_yz below), with
+// >=10mm of real margin to each (searched, not guessed).
+fan_y = 53;
+fan_z = 35;
+fan_grille_d     = 26;   // ESTIMATE -- see pot-side.scad's comment
+fan_hole_spacing = 24;   // MEASURED, enclosure/fan-dimensions.jpg
+fan_pilot_d      = 2.4;  // self-tapping for M2.5
+
+module fan_cutout() {
+    translate([case_w/2, fan_y, fan_z])
+    rotate([0, 90, 0]) {
+        stadium_hex_grill(fan_grille_d, fan_grille_d);
+        for (dy = [-fan_hole_spacing/2, fan_hole_spacing/2])
+            for (dz = [-fan_hole_spacing/2, fan_hole_spacing/2])
+                translate([dy, dz, 0])
+                cylinder(h=wall*4, d=fan_pilot_d, center=true);
+    }
+}
+
 module hardware_cutouts() {
+    fan_cutout();
+
     // Speaker grilles — hex-hole pattern cut straight into the front wall
     // (no separate insert), one round grille per cone on the single
     // dual-cone housing (see spk_cone_d/spk_cone_offset above).

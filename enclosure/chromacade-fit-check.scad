@@ -356,9 +356,32 @@ module pot_strips() {
     }
 }
 
+// Cooling fan cutout -- copy of chromacade-pot-side.scad's fan_cutout(),
+// kept in sync by hand (see header note at the top of this file). See
+// that file's comments for the full position derivation/history.
+fan_y = 53;
+fan_z = 35;
+fan_grille_d     = 26;
+fan_hole_spacing = 24;
+fan_pilot_d      = 2.4;
+
+module pot_fan_cutout() {
+    translate([-case_w/2, fan_y, fan_z])
+    rotate([0, 90, 0]) {
+        stadium_hex_grill(fan_grille_d, fan_grille_d);
+        for (dy = [-fan_hole_spacing/2, fan_hole_spacing/2])
+            for (dz = [-fan_hole_spacing/2, fan_hole_spacing/2])
+                translate([dy, dz, 0])
+                cylinder(h=wall*4, d=fan_pilot_d, center=true);
+    }
+}
+
 module pot_hardware_cutouts() {
-    // Volume pot hole for the Fender 500K -- 3/8in (9.525mm) mounting bushing.
-    translate([-case_w/2, case_d/4, case_h/3])
+    // Volume pot hole for the Fender 500K -- 3/8in (9.525mm) mounting
+    // bushing. MOVED 2026-08-19/20 from (case_d/4, case_h/3) to (15, 48)
+    // -- see chromacade-pot-side.scad's hardware_cutouts() comment for
+    // why (the fan cutout's new position collided with the old spot).
+    translate([-case_w/2, 15, 48])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 
@@ -367,21 +390,7 @@ module pot_hardware_cutouts() {
     // boost-charge board; a cable passthrough will live on blank-side
     // instead if still needed).
 
-    fan_cx = 0;
-    fan_cz = case_h/2 + 10;
-    fan_hole_spacing = 32;
-
-    translate([fan_cx, wall, fan_cz])
-    rotate([-90, 0, 0])
-    rotate([0, 0, 45])
-    stadium_hex_grill(39, 39);
-
-    for (dx = [-fan_hole_spacing/2, fan_hole_spacing/2]) {
-        for (dz = [-fan_hole_spacing/2, fan_hole_spacing/2]) {
-            translate([fan_cx + dx, wall, fan_cz + dz])
-            rotate([-90, 0, 0]) cylinder(h=wall*3, d=3.5, center=true);
-        }
-    }
+    pot_fan_cutout();
 }
 
 // Raspberry Pi 4B mounting bosses -- copy of chromacade-pot-side.scad's own
@@ -547,7 +556,25 @@ module blank_strips() {
     }
 }
 
+// Cooling fan cutout, blank-side's endcap -- copy of
+// chromacade-blank-side.scad's fan_cutout(), kept in sync by hand. Same
+// fan_y/fan_z/etc. constants as pot_fan_cutout() above (defined once,
+// shared by both endcaps here, matching the real production files' Y,Z
+// values being identical on both pieces).
+module blank_fan_cutout() {
+    translate([case_w/2, fan_y, fan_z])
+    rotate([0, 90, 0]) {
+        stadium_hex_grill(fan_grille_d, fan_grille_d);
+        for (dy = [-fan_hole_spacing/2, fan_hole_spacing/2])
+            for (dz = [-fan_hole_spacing/2, fan_hole_spacing/2])
+                translate([dy, dz, 0])
+                cylinder(h=wall*4, d=fan_pilot_d, center=true);
+    }
+}
+
 module blank_hardware_cutouts() {
+    blank_fan_cutout();
+
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
         translate([-spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
@@ -669,7 +696,7 @@ module blank_side_piece() {
 
 module pot_mockup() {
     color("Silver")
-    translate([-case_w/2, case_d/4, case_h/3])
+    translate([-case_w/2, 15, 48])
     rotate([0, 90, 0]) {
         // shaft -- mostly outside the case; knob not modeled
         translate([0, 0, -POT_SHAFT_H]) cylinder(h = POT_SHAFT_H + 2, d = POT_SHAFT_D);
