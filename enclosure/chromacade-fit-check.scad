@@ -584,70 +584,17 @@ module blank_hardware_cutouts() {
     }
 }
 
-// Joystick (KY-023) mounting bosses -- copy of chromacade-blank-side.scad's
-// own joystick_mount_bosses()/joystick_mount_pilot_holes(), kept in sync by
-// hand (see header note at the top of this file). See that file's comment
-// for the full measurement rationale.
-// joy_x corrected 2026-08-18 from 70 to -65 -- joystick is far right in play
-// position (-X here, paired with the font encoder at x=-35); the rocker
-// (paired with the octave encoder at x=45) is the one at x=70, far left.
+// Joystick (KY-023) mounting bosses -- PAUSED 2026-08-19, matching
+// chromacade-blank-side.scad (see that file's comment for the full
+// rationale: being redesigned in isolation in
+// enclosure/joystick-mount-dev.scad). joy_x/joy_boss_h stay live -- joy_x
+// is the stick hole's own position (independent of the bosses), joy_boss_h
+// is kept as an ILLUSTRATIVE standoff height for joystick_mockup()'s board
+// position below, not tied to any real boss geometry right now.
 joy_x             = -65; // matches the shelf's joystick stick-hole X position
-joy_hole_dx       = 9;
-joy_hole_front_dy = 14;
+joy_boss_h        = 12;  // illustrative only -- see note above
+joy_hole_front_dy = 14;  // real board hole position, independent of the paused boss design
 joy_hole_back_dy  = -12.5;
-joy_boss_h  = 12;
-joy_pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
-
-// Bosses redesigned 2026-08-19 as ring-segment wedges curving around the
-// stick hole instead of plain cylinders -- see chromacade-blank-side.scad's
-// matching comment for the full rationale. joy_boss_outer_r=20, not 21:
-// 21 renders as 3 disconnected volumes on that file (a CGAL precision
-// issue combining several difference() ops), found empirically by
-// bisecting outer-radius values -- keep these two files' value in sync.
-joy_boss_clearance  = 0.3; // gap beyond the hole edge before boss material starts
-joy_boss_outer_r    = 20;  // absolute radius from the hole center
-joy_boss_half_angle = 12;  // degrees, wedge angular half-width
-
-function joystick_boss_xy() = [
-    [joy_x - joy_hole_dx, joy_hole_front_dy],
-    [joy_x + joy_hole_dx, joy_hole_front_dy],
-    [joy_x - joy_hole_dx, joy_hole_back_dy],
-    [joy_x + joy_hole_dx, joy_hole_back_dy],
-];
-
-module joy_boss_wedge_2d(cx, cy, r_inner, r_outer, half_angle) {
-    ang = atan2(cy, cx);
-    big = r_outer + 5;
-    intersection() {
-        difference() {
-            circle(r = r_outer);
-            circle(r = r_inner);
-        }
-        polygon(points = [
-            [0, 0],
-            [big*cos(ang - half_angle), big*sin(ang - half_angle)],
-            [big*cos(ang + half_angle), big*sin(ang + half_angle)],
-        ]);
-    }
-}
-
-module joystick_mount_bosses() {
-    translate([0, shelf_my, shelf_mz])
-    rotate([-shelf_a, 0, 0])
-    translate([joy_x, 0, -wall - joy_boss_h])
-    linear_extrude(joy_boss_h + 0.5)
-        for (p = joystick_boss_xy())
-            joy_boss_wedge_2d(p[0] - joy_x, p[1], JOY_STICK_D/2 + joy_boss_clearance, joy_boss_outer_r, joy_boss_half_angle);
-}
-
-module joystick_mount_pilot_holes() {
-    translate([0, shelf_my, shelf_mz])
-    rotate([-shelf_a, 0, 0]) {
-        for (p = joystick_boss_xy())
-            translate([p[0], p[1], -wall - joy_boss_h - 0.5])
-                cylinder(h = joy_boss_h + 1, d = joy_pilot_d);
-    }
-}
 
 module blank_side_piece() {
     difference() {
@@ -655,12 +602,10 @@ module blank_side_piece() {
             endcap(1);
             blank_strips();
             blank_side_mount_bosses();
-            joystick_mount_bosses();
         }
         blank_hardware_cutouts();
         blank_side_mounts();
         blank_side_clearance_holes();
-        joystick_mount_pilot_holes();
     }
 }
 
@@ -778,13 +723,13 @@ module encoder_mockup(x, c = "Goldenrod") {
     }
 }
 
+// Mounting bosses paused (see comment above) -- board floats at the
+// illustrative joy_boss_h height with nothing drawn holding it up yet.
 module joystick_mockup() {
-    color("Orange") joystick_mount_bosses();
-
     color("DarkSlateBlue")
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
-        // board's near (top) face rests flush on the 4 boss tips
+        // board's near (top) face rests at the illustrative standoff height
         board_z = -wall - joy_boss_h;
         board_cy = (joy_hole_front_dy + joy_hole_back_dy) / 2;
 

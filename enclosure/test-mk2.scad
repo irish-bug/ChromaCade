@@ -2,28 +2,22 @@
  * ChromaCade — Mk 2 Component Fit Test Plates
  *
  * Tests only the cutouts revised since test-component-holes.scad.
- * Print all 4 before committing to the full case print.
+ * Print all 3 before committing to the full case print.
  *
  * Plate   Component           What changed / what to check
  * ─────────────────────────────────────────────────────────────────────────────
  *   A     EC11 encoder        ø7mm through + 13×13mm back countersink (~3mm deep)
  *                             Check: bushing seats flush, nut threads catch in pocket
- *   B     KY-023 joystick     ø27mm stick hole (26.5mm was a tiny bit too small,
- *                             28mm was the original pre-boss print) + 4 mounting bosses (12mm tall,
- *                             ø6mm, ø2.5mm pilot) at the real board's 4 corner
- *                             holes -- MEASURED 2026-08-18, see
- *                             chromacade-blank-side.scad's joystick_boss_xy()
- *                             Check: thumb cap clears, full range of motion, no
- *                             rubbing, AND that the board's real corner holes
- *                             actually land on the 4 printed bosses -- the two
- *                             bosses nearest center are close enough to the
- *                             hole edge that they may print thin/undercut,
- *                             confirm they're solid before trusting this
  *   C     WS2812 LED ring     ø24mm front aperture + ø28mm back recess (~3mm deep)
  *                             Check: LED circle fully visible; PCB sits in recess, glue gap ~1.3mm
  *   D     0.96" OLED          28×15mm front window (2mm off-center) + 30×30mm back
  *                             countersink (~3mm deep) -- all confirmed correct 2026-08-19
  *                             Check: viewable area fully open; module PCB drops into pocket squarely
+ *
+ * Plate B (KY-023 joystick mounting bosses) removed 2026-08-19 -- see the
+ * comment above test_led_ring_mk2() below, it moved to its own isolated
+ * file (enclosure/joystick-mount-dev.scad) since its print orientation
+ * doesn't fit this file's flat-plate convention.
  *
  * Plate E (old single-cone stadium speaker grille) removed 2026-08-19 -- the
  * speaker design changed to a dual-cone housing with round grilles (see
@@ -33,14 +27,13 @@
  * Print orientation: BACK FACE UP (countersinks and recesses face up toward you).
  * Insert parts from the underside to test fit and thread engagement.
  *
- * Bed footprint (PART="ALL"): ~132mm × 94mm — fits an 8"×8" bed with margin.
- * Set PART below to print just one plate instead of all 4 -- e.g. "B" for a
- * fast joystick-only iteration.
+ * Bed footprint (PART="ALL"): ~86mm × 94mm — fits an 8"×8" bed with margin.
+ * Set PART below to print just one plate instead of all 3.
  */
 
 /* [Render Selection] */
 PART = "ALL";
-// [ALL, A, B, C, D]
+// [ALL, A, C, D]
 
 $fn = 60;
 
@@ -60,80 +53,17 @@ module test_encoder_mk2() {
     }
 }
 
-// Ring-segment (wedge) boss, 2D, centered on the joystick hole's own center
-// (0,0) -- curves flush against the hole's edge instead of being a plain
-// circle that the hole cut happens to clip. cx,cy is only used to derive
-// the wedge's angle (where the real screw sits); the wedge's own radial
-// footprint (r_inner..r_outer) is independent of the screw's actual
-// distance from center, so material only ever exists outside r_inner --
-// no more accidentally-thin crescents from a circle centered too close to
-// the hole edge.
-module joy_boss_wedge_2d(cx, cy, r_inner, r_outer, half_angle) {
-    ang = atan2(cy, cx);
-    big = r_outer + 5;
-    intersection() {
-        difference() {
-            circle(r = r_outer);
-            circle(r = r_inner);
-        }
-        polygon(points = [
-            [0, 0],
-            [big*cos(ang - half_angle), big*sin(ang - half_angle)],
-            [big*cos(ang + half_angle), big*sin(ang + half_angle)],
-        ]);
-    }
-}
-
-// ─── B: KY-023 Joystick ───────────────────────────────────────────────────────
-// Stick hole under active test (27mm, see header) plus the 4 real mounting
-// bosses -- board is 26x33mm, front pair (toward the speaker wall) 14mm off
-// center, back pair 12.5mm off center, both pairs +/-9mm left-right.
-// Bosses redesigned 2026-08-19 as ring-segment wedges curving around the
-// hole (see joy_boss_wedge_2d() above) instead of plain cylinders -- the
-// straight-cylinder bosses were colliding with the joystick's own range of
-// motion, and left an accidentally-thin, unplanned crescent of material
-// where the hole clipped through them. Boss positions/sizes MUST stay in
-// sync with chromacade-blank-side.scad's joystick_boss_xy()/
-// joy_boss_outer_r/joy_boss_half_angle/joy_boss_clearance.
-module test_joystick_mk2() {
-    pw = 44; ph = 44;
-    hole_d  = 27; // UNDER TEST -- see header note
-    hole_r  = hole_d / 2;
-    boss_clearance   = 0.3; // gap beyond the hole edge before boss material starts
-    boss_outer_r     = 20;  // absolute radius from the hole center -- matches
-                             // chromacade-blank-side.scad's joy_boss_outer_r
-                             // (21 causes a CGAL disconnect there; not
-                             // reproduced on this flat plate, but kept in
-                             // sync anyway since this plate exists to
-                             // validate that file's exact geometry)
-    boss_half_angle  = 12;  // degrees, wedge angular half-width
-    boss_h  = 12;
-    pilot_d = 2.5;  // ESTIMATE -- confirm the board's actual screw size
-    hole_dx = 9;
-    front_dy = 14;
-    back_dy  = -12.5;
-    boss_xy = [
-        [-hole_dx, front_dy], [hole_dx, front_dy],
-        [-hole_dx, back_dy],  [hole_dx, back_dy],
-    ];
-
-    difference() {
-        union() {
-            difference() {
-                linear_extrude(wall) square([pw, ph], center=true);
-                translate([0, 0, wall/2])
-                    cylinder(h=wall*3, d=hole_d, center=true);
-            }
-            for (p = boss_xy)
-                translate([0, 0, wall])
-                linear_extrude(boss_h)
-                    joy_boss_wedge_2d(p[0], p[1], hole_r + boss_clearance, boss_outer_r, boss_half_angle);
-        }
-        for (p = boss_xy)
-            translate([p[0], p[1], wall - 0.5])
-                cylinder(h = boss_h + 1, d = pilot_d);
-    }
-}
+// Plate B (KY-023 joystick mounting bosses) removed 2026-08-19 -- pulled
+// into its own isolated file, enclosure/joystick-mount-dev.scad, per
+// direct feedback that the straight-up-and-down bosses here got in the
+// way of the joystick's range of motion, didn't have enough material
+// around two of the four screws, and (found while redesigning) weren't
+// actually support-free to print either. That file's ramp direction is
+// tied to blank-side's real print-vertical axis in a way that doesn't fit
+// this plate's flat, Z-thickness convention -- see its own header comment
+// for why it needs a different print orientation than plates A/C/D below,
+// and its own "PRINTABLE" mode for an actual print-ready coupon instead of
+// trying to force this design back into a plate here.
 
 // ─── C: WS2812 7-LED Ring ─────────────────────────────────────────────────────
 module test_led_ring_mk2() {
@@ -165,22 +95,20 @@ module test_oled_mk2() {
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
-//  Row 0 (Y=0):     A Encoder    B Joystick    C LED Ring
+//  Row 0 (Y=0):     A Encoder    C LED Ring
 //  Row 1 (below):   D OLED
 
 pitch_sm = 40 + 6;  // 46mm between 40mm-plate centres
 
-// Row 1 Y: gap from bottom edge of row 0 plates (tallest is B/C at 44mm ->
-// half=22) to top of row 1 plates (D, also 44mm tall -> half=22)
-row1_y = -(22 + 6 + 22);  // −50mm
+// Row 1 Y: gap from bottom edge of row 0 plates (A/C both 40mm -> half=20)
+// to top of row 1 plates (D, 44mm tall -> half=22)
+row1_y = -(20 + 6 + 22);  // −48mm
 
 if (PART == "ALL") {
     translate([0,           0,       0]) test_encoder_mk2();
-    translate([pitch_sm,    0,       0]) test_joystick_mk2();
-    translate([pitch_sm*2,  0,       0]) test_led_ring_mk2();
+    translate([pitch_sm,    0,       0]) test_led_ring_mk2();
     translate([0,           row1_y,  0]) test_oled_mk2();
 }
 else if (PART == "A") test_encoder_mk2();
-else if (PART == "B") test_joystick_mk2();
 else if (PART == "C") test_led_ring_mk2();
 else if (PART == "D") test_oled_mk2();
