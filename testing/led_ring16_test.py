@@ -52,22 +52,23 @@ except ImportError:
     print("    pip3 install adafruit-circuitpython-neopixel --break-system-packages")
     sys.exit(1)
 
-# Full-saturation primaries for red/green/blue (matching led_ring_test.py's
-# own COLOR_STEPS convention) -- confirmed correct as-is on this candidate
-# ring 2026-08-20. All other entries live-tuned against this specific ring
-# via --rgb the same day, replacing generic/textbook CSS starting points --
-# green reads stronger than its numeric value on this hardware, same
-# effect docs/color-palette.md found on the project's real ring (see that
-# file for the general phenomenon). Purple in particular ended up far
-# dimmer than the CSS starting point (128,0,128), not just rebalanced --
-# at full CSS brightness it read as pink, same as the too-bright/washed-
-# out pastel effect color-palette.md describes.
+# All 7 live-tuned against this specific candidate ring via --rgb,
+# 2026-08-20. Started from full-saturation primaries for red/green/blue
+# (matching led_ring_test.py's own COLOR_STEPS convention) and generic/
+# textbook CSS values for the rest -- green reads stronger than its
+# numeric value on this hardware, same effect docs/color-palette.md
+# found on the project's real ring (see that file for the general
+# phenomenon). Purple and, later, red/green/blue too all ended up far
+# dimmer than their starting points, not just rebalanced -- purple at
+# full CSS brightness read as pink, same too-bright/washed-out-pastel
+# effect color-palette.md describes; red/green/blue got the same
+# treatment after that pattern held up for yellow/purple.
 COLORS = [
-    ("red",    (255, 0, 0)),
+    ("red",    (88, 0, 0)),      # TUNED 2026-08-20 (was full-sat 255,0,0)
     ("orange", (255, 50, 0)),    # TUNED 2026-08-20 (was CSS 255,165,0)
     ("yellow", (125, 85, 0)),    # TUNED 2026-08-20 (was CSS 255,255,0; first pass 255,190,0)
-    ("green",  (0, 255, 0)),
-    ("blue",   (0, 0, 255)),
+    ("green",  (0, 88, 0)),      # TUNED 2026-08-20 (was full-sat 0,255,0)
+    ("blue",   (0, 0, 88)),      # TUNED 2026-08-20 (was full-sat 0,0,255)
     ("purple", (10, 0, 24)),     # TUNED 2026-08-20 (was CSS 128,0,128)
     ("pink",   (255, 0, 100)),   # TUNED 2026-08-20 (was CSS 255,192,203)
 ]
