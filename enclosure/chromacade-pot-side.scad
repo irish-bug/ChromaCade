@@ -451,18 +451,23 @@ module hardware_cutouts() {
     // that workaround).
     //
     // MOVED 2026-08-19/20 from the simple (case_d/4, case_h/3) fractional
-    // placement to a fixed (15, 48) -- the fan cutout's new position
+    // placement, first to (15, 48) -- the fan cutout's new position
     // (centered on the Pi board, see fan_cutout() above) collided with
-    // the old spot by -3.2mm, a real overlap, not a near-miss. New spot
-    // computed (not eyeballed) for >=10mm clearance from everything on
-    // this endcap -- 18.2mm from the final fan position, ~37mm from the
-    // nearest of blank-side's 4 owned-mount clearance holes, ~10mm from
-    // the case profile edge itself. Still "side panel, deliberately less
-    // convenient" per control-layout.md -- moving within the same
-    // endcap doesn't change that; only moving it to the back wall
-    // (considered, not needed -- this fits) would've been a bigger
-    // ergonomic change.
-    translate([-case_w/2, 15, 48])
+    // the old spot by -3.2mm, a real overlap, not a near-miss. That first
+    // move only checked clearance against the 9.525mm bushing hole cut
+    // here, not the pot's actual CAN body behind the panel (measured
+    // 24mm diameter, well past the 16mm this project had been assuming --
+    // see chromacade-fit-check.scad's POT_CAN_D) -- with the real can
+    // size, (15,48) left only 3.00mm to the case profile edge, snug
+    // enough that a print was already underway on it (left to finish,
+    // not stopped -- positive clearance, not an overlap). MOVED AGAIN to
+    // (18, 45) for the next print: a 4.24mm nudge that doubles the edge
+    // clearance to 6.00mm, while keeping 8.00mm from the fan cutout and
+    // 28.5mm from the nearest of blank-side's 4 owned-mount clearance
+    // holes (all computed, not eyeballed). Still "side panel, deliberately
+    // less convenient" per control-layout.md -- moving within the same
+    // endcap doesn't change that.
+    translate([-case_w/2, 18, 45])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 

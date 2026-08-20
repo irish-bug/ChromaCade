@@ -112,7 +112,9 @@ blank_edge_x = -case_w/2 + wall + edge_clearance;  // blank-side's edge nearest 
 // Fender 500K pot -- standard full-size guitar pot. Bushing diameter
 // MATCHES the d=9.525 (3/8in) hole already cut in chromacade-pot-side.scad's
 // hardware_cutouts() -- that one's confirmed, not a guess.
-POT_CAN_D     = 16;    // ESTIMATE: can diameter
+POT_CAN_D     = 24;    // MEASURED 2026-08-20 -- was 16 (ESTIMATE), significantly
+                        // bigger than assumed; this drove a real position fix,
+                        // see chromacade-pot-side.scad's hardware_cutouts()
 POT_CAN_H     = 20;    // ESTIMATE: can depth
 POT_BUSHING_D = 9.525; // MEASURED (matches the cut hole)
 POT_BUSHING_H = 10;    // ESTIMATE: threaded bushing length
@@ -378,10 +380,12 @@ module pot_fan_cutout() {
 
 module pot_hardware_cutouts() {
     // Volume pot hole for the Fender 500K -- 3/8in (9.525mm) mounting
-    // bushing. MOVED 2026-08-19/20 from (case_d/4, case_h/3) to (15, 48)
-    // -- see chromacade-pot-side.scad's hardware_cutouts() comment for
-    // why (the fan cutout's new position collided with the old spot).
-    translate([-case_w/2, 15, 48])
+    // bushing. MOVED 2026-08-19/20, twice -- first (case_d/4, case_h/3) to
+    // (15, 48), then to (18, 45) once the real 24mm can size (not the old
+    // 16mm estimate) showed only 3mm of edge clearance at (15,48). See
+    // chromacade-pot-side.scad's hardware_cutouts() comment for the full
+    // numbers.
+    translate([-case_w/2, 18, 45])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 
@@ -696,7 +700,7 @@ module blank_side_piece() {
 
 module pot_mockup() {
     color("Silver")
-    translate([-case_w/2, 15, 48])
+    translate([-case_w/2, 18, 45])
     rotate([0, 90, 0]) {
         // shaft -- mostly outside the case; knob not modeled
         translate([0, 0, -POT_SHAFT_H]) cylinder(h = POT_SHAFT_H + 2, d = POT_SHAFT_D);
