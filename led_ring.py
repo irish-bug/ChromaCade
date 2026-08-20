@@ -20,28 +20,30 @@ import neopixel
 
 NOTE_COLORS = {
     # Replaced wholesale 2026-08-20 with values live-tuned via
-    # testing/led_ring16_test.py's --rgb mode -- see that file's git
-    # history for the tuning session. IMPORTANT CAVEAT: tuned against a
-    # different physical ring (a candidate 16-LED NeoPixel ring being
-    # bench-evaluated, not adopted -- see that ring's test script), not
-    # this ring. Different WS2812 manufacturing batches can render the
-    # same numeric RGB slightly differently, so these haven't been
-    # re-confirmed live against *this* ring yet -- do that before
-    # treating this set as final, the same way the previous set was
-    # validated directly on this hardware (see git history prior to
-    # this commit for that history, e.g. the C/D confusion fix from
-    # 2026-08-15). Also fixes a pre-existing drift from
-    # docs/color-palette.md's D value (255,45,0 there vs 255,100,0
-    # here, from that same 2026-08-15 fix never having been copied back
-    # to the doc) -- moot now that D's value is replaced outright, but
-    # the doc is being updated alongside this file so the two don't
-    # silently diverge again.
+    # testing/led_ring16_test.py's --rgb mode on a different physical
+    # ring (a candidate 16-LED NeoPixel ring being bench-evaluated, not
+    # adopted) -- see that file's git history for the tuning session.
+    # Confirmed live on THIS ring/hardware the same day: ran cleanly on
+    # chromacade (real GPIO12/PWM output, no errors) and a second person
+    # (Sean) judged it a "huge improvement" over the previous set with
+    # eyes on the device directly -- the different-manufacturing-batch
+    # caveat that applied when these values were still just carried
+    # over from the candidate ring is resolved for the set as a whole.
+    # Also fixes a pre-existing drift from docs/color-palette.md's D
+    # value (255,45,0 there vs 255,100,0 here, from a 2026-08-15 fix
+    # never copied back to the doc) -- moot now that D's value is
+    # replaced outright, but the doc is being updated alongside this
+    # file so the two don't silently diverge again.
     "C": (255, 0, 0),
     "D": (255, 50, 0),
     "E": (125, 85, 0),
     "F": (0, 255, 0),
     "G": (0, 0, 255),
-    "A": (10, 0, 24),
+    "A": (40, 0, 88),   # TUNED 2026-08-20, second pass (was 10,0,24) --
+                         # Sean noticed purple specifically read dimmer
+                         # than the rest; brought up to the same
+                         # max-channel-88 ceiling the candidate ring's
+                         # test script converged the whole set on.
     "B": (255, 0, 100),
 }
 
