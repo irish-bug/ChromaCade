@@ -467,7 +467,7 @@ module hardware_cutouts() {
     // holes (all computed, not eyeballed). Still "side panel, deliberately
     // less convenient" per control-layout.md -- moving within the same
     // endcap doesn't change that.
-    translate([-case_w/2, 18, 45])
+    translate([-case_w/2, 22, 65])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
 
