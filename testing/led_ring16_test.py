@@ -52,17 +52,23 @@ except ImportError:
     print("    pip3 install adafruit-circuitpython-neopixel --break-system-packages")
     sys.exit(1)
 
-# Generic/textbook RGB values -- full-saturation primaries for red/green/
-# blue (matching led_ring_test.py's own COLOR_STEPS convention), standard
-# CSS named-color values for orange/yellow/purple/pink.
+# Full-saturation primaries for red/green/blue (matching led_ring_test.py's
+# own COLOR_STEPS convention) -- confirmed correct as-is on this candidate
+# ring 2026-08-20. Remaining entries started as generic/textbook CSS
+# named-color values, then got replaced one at a time with values tuned
+# live against this specific ring via --rgb (green reads stronger than its
+# numeric value on this hardware, same effect docs/color-palette.md found
+# on the project's real ring -- see that file for the general phenomenon).
+# Each replaced entry is flagged TUNED with the date; anything still
+# marked CSS hasn't been checked against this ring yet.
 COLORS = [
     ("red",    (255, 0, 0)),
-    ("orange", (255, 165, 0)),
-    ("yellow", (255, 255, 0)),
+    ("orange", (255, 50, 0)),    # TUNED 2026-08-20 (was CSS 255,165,0)
+    ("yellow", (255, 255, 0)),   # CSS -- not yet re-checked on this ring
     ("green",  (0, 255, 0)),
     ("blue",   (0, 0, 255)),
-    ("purple", (128, 0, 128)),
-    ("pink",   (255, 192, 203)),
+    ("purple", (128, 0, 128)),   # CSS -- not yet re-checked on this ring
+    ("pink",   (255, 192, 203)), # CSS -- not yet re-checked on this ring
 ]
 
 
