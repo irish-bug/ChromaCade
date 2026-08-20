@@ -461,12 +461,28 @@ module hardware_cutouts() {
     // size, (15,48) left only 3.00mm to the case profile edge, snug
     // enough that a print was already underway on it (left to finish,
     // not stopped -- positive clearance, not an overlap). MOVED AGAIN to
-    // (18, 45) for the next print: a 4.24mm nudge that doubles the edge
-    // clearance to 6.00mm, while keeping 8.00mm from the fan cutout and
-    // 28.5mm from the nearest of blank-side's 4 owned-mount clearance
-    // holes (all computed, not eyeballed). Still "side panel, deliberately
-    // less convenient" per control-layout.md -- moving within the same
+    // (18, 45): a 4.24mm nudge that doubled the edge clearance to 6.00mm,
+    // while keeping 8.00mm from the fan cutout and 28.5mm from the
+    // nearest of blank-side's 4 owned-mount clearance holes. MOVED A
+    // THIRD TIME, by hand, to the current (22, 65) -- pushed further
+    // from the back wall (the binding edge in every iteration so far)
+    // and up toward the panel. Re-verified against the same three
+    // constraints (all computed, not eyeballed): 10.00mm to the case
+    // profile edge (still the back wall, still the tightest of the six
+    // profile segments -- panel is 21.30mm, top is 27.91mm), 18.14mm gap
+    // to the fan cutout, 17.35mm+ gap to every mount clearance hole
+    // (nearest is the top/back-joint mount at (14,95)). Best margin of
+    // the three positions tried. Still "side panel, deliberately less
+    // convenient" per control-layout.md -- moving within the same
     // endcap doesn't change that.
+    //
+    // NOTE: this move landed as a bare STL re-export first (commits
+    // "moved pot hole" / "moved pot hole, removed old images") with no
+    // .scad change alongside it -- the checked-in geometry and this
+    // source file disagreed on the real pot position until "adding
+    // updated scad" caught it up. Verified after the fact, not before
+    // printing: clean 2-volume manifold renders on both real pieces and
+    // a pot-side/blank-side interference check (empty intersection).
     translate([-case_w/2, 22, 65])
     rotate([0, 90, 0])
     cylinder(h=wall*4, d=9.525, center=true);
