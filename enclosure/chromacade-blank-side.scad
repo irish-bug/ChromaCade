@@ -417,9 +417,11 @@ module hardware_cutouts() {
         // MEASURED correct as-is, do not resize.
         translate([70, 0, 0]) cylinder(h=wall*4, d=20, center=true);
 
-        // EC11 encoder bushing countersinks — interior face, 1mm deep, clears threads
-        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // font
-        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // octave
+        // EC11 encoder bushing countersinks -- 13x13mm, centered on the
+        // interior face (~3mm effective depth) -- MEASURED correct via
+        // test-mk2.scad plate A, confirmed 2026-08-19 (was 14.3x14.3x1mm)
+        translate([-35, 0, -wall]) cube([13, 13, 6], center=true); // font
+        translate([ 45, 0, -wall]) cube([13, 13, 6], center=true); // octave
     }
 
     panel_my = (p3[0] + p4[0]) / 2;
@@ -435,21 +437,30 @@ module hardware_cutouts() {
         translate([0, 15, -3.25])
         cube([140, 20, 3.5], center=true);
 
-        translate([-60, -15, 0]) cube([28, 15, wall*4], center=true);
+        // OLED viewing window, 2mm off-center -- MEASURED correct via
+        // test-mk2.scad plate D, confirmed 2026-08-19
+        translate([-60, -13, 0]) cube([28, 15, wall*4], center=true);
 
-        // OLED back countersink — interior face, 2mm deep; adjust 30x30 to match your PCB
-        translate([-60, -15, -(wall - 1)])
-        cube([30, 30, 2], center=true);
+        // OLED back countersink — 30x30mm, centered on the interior face
+        // (~3mm effective depth) -- MEASURED correct via test-mk2.scad
+        // plate D, confirmed 2026-08-19 (was 30x30x2mm)
+        translate([-60, -15, -wall])
+        cube([30, 30, 6], center=true);
 
         translate([65, -15, 0]) cylinder(h=wall*4, d=24, center=true);
 
-        // LED back recess — interior face, 1mm deep (d=28 allows ring to sit flush)
-        translate([65, -15, -(wall - 0.5)])
-        cylinder(h=1, d=28, center=true);
+        // LED back recess — d=28, centered on the interior face (~3mm
+        // effective depth) -- MEASURED correct via test-mk2.scad plate C,
+        // confirmed 2026-08-19 (was d=28, 1mm deep)
+        translate([65, -15, -wall])
+        cylinder(h=6, d=28, center=true);
     }
 }
 
-// Toddler-safe portrait stadium hex grill — validated on test-mk2.scad's plate E.
+// Toddler-safe hex-hole grill (stadium or, with gw=gh, round) — the
+// hex-hole pattern itself was validated on the old test-mk2.scad plate E
+// (removed 2026-08-19 once the speaker design changed to round grilles,
+// see spk_cone_d/spk_cone_offset above); the pattern logic is unchanged.
 // gw = total width (= semicircle diameter); gh = total height.
 // Two semicircular caps (r = gw/2) joined by a rectangle gh-gw tall.
 module stadium_hex_grill(gw, gh) {

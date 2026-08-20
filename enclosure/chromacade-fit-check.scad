@@ -546,8 +546,8 @@ module blank_hardware_cutouts() {
         // Rocker switch, far left in play position (+X here) -- MEASURED correct
         translate([70, 0, 0]) cylinder(h=wall*4, d=20, center=true);
 
-        translate([-35, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // font
-        translate([ 45, 0, -(wall - 0.5)]) cube([14.3, 14.3, 1], center=true); // octave
+        translate([-35, 0, -wall]) cube([13, 13, 6], center=true); // font
+        translate([ 45, 0, -wall]) cube([13, 13, 6], center=true); // octave
     }
 
     translate([0, panel_my, panel_mz])
@@ -560,15 +560,15 @@ module blank_hardware_cutouts() {
         translate([0, 15, -3.25])
         cube([140, 20, 3.5], center=true);
 
-        translate([-60, -15, 0]) cube([28, 15, wall*4], center=true);
+        translate([-60, -13, 0]) cube([28, 15, wall*4], center=true);
 
-        translate([-60, -15, -(wall - 1)])
-        cube([30, 30, 2], center=true);
+        translate([-60, -15, -wall])
+        cube([30, 30, 6], center=true);
 
         translate([65, -15, 0]) cylinder(h=wall*4, d=24, center=true);
 
-        translate([65, -15, -(wall - 0.5)])
-        cylinder(h=1, d=28, center=true);
+        translate([65, -15, -wall])
+        cylinder(h=6, d=28, center=true);
     }
 }
 
@@ -680,16 +680,22 @@ module pot_mockup() {
     }
 }
 
+// Countersink pocket floor (where the PCB's front face rests) is now at
+// z=-wall+3 (~3mm effective depth from the interior face at -wall),
+// confirmed 2026-08-19 -- was -wall+2. Shared by oled_mockup() and
+// led_ring_mockup() below.
+pocket_floor_z = -wall + 3;
+
 module oled_mockup() {
     color("MidnightBlue")
     translate([0, panel_my, panel_mz])
     rotate([-panel_a, 0, 0]) {
         // glass/active area, right at the panel's exterior face
-        translate([-60, -15, 0.5]) cube([OLED_ACTIVE_W, OLED_ACTIVE_H, 1], center=true);
-        // PCB, behind the back countersink pocket, into the interior
-        translate([-60, -15, -(wall + OLED_PCB_T/2)]) cube([OLED_PCB_W, OLED_PCB_H, OLED_PCB_T], center=true);
+        translate([-60, -13, 0.5]) cube([OLED_ACTIVE_W, OLED_ACTIVE_H, 1], center=true);
+        // PCB, front face resting on the countersink pocket floor
+        translate([-60, -15, pocket_floor_z - OLED_PCB_T/2]) cube([OLED_PCB_W, OLED_PCB_H, OLED_PCB_T], center=true);
         // pin header stub, further into the interior
-        translate([-60, -15 - OLED_PCB_H/2 + 3, -(wall + OLED_PCB_T + OLED_HEADER_LEN/2)])
+        translate([-60, -15 - OLED_PCB_H/2 + 3, pocket_floor_z - OLED_PCB_T - OLED_HEADER_LEN/2])
             cube([10, 3, OLED_HEADER_LEN], center=true);
     }
 }
@@ -698,8 +704,8 @@ module led_ring_mockup() {
     color("MediumOrchid")
     translate([0, panel_my, panel_mz])
     rotate([-panel_a, 0, 0]) {
-        translate([65, -15, -(wall - 0.5) - LED_RING_T/2]) cylinder(h = LED_RING_T, d = LED_RING_D, center = true);
-        translate([65, -15, -(wall - 0.5) - LED_RING_T - LED_RING_HEADER_LEN/2])
+        translate([65, -15, pocket_floor_z - LED_RING_T/2]) cylinder(h = LED_RING_T, d = LED_RING_D, center = true);
+        translate([65, -15, pocket_floor_z - LED_RING_T - LED_RING_HEADER_LEN/2])
             cube([6, 10, LED_RING_HEADER_LEN], center = true);
     }
 }
