@@ -15,20 +15,24 @@ Measured directly from unit #1's actual physical keycaps (photo-sampled, median 
 
 This is the ground truth for what each letter's physical button actually looks like.
 
-## LED ring color assignment — resolved 2026-08-15
-Tuned live against unit #1's actual WS2812 ring, **not** the keycap hex above. LEDs are additive-emission light sources, not reflective plastic — the pastel keycap hex values (all three channels high and close together) read as washed-out near-white once emitted as light rather than reflected off a surface, confirmed by directly testing them on the ring before settling on this set. Started from each letter's keycap color *family* (red, orange, etc.) and iterated bold, fully-saturated RGB values live on the hardware until each read clearly and unambiguously as its intended color.
+## LED ring color assignment — replaced wholesale 2026-08-20 (originally resolved 2026-08-15)
+Live-tuned via `testing/led_ring16_test.py`'s `--rgb` mode, then carried over into `led_ring.py`'s `NOTE_COLORS` (the actual code driving the real ring — this doc mirrors that file, not the other way around; keep them in sync if either changes). Originally tuned against a different physical ring (a candidate 16-LED NeoPixel ring being bench-evaluated, not adopted) and carried the caveat that different WS2812 batches can render differently — **confirmed live on chromacade the same day**: ran cleanly on real hardware and a second person (Sean) judged it a "huge improvement" over the previous set with eyes on the device directly. That said, purple specifically read visibly dimmer than the rest of the set even after that confirmation — see the second-pass note below.
+
+The 2026-08-15 set (tuned live against unit #1's actual WS2812 ring) is superseded below but its reasoning still applies: LEDs are additive-emission light sources, not reflective plastic — the pastel keycap hex values (all three channels high and close together) read as washed-out near-white once emitted as light rather than reflected off a surface. The same effect is what drove this new set away from generic/textbook RGB values too (e.g. green reads stronger than its numeric value on WS2812 hardware, so orange/yellow needed their green channel pulled well down, and purple needed far lower overall brightness, not just channel rebalancing, to avoid reading as pink).
 
 | Letter | RGB | Hex | Hue |
 |---|---|---|---|
 | C | (255, 0, 0) | `#ff0000` | 0° |
-| D | (255, 45, 0) | `#ff2d00` | 11° |
-| E | (255, 170, 0) | `#ffaa00` | 40° |
-| F | (0, 200, 0) | `#00c800` | 120° |
-| G | (0, 100, 255) | `#0064ff` | 217° |
-| A | (60, 0, 255) | `#3c00ff` | 254° |
-| B | (255, 20, 147) | `#ff1493` | 328° |
+| D | (255, 50, 0) | `#ff3200` | 12° |
+| E | (125, 85, 0) | `#7d5500` | 41° |
+| F | (0, 255, 0) | `#00ff00` | 120° |
+| G | (0, 0, 255) | `#0000ff` | 240° |
+| A | (40, 0, 88) | `#280058` | 267° |
+| B | (255, 0, 100) | `#ff0064` | 336° |
 
-Progresses monotonically around the hue wheel C through B with no backtracking, and the wrap from B (328°) back to C (0°/360°) is only 32° — one of the *smaller* gaps in the sequence (compare E→F's 80° or A→B's 74°), so the letter cycle visually "comes back around" to red at the octave boundary rather than jumping randomly. This validates the 7-letter set is coherent as a standalone rainbow — it does **not** resolve the separate hue-arc-compression/chord-blend question below, which is about how close hues need to be for multi-note chords to blend into color rather than mud, not whether the individual letters look good on their own.
+**A (purple) second pass, same day:** the first-pass (10,0,24) was too dim relative to the rest of the set — noticed by Sean watching the real ring directly. Brought up to (40,0,88), the same max-channel-88 ceiling `testing/led_ring16_test.py`'s candidate-ring session converged the whole set on (its own header comment covers why 88 specifically). Hue barely moves (265°→267°) since this was a brightness fix, not a rebalance — the gap analysis below is current for this value.
+
+Still progresses monotonically around the hue wheel C through B with no backtracking, and the wrap from B (336°) back to C (0°/360°) is 24°, still one of the smaller gaps (compare E→F's 79° or A→B's 68.7°) — so the letter cycle still "comes back around" to red at the octave boundary rather than jumping randomly. **F→G is now the standout gap at 120°** (a full third of the hue wheel, and clearly the largest — bigger than the next-largest, E→F's 79°, by a wide margin) — G moved from a green-tinted (0,100,255)/217° to a pure (0,0,255)/240°, while F stayed at 120° (its hue was already independent of the old value's exact green level, since R and B were both 0 either way). Worth keeping in mind for the chord-blend work below, since F and G are now hue-farther apart than any other adjacent pair by a large margin. This still validates the 7-letter set as a coherent standalone rainbow — it does **not** resolve the separate hue-arc-compression/chord-blend question below, which is about how close hues need to be for multi-note chords to blend into color rather than mud, not whether the individual letters look good on their own.
 
 The hue-arc compression and chord-blend validation described in `feature-spec.md`'s Color system section are still open (see `open-questions.md`) — both resolved assignments above are real inputs to that work, not a replacement for it.
 
