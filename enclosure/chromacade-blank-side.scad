@@ -284,22 +284,21 @@ module blank_side_clearance_holes() {
     }
 }
 
-// Joystick (KY-023) mounting bosses -- PAUSED 2026-08-19, being redesigned
-// in isolation in enclosure/joystick-mount-dev.scad. The straight-up
-// cylindrical bosses previously here (see git history) got in the way of
-// the joystick's own range of motion, two of the four didn't have enough
-// material to fully encase their screws, and turned out not to actually
-// be support-free to print either (their taper was along the shelf's own
-// local Z, not blank-side's real print-vertical axis, global X -- see the
-// dev file's header comment for the full explanation). Don't reintroduce
-// mounting bosses here until the redesign in joystick-mount-dev.scad is
-// validated -- port joy_boss_dev()/joy_pilot_hole_dev() (renamed back to
-// joystick_mount_bosses()/joystick_mount_pilot_holes()) back in once it
-// is, and update chromacade-fit-check.scad's mirrored copy to match.
-//
-// joy_x/joy_stick_d below are still live -- they're the stick hole itself
-// (confirmed position, confirmed diameter), independent of the mounting
-// bosses.
+// Joystick (KY-023) mounting bosses + pilot holes + gimbal clearance --
+// PORTED BACK 2026-08-19 from the validated design in
+// enclosure/joystick-mount-dev.scad (see that file's own header for the
+// full design history: two abandoned taper/wedge redesigns, before
+// landing back on plain a4f6a10-style vertical posts -- exactly what was
+// physically printed and confirmed to fit -- plus ONE new addition, a
+// gimbal-clearance sphere, that the original printed version didn't have).
+// Built in the shelf's own local frame -- same
+// translate([0,shelf_my,shelf_mz])/rotate([-shelf_a,0,0]) hardware_cutouts()
+// already uses for the stick hole and encoders -- then translate([joy_x,0,0])
+// so the dev file's own local (0,0) origin (centered on the stick hole)
+// lines up with the real stick hole's actual position. shelf_my/shelf_mz
+// recomputed locally in each module rather than hoisted to a shared
+// constant, matching this file's own established convention (see
+// panel_mount_boss()).
 //
 // joy_x corrected 2026-08-18 from 70 to -65: confirmed in play position
 // (facing the front of the case from outside) RIGHT is the -X direction
@@ -309,14 +308,79 @@ module blank_side_clearance_holes() {
 joy_x       = -65; // matches the shelf's joystick stick-hole X position
 joy_stick_d = 27;  // CONFIRMED 2026-08-19 -- no longer under test
 
+// Real hardware measurements (2026-08-18/19) -- names match the original
+// a4f6a10 commit that these bosses first shipped under, for continuity.
+joy_hole_dx       = 9;    // board hole +/-9mm left-right, both pairs
+joy_hole_front_dy = 14;   // front pair (toward speaker wall), 14mm off joystick center
+joy_hole_back_dy  = -12.5; // back pair (toward device center), 12.5mm off center
+joy_boss_h        = 12;   // MEASURED-derived standoff height (matches the board+header stack)
+joy_boss_d        = 6;    // ESTIMATE -- same as the physically-printed original
+joy_pilot_d       = 2.5;  // ESTIMATE -- confirm the board's actual screw size
+
+// Sphere radius (27mm diameter, matching joy_stick_d), centered on the
+// stick hole's own true center: (0,0) in the shelf-local XY (i.e. joy_x,0
+// after the translate below), and half the shelf thickness down in Z
+// (-wall/2) -- the center of the hole through the material, not the
+// interior face. Carves into whichever boss material intrudes on the
+// joystick's real gimbal swing below the shelf; touches nothing above the
+// shelf since the stick hole cut already owns that space at the same
+// 27mm diameter. See joystick-mount-dev.scad's header for the full
+// reasoning and how this was numerically verified.
+joy_gimbal_r = 13.5;
+
+function joystick_boss_xy() = [
+    [-joy_hole_dx, joy_hole_front_dy],
+    [ joy_hole_dx, joy_hole_front_dy],
+    [-joy_hole_dx, joy_hole_back_dy],
+    [ joy_hole_dx, joy_hole_back_dy],
+];
+
+// Plain vertical cylinders -- no taper/wedge. Matches exactly what was
+// physically printed and confirmed to fit (a4f6a10); the two abandoned
+// intermediate redesigns both added print-support machinery this post
+// shape never actually needed (see joystick-mount-dev.scad).
+module joystick_mount_bosses() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, 0])
+    for (p = joystick_boss_xy())
+        translate([p[0], p[1], -wall - joy_boss_h])
+        cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
+}
+
+module joystick_mount_pilot_holes() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, 0])
+    for (p = joystick_boss_xy())
+        translate([p[0], p[1], -wall - joy_boss_h - 0.5])
+        cylinder(h = joy_boss_h + 1, d = joy_pilot_d);
+}
+
+module joystick_gimbal_clearance() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, -wall/2])
+    sphere(r = joy_gimbal_r);
+}
+
 // --- Assembly ---
 difference() {
     union() {
         endcap(1);
         strips();
         blank_side_mount_bosses();
+        joystick_mount_bosses();
     }
     hardware_cutouts();
+    joystick_mount_pilot_holes();
+    joystick_gimbal_clearance();
     blank_side_mounts();
     blank_side_clearance_holes();
 }

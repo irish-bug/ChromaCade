@@ -592,17 +592,55 @@ module blank_hardware_cutouts() {
     }
 }
 
-// Joystick (KY-023) mounting bosses -- PAUSED 2026-08-19, matching
-// chromacade-blank-side.scad (see that file's comment for the full
-// rationale: being redesigned in isolation in
-// enclosure/joystick-mount-dev.scad). joy_x/joy_boss_h stay live -- joy_x
-// is the stick hole's own position (independent of the bosses), joy_boss_h
-// is kept as an ILLUSTRATIVE standoff height for joystick_mockup()'s board
-// position below, not tied to any real boss geometry right now.
+// Joystick (KY-023) mounting bosses + pilot holes + gimbal clearance --
+// PORTED BACK 2026-08-19, matching chromacade-blank-side.scad exactly
+// (see that file's comment for the full design history/rationale).
 joy_x             = -65; // matches the shelf's joystick stick-hole X position
-joy_boss_h        = 12;  // illustrative only -- see note above
-joy_hole_front_dy = 14;  // real board hole position, independent of the paused boss design
+joy_hole_dx       = 9;
+joy_hole_front_dy = 14;
 joy_hole_back_dy  = -12.5;
+joy_boss_h        = 12;
+joy_boss_d        = 6;
+joy_pilot_d       = 2.5;
+joy_gimbal_r      = 13.5;
+
+function joystick_boss_xy() = [
+    [-joy_hole_dx, joy_hole_front_dy],
+    [ joy_hole_dx, joy_hole_front_dy],
+    [-joy_hole_dx, joy_hole_back_dy],
+    [ joy_hole_dx, joy_hole_back_dy],
+];
+
+module joystick_mount_bosses() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, 0])
+    for (p = joystick_boss_xy())
+        translate([p[0], p[1], -wall - joy_boss_h])
+        cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
+}
+
+module joystick_mount_pilot_holes() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, 0])
+    for (p = joystick_boss_xy())
+        translate([p[0], p[1], -wall - joy_boss_h - 0.5])
+        cylinder(h = joy_boss_h + 1, d = joy_pilot_d);
+}
+
+module joystick_gimbal_clearance() {
+    shelf_my = (p2[0] + p3[0]) / 2;
+    shelf_mz = (p2[1] + p3[1]) / 2;
+    translate([0, shelf_my, shelf_mz])
+    rotate([-shelf_a, 0, 0])
+    translate([joy_x, 0, -wall/2])
+    sphere(r = joy_gimbal_r);
+}
 
 module blank_side_piece() {
     difference() {
@@ -610,10 +648,13 @@ module blank_side_piece() {
             endcap(1);
             blank_strips();
             blank_side_mount_bosses();
+            joystick_mount_bosses();
         }
         blank_hardware_cutouts();
         blank_side_mounts();
         blank_side_clearance_holes();
+        joystick_mount_pilot_holes();
+        joystick_gimbal_clearance();
     }
 }
 
