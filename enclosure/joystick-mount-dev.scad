@@ -2,63 +2,38 @@
 //
 // Pulled out of chromacade-blank-side.scad 2026-08-19 per direct feedback
 // on the first printed test: straight-up-and-down bosses (see git history,
-// joystick_mount_bosses() before this date) got in the way of the
-// joystick's own range of motion, two of the four didn't have enough
-// material to fully encase their screws (would break under real toddler
-// use), and -- found independently while redesigning -- weren't actually
-// support-free to print despite being built with a hull()-based taper.
-// Work on the boss shape HERE, in isolation, until it's right, then port
-// the final joy_boss_*/joy_gimbal_* constants and modules back into
-// chromacade-blank-side.scad's joystick_mount_bosses()/
+// commit a4f6a10, joystick_mount_bosses() before this date) got in the way
+// of the joystick's own range of motion, two of the four didn't have
+// enough material to fully encase their screws (would break under real
+// toddler use). Work on the boss shape HERE, in isolation, until it's
+// right, then port the final joy_boss_*/joy_gimbal_* constants and modules
+// back into chromacade-blank-side.scad's joystick_mount_bosses()/
 // joystick_mount_pilot_holes() (and chromacade-fit-check.scad's mirrored
 // copy) to replace the removed originals.
 //
-// WHY THE ORIGINAL RAMP DIDN'T ACTUALLY WORK: chromacade-blank-side.scad
-// prints with its own +X endcap face-down on the bed -- print-vertical =
-// global X, and BLANK-SIDE SPECIFICALLY builds toward -X as printing
-// proceeds (own_mount_boss()'s comment: bosses there extend "toward +X,
-// this piece's own bed/endcap side"). The shelf's local frame only rotates
-// about the GLOBAL X axis (rotate([-shelf_a,0,0])), so local X *is* global
-// X unchanged -- tapering a shape uniformly along *local Z* (the first
-// attempt) doesn't taper it along the axis that actually matters for
-// printability at all. A boss needs to go from a THIN, X-shifted sliver
-// (printed early/near the bed, high X) to its FULL true-position
-// cross-section (printed late, low X) -- exactly like square_boss()'s and
-// own_mount_boss()'s existing ramps in the real files.
+// Two intermediate redesigns (a hull()-ramped wedge, then a plain
+// constant-width post + an approximate 26mm-diameter sphere cut) were
+// tried and abandoned in this file's history -- see git log if curious.
+// Both added print-support/taper machinery the actual printed part never
+// needed: the physically-printed a4f6a10 bosses are plain vertical
+// cylinders that print fine standing straight up off the shelf plate, no
+// ramp required.
 //
-// REDESIGNED AGAIN 2026-08-19 (second pass) -- the first ramped version
-// (a hole-clipped wedge, r_inner..r_outer, angularly clipped per boss)
-// fixed the print-support problem but, per direct feedback, still didn't
-// remove any material from the joystick's actual moving space: clipping
-// each boss against the flat 27mm hole radius only protects the visible
-// stick opening, not the gimbal mechanism's real swept volume underneath
-// the board, which isn't flat/cylindrical.
-//
-// THE DESIGN HERE:
-//   1. Each boss is a SIMPLE post -- constant ramp_w x ramp_w
-//      cross-section, no wedge/angular-clipping math at all -- built with
-//      the exact same thin-slice hull() ramp technique as before (full
-//      height at the board's TRUE pilot position, tapering to zero height
-//      at a point shifted ramp_x toward +X for print support). No radial
-//      shift, no hole-radius clipping -- the boss just reaches straight
-//      from the true pilot position back to the shelf, angled only for
-//      printability.
-//   2. A SPHERE (joy_gimbal_clearance_dev(), diameter joy_gimbal_d)
-//      centered on the stick hole's own center, subtracted from the whole
-//      assembly, models the joystick's real gimbal swing far more
-//      accurately than clipping against the flat hole ever could: at the
-//      shelf surface it's slightly SMALLER than the stick hole itself (so
-//      it removes nothing new above the shelf -- the existing hole cut
-//      already reaches further there), but below the shelf its curved
-//      surface reaches sideways into each post's inner corner (the side
-//      facing the hole), exactly where the gimbal actually needs to swing
-//      through. Verified numerically (see git history / commit message)
-//      that this reaches every post's true-position end by 0.4-4.6mm and
-//      partially reaches the shifted/ramped end for the two posts nearest
-//      center (front-left, back-left) -- all four keep real material on
-//      their outward (away-from-hole) side either way, which is what
-//      actually carries the screw load; the side facing the hole was never
-//      load-bearing.
+// CURRENT DESIGN (2026-08-19, third pass) -- per direct instruction: go
+// back to exactly what got printed (a4f6a10's plain d=6mm, h=12mm straight
+// cylindrical bosses, no taper/wedge at all) and add ONE clean sphere cut,
+// radius joy_gimbal_r = 13.5mm, centered precisely on the stick hole's own
+// center -- meaning the true center of the cylindrical hole through the
+// shelf material: (0, 0) in XY, and Z at HALF the shelf thickness
+// (-wall/2), not the interior face. (An earlier attempt at this sphere
+// cut, sphere-removed.stl, was hand-modeled imprecisely by eye as a
+// conceptual sketch, not to be measured/reverse-engineered -- this is the
+// precise version of that same idea.) The sphere models the joystick's
+// real gimbal swing: at 27mm diameter it matches the stick hole's own
+// diameter, so it carves a clean hemisphere-ish bite out of whichever
+// boss material intrudes on the gimbal's actual swept volume below the
+// shelf, without touching anything above the shelf (the stick hole cut
+// already owns that space).
 //
 // HOW TO USE
 //   - PART = "ASSEMBLY" shows all 4 posts + the stick hole + the gimbal
@@ -66,29 +41,15 @@
 //     printing directly).
 //   - PART = "SINGLE" isolates one post (see single_which below) for a
 //     close look.
-//   - PART = "PRINTABLE" is the actual print-ready coupon -- a small slab
-//     of "shelf" material with the stick hole + all 4 posts, ALREADY
-//     rotated so the ramp direction points straight down. Slice this
-//     directly, no manual reorientation needed (unlike ASSEMBLY/SINGLE).
-//     This replaces the old test-mk2.scad plate B, which was removed
-//     2026-08-19 since its flat-plate convention doesn't fit this design's
-//     print-orientation requirement (see the warning below).
-//   - PRINT ORIENTATION WARNING (for ASSEMBLY/SINGLE only -- PRINTABLE
-//     already handles this): this file's own local coordinate frame does
-//     NOT match how OpenSCAD's default camera/build plate looks --
-//     +X here is deliberately the ramp/taper direction, matching
-//     blank-side's real -X-toward-bed print direction (see the long
-//     comment above). If you slice this in isolation, orient it so
-//     GLOBAL +X points DOWN toward the print bed (i.e. rotate the whole
-//     assembly -90 about Y in your slicer) to see the same support
-//     behavior the real embedded print will have. Don't just print it
-//     "as viewed" without doing that rotation -- it'll look support-free
-//     in a naive orientation and then need support once actually embedded.
+//   - PART = "PRINTABLE" is the print-ready coupon -- a small slab of
+//     "shelf" material with the stick hole + all 4 posts, standing
+//     straight up off the plate (no support needed, no reorientation
+//     needed -- print exactly as previewed).
 $fn = 60;
 
 /* [Render Selection] */
 PART = "ASSEMBLY";
-// [ASSEMBLY, SINGLE, PRINTABLE, PLATE_PREVIEW]
+// [ASSEMBLY, SINGLE, PRINTABLE]
 single_which = 0; // 0-3, only used when PART="SINGLE" -- see joy_positions below
 
 wall = 5; // matches case wall thickness
@@ -101,26 +62,20 @@ back_dy     = -12.5; // back pair (toward device center), 12.5mm off center
 boss_h      = 12;   // MEASURED-derived standoff height (matches the board+header stack)
 pilot_d     = 2.5;  // ESTIMATE -- confirm the board's actual screw size
 
-// --- Post shape parameters -- THIS is what you're iterating on ---
-ramp_x = 8; // print-support taper run, toward +X (blank-side's own
-            // bed/endcap side) -- 12mm boss_h over 8mm run is a ~56deg
-            // overhang (not a full 45deg, but a large improvement over a
-            // sheer 90deg cliff); widen if the print still needs support,
-            // watch the font encoder at shelf x=-35 (only ~+30mm away in
-            // this hole-centered frame) if you do
-ramp_w = 8; // post cross-section, both ends -- sized for M2.5 (pilot_d
-            // 2.5mm) wall thickness before the gimbal sphere carves in
+// --- Post shape -- back to exactly what was printed (a4f6a10): plain
+// vertical cylinders, no taper/wedge ---
+boss_d = 6; // ESTIMATE -- same as the physically-printed original
 
 // --- Gimbal clearance ---
-joy_gimbal_d = 26; // sphere diameter -- models the joystick's real
-                    // mechanical swing, centered on the stick hole's own
-                    // center at the shelf surface (z=-wall). Deliberately
-                    // smaller than joy_stick_d (27mm) so it removes
-                    // nothing new above the shelf (the existing stick-hole
-                    // cut already reaches further there) -- all its real
-                    // effect is below the shelf, carving into whichever
-                    // post material happens to intrude on the gimbal's
-                    // actual swept volume.
+joy_gimbal_r = 13.5; // sphere radius (27mm diameter, matching joy_stick_d)
+                      // centered on the stick hole's own true center: (0,0)
+                      // in XY, and half the shelf thickness down in Z
+                      // (-wall/2) -- the center of the hole through the
+                      // material, not the interior face. Carves into
+                      // whichever boss material intrudes on the joystick's
+                      // real gimbal swing below the shelf; touches nothing
+                      // above the shelf since the stick hole already owns
+                      // that space at the same 27mm diameter.
 
 joy_positions = [
     [-hole_dx, front_dy],
@@ -129,20 +84,10 @@ joy_positions = [
     [ hole_dx, back_dy],
 ];
 
-// Simple post: thin X-slices at both ends (matching square_boss()'s own
-// technique), height tapering from full (at the board's true pilot
-// position) to zero (ramp_x further toward +X). No hole-radius clipping
-// at all -- the gimbal sphere (below) is what actually keeps this clear
-// of the joystick's moving parts, more accurately than any flat clip
-// could.
+// Plain vertical cylinder, exactly matching what was printed (a4f6a10).
 module joy_boss_dev(cx, cy) {
-    hull() {
-        translate([cx - 0.005, cy - ramp_w/2, -wall - boss_h])
-        cube([0.01, ramp_w, boss_h]);
-
-        translate([cx + ramp_x - 0.005, cy - ramp_w/2, -wall - 0.01])
-        cube([0.01, ramp_w, 0.01]);
-    }
+    translate([cx, cy, -wall - boss_h])
+    cylinder(h = boss_h + 0.5, d = boss_d);
 }
 
 module joy_pilot_hole_dev(cx, cy) {
@@ -156,8 +101,8 @@ module joy_stick_hole_dev() {
 }
 
 module joy_gimbal_clearance_dev() {
-    translate([0, 0, -wall])
-    sphere(d = joy_gimbal_d);
+    translate([0, 0, -wall/2])
+    sphere(r = joy_gimbal_r);
 }
 
 module assembly_dev() {
@@ -184,36 +129,19 @@ module single_dev(i) {
 
 // Print-ready coupon: a small slab of "shelf" material (plate_w x plate_h,
 // plate_t thick) at the shelf-surface reference (z=-wall), with the stick
-// hole + gimbal sphere + all 4 posts + pilot holes, THEN rotated so the
-// ramp direction (local +X, matching blank-side's real bed/endcap side)
-// points straight down -- no manual slicer rotation needed, unlike a bare
-// ASSEMBLY export. rotate([0,90,0]) maps local +X to new -Z (down):
-// confirmed by direct derivation (rotation about Y by 90 deg sends
-// (x,y,z) -> (z,y,-x), so a point at local x=X0>0 lands at new z=-X0, i.e.
-// below the origin).
-// plate_w matters more than it looks like it should: it becomes the
-// PRINTED HEIGHT after rotation (see printable_dev()'s own comment) since
-// local +X has to map to vertical for the ramps to work -- kept tight
-// (44mm, matching the size you had in mind) rather than an arbitrary
-// round number, sized to the posts' actual X-spread: leftmost point is a
-// front/back-left post's own true position (x=-9), rightmost is a
-// front/back-right post's shifted ramp end (x=9+ramp_x=17), plus ~4mm
-// margin each side for the post's own half-width -> -13 to 21, 34mm,
-// centered at x=4 with room to spare at 44mm.
+// hole + gimbal sphere + all 4 posts + pilot holes standing straight up --
+// no rotation needed, prints exactly as previewed, no support (each post
+// is a plain vertical cylinder off a flat base). Sized to the posts'
+// actual (now-symmetric, no ramp) X-spread: +/-hole_dx (9mm) plus ~4mm
+// margin each side for the post's own half-width -> plate_w=44, centered
+// at x=0. Y keeps front_dy/back_dy's natural (14 / -12.5) near-symmetric
+// spread, also centered at y=0.
 plate_w = 44; plate_h = 44; plate_t = 4;
-plate_cx = 4; // see plate_w comment -- NOT 0, the post spread isn't symmetric
 
 module printable_dev() {
-    // WARNING: this print comes out TALL AND NARROW-FOOTPRINT (plate_w=44mm
-    // tall in Z, only plate_t=4mm x plate_h=44mm on the bed) -- unavoidable
-    // given local +X (the ramp axis) has to become vertical for the posts
-    // to print without support; there's no way to also make the bed
-    // footprint square without breaking that. Add a brim in your slicer
-    // for bed adhesion; this isn't a sign anything is wrong.
-    rotate([0, 90, 0])
     difference() {
         union() {
-            translate([plate_cx - plate_w/2, -plate_h/2, -wall - plate_t])
+            translate([-plate_w/2, -plate_h/2, -wall - plate_t])
             cube([plate_w, plate_h, plate_t]);
             assembly_dev();
         }
@@ -228,25 +156,6 @@ module printable_dev() {
     }
 }
 
-// Same content as PRINTABLE (plate + posts + all cuts) but WITHOUT the
-// print rotation -- for visually checking the plate/post relationship in
-// this file's natural local frame (matching ASSEMBLY's camera-friendly
-// orientation). Not for printing -- use PRINTABLE for that.
-module plate_preview_dev() {
-    difference() {
-        union() {
-            translate([plate_cx - plate_w/2, -plate_h/2, -wall - plate_t])
-            cube([plate_w, plate_h, plate_t]);
-            assembly_dev();
-        }
-        joy_stick_hole_dev();
-        joy_gimbal_clearance_dev();
-        for (p = joy_positions)
-            joy_pilot_hole_dev(p[0], p[1]);
-    }
-}
-
 if (PART == "ASSEMBLY") assembly_dev();
 else if (PART == "PRINTABLE") printable_dev();
 else if (PART == "SINGLE") single_dev(single_which);
-else if (PART == "PLATE_PREVIEW") plate_preview_dev();
