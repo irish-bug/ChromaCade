@@ -37,6 +37,7 @@ Usage:
     sudo python3 led_ring16_test.py
     sudo python3 led_ring16_test.py --num-pixels 16 --hold 1.5
     sudo python3 led_ring16_test.py --pixel-order RGB   # if colors look swapped
+    sudo python3 led_ring16_test.py --rgb 255,75,0      # hold one color, tune live, Ctrl+C to stop
 """
 
 import argparse
@@ -77,6 +78,10 @@ def main():
                          help="seconds to hold each color (default 1.0)")
     parser.add_argument("--pixel-order", default="GRB", choices=["RGB", "GRB"],
                          help="most WS2812/WS2812B are GRB; try RGB if colors come out swapped (default GRB)")
+    parser.add_argument("--rgb", default=None,
+                         help="skip the sequence and hold one custom color instead, e.g. --rgb 255,75,0 "
+                              "-- for iterating on a value live without a re-push/re-pull round trip; "
+                              "holds until Ctrl+C")
     args = parser.parse_args()
 
     order = neopixel.GRB if args.pixel_order == "GRB" else neopixel.RGB
@@ -103,6 +108,25 @@ def main():
     print("If the first pixel looks wrong/flickery while the rest are fine, that's the classic")
     print("3.3V-GPIO-driving-a-5V-chain symptom -- a logic-level shifter (74AHCT125) may be needed.")
     print()
+
+    if args.rgb:
+        try:
+            r, g, b = (int(x) for x in args.rgb.split(","))
+        except ValueError:
+            print(f"ERROR: --rgb must be R,G,B e.g. --rgb 255,75,0 (got {args.rgb!r})")
+            sys.exit(1)
+        print(f"Holding ({r},{g},{b}) -- Ctrl+C to stop")
+        pixels.fill((r, g, b))
+        pixels.show()
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print("\nStopped.")
+        finally:
+            pixels.fill((0, 0, 0))
+            pixels.show()
+        return
 
     try:
         for name, rgb in COLORS:
