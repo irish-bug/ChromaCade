@@ -169,8 +169,8 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w) {
 // file's comment for why (clearance from this piece's own bottom/back
 // strips, which extend almost the full case width).
 blank_side_mount_yz = [
-    [100, 12],      // front wall, near bottom
-    [100, 42],   // front wall, near top
+    [110, 12],      // front wall, near bottom
+    [110, 42],   // front wall, near top
     [74, 48],    // shelf/panel joint
     [45, 73],    // panel/top joint
     [14, 95],       // top/back joint
@@ -196,7 +196,7 @@ blank_side_mount_yz = [
 pi_hole_dx        = 29;   // 58mm spacing / 2
 pi_hole_dy        = 24.5; // 49mm spacing / 2
 pi_board_h        = 56;   // short edge, along Y
-pi_back_clearance = 10;   // MINIMUM per spec -- don't shrink this
+pi_back_clearance = 15;   // MINIMUM per spec -- don't shrink this
 pi_cx             = 0;
 pi_near_y         = wall + pi_back_clearance;
 pi_cy             = pi_near_y + pi_board_h/2;
@@ -252,7 +252,7 @@ module pi_mount_pilot_holes() {
 }
 
 module pot_side_mount_bosses() {
-    square_boss(edge_x, 100, "z", z_start=wall, height=boss_w);
+    square_boss(edge_x, 110, "z", z_start=wall, height=boss_w);
     square_boss(edge_x, 30, "z", z_start=wall, height=boss_w);
     square_boss(edge_x, 85, "y");
     square_boss(edge_x, 20, "y");
@@ -267,7 +267,7 @@ module pot_side_mounts() {
     // which just embedded the boss inside material that's already there.
     // chromacade-blank-side.scad's pot_side_mount_yz must be updated to
     // match this new Z value.
-    translate([edge_x, 100, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, 110, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([edge_x, 30, wall + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([edge_x, boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([edge_x, boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
