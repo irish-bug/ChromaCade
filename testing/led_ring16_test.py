@@ -62,7 +62,21 @@ except ImportError:
 # not just rebalanced -- full CSS/full-saturation brightness read as
 # washed-out/pastel (purple specifically read as pink at CSS 128,0,128),
 # same effect color-palette.md describes for the project's real ring.
-# Converged on a max-channel-88 ceiling across the whole set.
+# Converged on a max-channel-88 ceiling across the whole set (~1/3 of
+# full output, chosen for that headroom -- and, not incidentally, 88mph).
+#
+# Confirmed 2026-08-20, seeing all 7 together at the 88 ceiling: lower
+# intensity doesn't just fix individual problem colors, it makes EVERY
+# color read more distinct and "less white" across the board, not only
+# the ones that were visibly wrong at full brightness. Consistent with
+# color-palette.md's "additive light reads washed-out near-white"
+# point, but sharper -- it's specifically an intensity effect, not just
+# additive-vs-reflective: even colors that looked fine alone at full
+# brightness (red/green/blue) read more washed out than they needed to,
+# it just wasn't obvious until compared side by side with the dimmed
+# set. Worth keeping in mind for any future WS2812 palette work, not
+# just this ring: check a candidate color's distinctness at a lower
+# ceiling before assuming full-saturation is the right starting point.
 COLORS = [
     ("red",    (88, 0, 0)),      # TUNED 2026-08-20 (was full-sat 255,0,0)
     ("orange", (88, 15, 0)),     # TUNED 2026-08-20 (was CSS 255,165,0; first pass 255,50,0)
