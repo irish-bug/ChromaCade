@@ -20,12 +20,12 @@ frying the ring or a GPIO pin.
     VCC -> Pi 5V rail
     GND -> any Pi GND
 
-Cycles the 7 hex values docs/color-palette.md already settled on for
-the C/D/E/F/G/A/B note keys (tuned live on the project's real WS2812
-ring, not generic/guessed RGB primaries) -- red, orange, yellow, green,
-blue, lavender-purple, pink, in that order. A reasonable gut-check for
-whether this candidate ring reproduces the project's actual palette
-decently, not just "does it light up."
+Cycles 7 generic/textbook RGB values (not this project's tuned
+docs/color-palette.md hexes -- see led_ring_test.py's history or
+git blame on this file for those) -- red, orange, yellow, green, blue,
+purple, pink, in that order. Just a plain color-rendering check for
+this candidate ring, not a comparison against the project's actual
+palette.
 
 Prerequisites:
     pip3 install adafruit-circuitpython-neopixel --break-system-packages
@@ -51,18 +51,17 @@ except ImportError:
     print("    pip3 install adafruit-circuitpython-neopixel --break-system-packages")
     sys.exit(1)
 
-# Same 7 hex values as docs/color-palette.md's "LED ring color assignment"
-# table -- tuned live against the project's real WS2812 ring until each
-# read clearly and unambiguously as its intended color, not generic
-# rainbow guesses.
-NOTE_COLORS = [
-    ("C", "red",    (255, 0, 0)),
-    ("D", "orange", (255, 45, 0)),
-    ("E", "yellow", (255, 170, 0)),
-    ("F", "green",  (0, 200, 0)),
-    ("G", "blue",   (0, 100, 255)),
-    ("A", "purple", (60, 0, 255)),
-    ("B", "pink",   (255, 20, 147)),
+# Generic/textbook RGB values -- full-saturation primaries for red/green/
+# blue (matching led_ring_test.py's own COLOR_STEPS convention), standard
+# CSS named-color values for orange/yellow/purple/pink.
+COLORS = [
+    ("red",    (255, 0, 0)),
+    ("orange", (255, 165, 0)),
+    ("yellow", (255, 255, 0)),
+    ("green",  (0, 255, 0)),
+    ("blue",   (0, 0, 255)),
+    ("purple", (128, 0, 128)),
+    ("pink",   (255, 192, 203)),
 ]
 
 
@@ -106,8 +105,8 @@ def main():
     print()
 
     try:
-        for letter, name, rgb in NOTE_COLORS:
-            print(f"  {letter}  {name:8s} {rgb}")
+        for name, rgb in COLORS:
+            print(f"  {name:8s} {rgb}")
             pixels.fill(rgb)
             pixels.show()
             time.sleep(args.hold)
