@@ -55,7 +55,7 @@ single_which = 0; // 0-3, only used when PART="SINGLE" -- see joy_positions belo
 wall = 5; // matches case wall thickness
 
 // --- Real hardware measurements (2026-08-18/19, see chromacade-blank-side.scad) ---
-joy_stick_d = 27;   // UNDER TEST -- current best guess, see test-mk2.scad plate B
+joy_stick_d = 27;   // CONFIRMED 2026-08-19 -- no longer under test
 hole_dx     = 9;    // board hole +/-9mm left-right, both pairs
 front_dy    = 14;   // front pair (toward speaker wall), 14mm off joystick center
 back_dy     = -12.5; // back pair (toward device center), 12.5mm off center
@@ -127,22 +127,34 @@ module single_dev(i) {
     }
 }
 
-// Print-ready coupon: a small slab of "shelf" material (plate_w x plate_h,
-// plate_t thick) at the shelf-surface reference (z=-wall), with the stick
-// hole + gimbal sphere + all 4 posts + pilot holes standing straight up --
-// no rotation needed, prints exactly as previewed, no support (each post
-// is a plain vertical cylinder off a flat base). Sized to the posts'
-// actual (now-symmetric, no ramp) X-spread: +/-hole_dx (9mm) plus ~4mm
-// margin each side for the post's own half-width -> plate_w=44, centered
-// at x=0. Y keeps front_dy/back_dy's natural (14 / -12.5) near-symmetric
-// spread, also centered at y=0.
-plate_w = 44; plate_h = 44; plate_t = 4;
+// Print-ready coupon: a small slab of "shelf" material (plate_w x plate_h),
+// with the stick hole + gimbal sphere + all 4 posts + pilot holes standing
+// straight up -- no rotation needed, prints exactly as previewed, no
+// support (each post is a plain vertical cylinder off a flat base). Sized
+// to the posts' actual (now-symmetric, no ramp) X-spread: +/-hole_dx (9mm)
+// plus ~4mm margin each side for the post's own half-width -> plate_w=44,
+// centered at x=0. Y keeps front_dy/back_dy's natural (14 / -12.5)
+// near-symmetric spread, also centered at y=0.
+//
+// Thickness is wall (5mm), NOT an arbitrary plate_t, and it spans z=0
+// (exterior/stick-hole face) down to z=-wall (interior face, where the
+// posts attach) -- matching the real shelf's actual wall thickness and
+// position exactly. Getting this wrong (an earlier version used a
+// mismatched 4mm-thick plate offset one full wall-thickness further in)
+// made each boss's small 0.5mm CSG-safety overlap (see joy_boss_dev())
+// visibly poke through the plate's own top surface -- a modeling artifact
+// of the wrong-sized test plate, not something that happens on the real
+// 5mm-thick shelf wall, where that same 0.5mm overlap stays buried 4.5mm
+// short of the real exterior face. Confirmed by checking the plate here:
+// with the correct thickness/position, nothing exceeds z=-wall+0.5, still
+// comfortably short of z=0.
+plate_w = 44; plate_h = 44;
 
 module printable_dev() {
     difference() {
         union() {
-            translate([-plate_w/2, -plate_h/2, -wall - plate_t])
-            cube([plate_w, plate_h, plate_t]);
+            translate([-plate_w/2, -plate_h/2, -wall])
+            cube([plate_w, plate_h, wall]);
             assembly_dev();
         }
         // re-cut the stick/gimbal/pilot holes: assembly_dev()'s own

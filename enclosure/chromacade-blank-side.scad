@@ -230,8 +230,8 @@ module blank_side_clearance_holes() {
 // is, and update chromacade-fit-check.scad's mirrored copy to match.
 //
 // joy_x/joy_stick_d below are still live -- they're the stick hole itself
-// (confirmed-position, under-active-test diameter), independent of the
-// mounting bosses.
+// (confirmed position, confirmed diameter), independent of the mounting
+// bosses.
 //
 // joy_x corrected 2026-08-18 from 70 to -65: confirmed in play position
 // (facing the front of the case from outside) RIGHT is the -X direction
@@ -239,7 +239,7 @@ module blank_side_clearance_holes() {
 // x=-35) -- the rocker (paired with the octave encoder at x=45) is the one
 // at x=70, far left. Was backwards in the first pass.
 joy_x       = -65; // matches the shelf's joystick stick-hole X position
-joy_stick_d = 27;  // UNDER TEST -- see hardware_cutouts(), test-mk2.scad plate B
+joy_stick_d = 27;  // CONFIRMED 2026-08-19 -- no longer under test
 
 // --- Assembly ---
 difference() {
@@ -328,10 +328,9 @@ module hardware_cutouts() {
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0]) {
         // Joystick (far right in play position = negative X here, confirmed
-        // 2026-08-18). UNDER ACTIVE TEST -- 28mm (original pre-boss print)
-        // then 26.5mm (a tiny bit too small) then 27mm as of 2026-08-19, see
-        // test-mk2.scad plate B. Confirm with a printed test before trusting
-        // this on a full print. Corrected 2026-08-18: this hole (x=-65) was
+        // 2026-08-18). 27mm CONFIRMED 2026-08-19 (was 28mm on the original
+        // pre-boss print, then 26.5mm -- a tiny bit too small -- before
+        // landing on 27mm). Corrected 2026-08-18: this hole (x=-65) was
         // previously mislabeled as the rocker's -- it's the joystick's, per
         // the same correction that moved joy_x below.
         translate([-65, 0, 0]) cylinder(h=wall*4, d=joy_stick_d, center=true);
