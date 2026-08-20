@@ -52,21 +52,23 @@ All of these are Debian-packaged — no `pip`/PEP 668 fighting needed for this g
 
 ## 5. Python packages (pip) — the Adafruit CircuitPython stack
 
-Not available via apt. This device's Python (3.13.5) enforces PEP 668 ("externally-managed-environment"), so a plain `pip3 install` is refused — use `--break-system-packages` (standard, Adafruit's own documented approach for this exact class of device, not a hack specific to this project):
+Not available via apt. This device's Python (3.13.5) enforces PEP 668 ("externally-managed-environment"), so a plain `pip3 install` is refused — use `--break-system-packages` (standard, Adafruit's own documented approach for this exact class of device, not a hack specific to this project).
+
+**Must be installed with `sudo`, not a plain per-user `pip3 install`** — `docs/decision-log.md`'s "pip-only packages" entry (2026-08-15) documented this exact convention after finding `pyfluidsynth`/ads1x15/ssd1306 installed for the user but invisible to root, and root is what actually needs these: `neopixel`/WS2812 driving needs root for PWM/DMA access, matching `chromacade.service` running as root. **This section's own command was found missing `sudo` on 2026-08-20** — plinkplonk had the full stack for the `plink` user but *none* of it for root, discovered only when `sudo python3 led_ring16_test.py` failed with `ModuleNotFoundError` despite this guide having been followed. The gap wasn't caught earlier because the verification command below also ran unprivileged, so it couldn't have caught it — fixed below along with the install command itself.
 
 ```bash
-pip3 install --break-system-packages \
+sudo pip3 install --break-system-packages \
     adafruit-blinka \
     adafruit-circuitpython-ads1x15 \
     adafruit-circuitpython-ssd1306 \
     adafruit-circuitpython-neopixel
 ```
 
-This provides `board`, `busio`, `neopixel`, `adafruit_ads1x15.*`, `adafruit_ssd1306` — needed for the ADS1115 (joystick analog read), the SSD1306 OLED, and the WS2812 LED ring/strip, respectively. `neopixel`/WS2812 driving needs root (PWM/DMA access) — matches `chromacade.service` running as root (see `docs/decision-log.md`).
+This provides `board`, `busio`, `neopixel`, `adafruit_ads1x15.*`, `adafruit_ssd1306` — needed for the ADS1115 (joystick analog read), the SSD1306 OLED, and the WS2812 LED ring/strip, respectively.
 
-**Full verification** (confirmed clean on `plinkplonk` after the above):
+**Full verification — run this exact command with `sudo`, not without.** A plain `python3 -c "..."` verification only proves the `plink` user's environment is correct; it says nothing about root's, which is the environment that actually matters here (`chromacade.service` and every WS2812 test script in `testing/` run as root). This is precisely how the 2026-08-20 gap slipped past this doc in the first place:
 ```bash
-python3 -c "import pytest, gpiozero, PIL, pygame, board, busio, neopixel, adafruit_ads1x15.ads1115, adafruit_ads1x15.analog_in, adafruit_ssd1306"
+sudo python3 -c "import pytest, gpiozero, PIL, pygame, board, busio, neopixel, adafruit_ads1x15.ads1115, adafruit_ads1x15.analog_in, adafruit_ssd1306"
 ```
 
 There is still no `requirements.txt` anywhere in this repo (checked, doesn't exist) — this doc is currently the only record of the real dependency list. Worth turning this section into one at some point rather than relying on this doc staying in sync by hand.
