@@ -19,22 +19,30 @@ import board
 import neopixel
 
 NOTE_COLORS = {
-    # C/D confusion flagged live 2026-08-15. First attempt added a
-    # blue tint to C to cool it away from orange -- overcorrected,
-    # flagged live as now reading too close to B/pink instead (blue
-    # pushes red toward magenta fast, even in small amounts). Reverted
-    # C to pure (255,0,0) and fixed it from the other side instead: D
-    # was only 45/255 (18%) green, barely past red at all, more
-    # "red-orange" than orange. Bumped to 100/255 (~39%), closer to
-    # the midpoint between C's 0 and E's 170 -- a clearer, more
-    # distinct orange, further from both red and E's yellow-orange.
+    # Replaced wholesale 2026-08-20 with values live-tuned via
+    # testing/led_ring16_test.py's --rgb mode -- see that file's git
+    # history for the tuning session. IMPORTANT CAVEAT: tuned against a
+    # different physical ring (a candidate 16-LED NeoPixel ring being
+    # bench-evaluated, not adopted -- see that ring's test script), not
+    # this ring. Different WS2812 manufacturing batches can render the
+    # same numeric RGB slightly differently, so these haven't been
+    # re-confirmed live against *this* ring yet -- do that before
+    # treating this set as final, the same way the previous set was
+    # validated directly on this hardware (see git history prior to
+    # this commit for that history, e.g. the C/D confusion fix from
+    # 2026-08-15). Also fixes a pre-existing drift from
+    # docs/color-palette.md's D value (255,45,0 there vs 255,100,0
+    # here, from that same 2026-08-15 fix never having been copied back
+    # to the doc) -- moot now that D's value is replaced outright, but
+    # the doc is being updated alongside this file so the two don't
+    # silently diverge again.
     "C": (255, 0, 0),
-    "D": (255, 100, 0),
-    "E": (255, 170, 0),
-    "F": (0, 200, 0),
-    "G": (0, 100, 255),
-    "A": (60, 0, 255),
-    "B": (255, 20, 147),
+    "D": (255, 50, 0),
+    "E": (125, 85, 0),
+    "F": (0, 255, 0),
+    "G": (0, 0, 255),
+    "A": (10, 0, 24),
+    "B": (255, 0, 100),
 }
 
 RING_PIXEL_COUNT = 7
