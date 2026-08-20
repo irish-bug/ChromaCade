@@ -16,7 +16,18 @@ Raspberry Pi OS (Debian 13 "trixie" based), flashed via Raspberry Pi Imager with
 
 Confirmed on `plinkplonk`: kernel `6.18.39+rpt-rpi-v8`, `plink` already lands in the right groups by default (`gpio`, `i2c`, `spi`, `audio`, `video`, `dialout`, `sudo`) — no manual `usermod` needed, this is standard Raspberry Pi Imager behavior for the primary user.
 
-## 2. Boot config — WM8960 Audio HAT
+## 2. Repo checkout
+
+Cloned early, before the steps below, since several of them reference files from the repo directly:
+
+```bash
+git clone https://github.com/irish-bug/ChromaCade.git ~/ChromaCade
+cd ~/ChromaCade
+git checkout plinkplonk   # or whatever branch is current -- check CLAUDE.md's
+                          # "Syncing the physical board" section before assuming
+```
+
+## 3. Boot config — WM8960 Audio HAT
 
 Add to `/boot/firmware/config.txt` (the rest of that file's contents are stock Raspberry Pi OS defaults — camera/display auto-detect, `vc4-kms-v3d`, etc. — leave those alone):
 
@@ -28,7 +39,7 @@ dtoverlay=wm8960-soundcard
 
 Then reboot. Current Raspberry Pi OS (kernel 6.18.x) ships `wm8960-soundcard.dtbo` as a stock overlay — no vendor install script/DKMS module needed, despite what older WM8960 setup guides say. Verify: `aplay -l` should show `card N: wm8960soundcard`; `sudo i2cdetect -y 1` should show the codec responding at `0x1a`.
 
-## 3. System packages (apt)
+## 4. System packages (apt)
 
 ```bash
 sudo apt update
@@ -39,7 +50,7 @@ sudo apt install -y \
 
 All of these are Debian-packaged — no `pip`/PEP 668 fighting needed for this group. (`python3-pytest` pulls in `python3-iniconfig`/`python3-pluggy` automatically.)
 
-## 4. Python packages (pip) — the Adafruit CircuitPython stack
+## 5. Python packages (pip) — the Adafruit CircuitPython stack
 
 Not available via apt. This device's Python (3.13.5) enforces PEP 668 ("externally-managed-environment"), so a plain `pip3 install` is refused — use `--break-system-packages` (standard, Adafruit's own documented approach for this exact class of device, not a hack specific to this project):
 
@@ -60,70 +71,17 @@ python3 -c "import pytest, gpiozero, PIL, pygame, board, busio, neopixel, adafru
 
 There is still no `requirements.txt` anywhere in this repo (checked, doesn't exist) — this doc is currently the only record of the real dependency list. Worth turning this section into one at some point rather than relying on this doc staying in sync by hand.
 
-## 5. Audio: `/etc/asound.conf` and mixer routing
+## 6. Audio: `/etc/asound.conf` and mixer routing
 
-The overlay alone (§2) is not sufficient — two more things are needed, found by trial on `plinkplonk` 2026-08-19/20:
+The overlay alone (§3) is not sufficient — two more things are needed, found by trial on `plinkplonk` 2026-08-19/20:
 
-**a) `/etc/asound.conf` does not exist by default** and must be created (`sudo`, then paste this exact content — this is the live, verified file from `plinkplonk`, not a draft):
+**a) `/etc/asound.conf` does not exist by default.** Install the tracked template:
 
+```bash
+sudo cp ~/ChromaCade/audio/asound.conf /etc/asound.conf
 ```
-# ChromaCade -- WM8960 Audio HAT default ALSA routing (plinkplonk, unit #2)
-# System-wide (not ~/.asoundrc) so it applies under systemd services too --
-# see docs/decision-log.md's ALSA-config convention. Named by card name
-# (wm8960soundcard), not index, so it survives card-index shifts across
-# reboots. dmix lets multiple processes (main app, boot chime, etc.) share
-# the one hardware device; softvol gives a single "PCM" volume knob
-# independent of this codec's many hardware mixer controls (Speaker,
-# Headphone, Playback Volume, ...) -- amixer/alsamixer users should adjust
-# the "PCM" simple control, not the WM8960's own "Speaker" control, for the
-# default device's volume.
 
-pcm.wm8960hw {
-    type hw
-    card wm8960soundcard
-}
-
-pcm.dmixer {
-    type dmix
-    ipc_key 1024
-    ipc_perm 0666
-    slave {
-        pcm "wm8960hw"
-        period_time 0
-        period_size 1024
-        buffer_size 8192
-        rate 44100
-        channels 2
-    }
-}
-
-ctl.dmixer {
-    type hw
-    card wm8960soundcard
-}
-
-pcm.softvol {
-    type softvol
-    slave.pcm "dmixer"
-    control.name "PCM"
-    control.card wm8960soundcard
-}
-
-ctl.softvol {
-    type hw
-    card wm8960soundcard
-}
-
-pcm.!default {
-    type plug
-    slave.pcm "softvol"
-}
-
-ctl.!default {
-    type hw
-    card wm8960soundcard
-}
-```
+`audio/asound.conf` in this repo is the live, verified file from `plinkplonk`, not a draft — its own header comments cover adapting it for a different DAC/audio HAT (card name, sample rate, period size, the mixer-routing step below) if this isn't a WM8960 unit.
 
 **b) The WM8960 codec's own internal mixer routing defaults to OFF**, independent of `/etc/asound.conf` and independent of volume levels. Without this step, `speaker-test`/`aplay` report zero errors and *still produce no audible sound at all* — the digital path works, but the DAC signal never reaches the speaker amp stage. This is the single most likely thing to be missing/forgotten on a fresh setup, since nothing surfaces it as an error:
 
@@ -142,24 +100,27 @@ aplay <any .wav file>
 ```
 Two concurrent `speaker-test`/`aplay` processes both playing without error confirms `dmix` sharing works too.
 
-## 6. Repo checkout
+## 7. Sanity check everything above actually works
 
-```bash
-git clone https://github.com/irish-bug/ChromaCade.git ~/ChromaCade
-cd ~/ChromaCade
-git checkout plinkplonk   # or whatever branch is current -- check CLAUDE.md's
-                          # "Syncing the physical board" section before assuming
-```
-
-**Sanity check everything above actually works:**
 ```bash
 cd ~/ChromaCade
 python3 -m pytest   # should be 165 passed (as of this writing) with zero
                      # hardware attached -- these are the pure-logic tests
 ```
 
-## 7. Not yet done as of this writing (bring-up stage, not base-system gaps)
+## 8. Installing the systemd services
 
-- `audio/chromacade-boot-chime.service` exists as a file in the repo but is not installed/enabled as a real systemd unit on `plinkplonk` yet (`sudo cp audio/chromacade-boot-chime.service /etc/systemd/system/ && sudo systemctl enable --now chromacade-boot-chime.service`, once ready).
-- `chromacade.service` itself (the main app, running persistently) is not set up on `plinkplonk` yet either — unit #1's now-lost systemd unit is the reference for what this should look like (root, `Restart=on-failure`, see `docs/decision-log.md`/project history).
-- Full read-only root + overlay-fs, and a dedicated non-root service user: both deliberately deferred, see `docs/open-questions.md`'s "Future / stretch" section — do those *before* depending on this unit for unattended live use, not as part of a basic rebuild.
+Both service files are tracked in this repo (root-level `chromacade.service` for the main app; `audio/chromacade-boot-chime.service` for the boot chime) but **neither is installed/enabled on `plinkplonk` yet** — this device is still at the bring-up stage, not running either unattended.
+
+**`chromacade.service`'s `ExecStart`/`WorkingDirectory` paths are per-device** — as of 2026-08-20 they'd drifted to unit #1's builder-account path (`/home/shane/ChromaCade`) and needed fixing for unit #2's `/home/plink/ChromaCade`; check they still match whatever device/checkout you're actually installing on before enabling, since this will silently point at a nonexistent path otherwise. `User=root` is deliberate, not a leftover — needed for the LED ring/strip's PWM/DMA access (`neopixel`), see `docs/open-questions.md`'s "dedicated non-root user" entry for the still-open alternative.
+
+```bash
+sudo cp ~/ChromaCade/chromacade.service /etc/systemd/system/
+sudo cp ~/ChromaCade/audio/chromacade-boot-chime.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now chromacade.service chromacade-boot-chime.service
+```
+
+Once enabled, `systemctl status chromacade.service` / `journalctl -u chromacade.service -f` are how to check it's actually running rather than assuming.
+
+Separately, still open per `docs/open-questions.md`'s "Future / stretch" section: full read-only root + overlay-fs, and the dedicated non-root service user mentioned above. Do those *before* depending on this unit for unattended live use, not as part of a basic rebuild.
