@@ -66,7 +66,7 @@ except ImportError:
 COLORS = [
     ("red",    (88, 0, 0)),      # TUNED 2026-08-20 (was full-sat 255,0,0)
     ("orange", (88, 15, 0)),     # TUNED 2026-08-20 (was CSS 255,165,0; first pass 255,50,0)
-    ("yellow", (125, 85, 0)),    # TUNED 2026-08-20 (was CSS 255,255,0; first pass 255,190,0)
+    ("yellow", (88, 60, 0)),     # TUNED 2026-08-20 (was CSS 255,255,0; passes 255,190,0 then 125,85,0)
     ("green",  (0, 88, 0)),      # TUNED 2026-08-20 (was full-sat 0,255,0)
     ("blue",   (0, 0, 88)),      # TUNED 2026-08-20 (was full-sat 0,0,255)
     ("purple", (10, 0, 24)),     # TUNED 2026-08-20 (was CSS 128,0,128)
