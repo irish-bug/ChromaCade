@@ -60,11 +60,13 @@ edge_clearance = 0.15;
 // that file's header comment for the full rationale (an earlier attempt
 // bridging the diagonal p1/p5 seam needed ~6" screws).
 //
-// This piece (blank-side) owns 5 mounts — near the front wall's bottom and
-// top, the shelf/panel joint, the panel/top joint, and the top/back joint —
-// each a pilot bore into this piece's own material, starting right at this
-// piece's edge nearest pot-side. Pot-side owns 4 more (2 bottom, 2 back);
-// this piece just gets clearance holes through its endcap for those.
+// This piece (blank-side) owns 4 mounts (was 5 until 2026-08-19 -- the
+// shelf/panel joint mount was removed, see own_mount_boss_centers below) —
+// near the front wall's bottom and top, the panel/top joint, and the
+// top/back joint — each a pilot bore into this piece's own material,
+// starting right at this piece's edge nearest pot-side. Pot-side owns 4
+// more (2 bottom, 2 back); this piece just gets clearance holes through
+// its endcap for those.
 //
 // Sized for M3 screws: 2.5mm self-tapping pilot, 3.4mm clearance — see
 // chromacade-pot-side.scad's matching comment for the boss rationale (bare
@@ -81,7 +83,7 @@ boss_ramp = 10;
 edge_x = -case_w/2 + wall + edge_clearance; // this piece's edge nearest pot-side
 
 // Square boss (true boss_w x boss_w cross-section throughout -- "the same
-// square cylinder" for all 5 mounts, per direct instruction 2026-08-19) --
+// square cylinder" for all 4 mounts, per direct instruction 2026-08-19) --
 // matches chromacade-pot-side.scad's square_boss() technique exactly: a
 // flush cube glued directly onto the true wall surface, hull()'d out to a
 // thin sliver for print-support-free tapering.
@@ -142,26 +144,26 @@ module flat_mount_boss(pos, thick_axis, wall_z=-wall, wall_y=-wall) {
     }
 }
 
-// shelf_panel and panel_top sit at the shelf/panel and panel/top JOINTS,
-// not cleanly on either adjacent segment -- per direct instruction, both
-// use the PANEL's own angle (panel_a, 45°) rather than the shelf's (8°) or
-// a hand-picked joint compromise. Reuses flat_mount_boss()'s "z" case
-// UNROTATED (flush at local z=-wall, the panel's own interior surface,
-// matching hardware_cutouts()'s panel-local frame exactly) -- the wrapping
-// rotate()+translate() here is copied from hardware_cutouts()'s own panel
-// block, so this lands in the identical local frame as the OLED/encoder/
-// LED cutouts already placed there.
+// panel_top sits at the panel/top JOINT, not cleanly on either adjacent
+// segment -- per direct instruction, uses the PANEL's own angle (panel_a,
+// 45°) rather than the top segment's (flat) or a hand-picked joint
+// compromise. (A second mount, shelf_panel, used to share this module too
+// -- removed 2026-08-19, see own_mount_boss_centers' comment; kept as its
+// own module rather than folding back into flat_mount_boss() in case
+// another tilted-joint mount is ever needed.) Reuses flat_mount_boss()'s
+// "z" case UNROTATED (flush at local z=-wall, the panel's own interior
+// surface, matching hardware_cutouts()'s panel-local frame exactly) -- the
+// wrapping rotate()+translate() here is copied from hardware_cutouts()'s
+// own panel block, so this lands in the identical local frame as the
+// OLED/encoder/LED cutouts already placed there.
 //
-// pos is LOCAL y within that rotated frame, NOT the target's global Y --
-// found by inverting hardware_cutouts()' forward transform (Y = panel_my +
-// y*cos(panel_a) + z*sin(panel_a), Z = panel_mz - y*sin(panel_a) +
-// z*cos(panel_a)) for the real target (Y,Z) from own_mount_boss_centers
-// below, since neither target sits exactly on the panel's own centerline
-// (local z=0) -- verified numerically (not by hand) that both round-trip
-// back to their exact target global (Y,Z), and that a standard boss_w=12
-// boss flush at local z=-wall comfortably contains each target's local z
-// (shelf_panel: z=-8.55, 3.55mm/8.45mm margin; panel_top: z=-11.38,
-// 6.38mm/5.62mm margin -- both well inside [-17,-5]).
+// pos_y is LOCAL y within that rotated frame, NOT the target's global Y --
+// 15 (the current call, see blank_side_mount_bosses() below) matches the
+// MX note-key row's own local y exactly ("in line with the note keys").
+// z is fixed at the module's own default (flush at local z=-wall=-5,
+// extending to z=-17) -- a boss_w=12 boss centered in that range (z=-11)
+// comfortably clears both the note keys (y=15, no local-y overlap with
+// the OLED's y=[-20.5,-5.5]) and the panel's own interior surface.
 module panel_mount_boss(pos_y) {
     panel_my = (p3[0] + p4[0]) / 2;
     panel_mz = (p3[1] + p4[1]) / 2;
@@ -170,30 +172,59 @@ module panel_mount_boss(pos_y) {
     flat_mount_boss(pos_y, "z");
 }
 
-// This piece's own 5 mount/boss centers (Y,Z) — must stay identical to
-// chromacade-pot-side.scad's blank_side_mount_yz (regenerate both together
-// if the dimension constants above change).
+// This piece's own 4 mount/boss centers (Y,Z) -- down from 5 as of
+// 2026-08-19, per direct feedback after inspecting the corrected-shape
+// render:
+//   - shelf_panel (was [74,48]) REMOVED entirely -- described as "hanging
+//     off in space," not landing on solid material worth reinforcing.
+//     pot-side's blank_side_mount_yz drops the matching clearance hole.
+//   - panel_top moved from [45,73] to [56.701,61.834] -- the old position
+//     collided with the OLED cutout (confirmed: OLED's local y-span
+//     [-20.5,-5.5] overlapped the boss's old local y=-1.170+/-6). New
+//     position is local (y=15, z=-11) in the panel's own rotated frame --
+//     y=15 matches the MX note-key row's own y ("in line with the note
+//     keys", the same y hardware_cutouts() uses for the key cutouts),
+//     z=-11 is simply centered in a boss_w=12 boss flush at the panel's
+//     interior face (z=-wall=-5, so z-span [-17,-5], center -11) -- no
+//     positional meaning to z beyond good margin. Verified no overlap
+//     with the note keys themselves (nearest key's own X is >4mm clear of
+//     this boss's X-reach) or the OLED (y-spans don't overlap: OLED
+//     [-20.5,-5.5] vs boss [9,21]).
+//   - front_bottom/front_top's Y moved from 110 to 114.73 -- confirmed via
+//     direct feedback that the bore wasn't centered in the boss: a
+//     boss_w=12 boss flush at the front wall's interior face
+//     (case_d-wall=120.73) spans Y=[108.73,120.73], center 114.73, not
+//     110 (which left only 1.27mm of material past the bore on the free
+//     side). Z unchanged (12/42) -- verified this doesn't newly collide
+//     with the speaker housing (housing's own Y-reach [100.73,120.73]
+//     overlaps this boss's Y-range regardless of the exact Y chosen
+//     within it, but the housing is centered at X=0 with only a 98mm
+//     width -- X:[-49,49] -- while these bosses sit near edge_x, X
+//     around -92 to -69, well clear in X either way).
 //
-// CORRECTED 2026-08-19 -- despite both files' comments insisting on exact
-// agreement, this array had drifted from pot-side's blank_side_mount_yz by
-// as much as 22.74mm (panel_top) and was off on all 5 entries (found while
-// investigating the "moved some mounts to adjust for new speakers" front-
-// wall shift). own_mount_boss()'s own clip-against-interior_void()
-// construction was never the problem -- it's general enough to flush
-// correctly against a wall segment at any angle, flat or tilted, so this
-// was purely stale position data, never actually caught because nothing
-// checks the two arrays against each other automatically. Now copied
-// directly from pot-side.scad's blank_side_mount_yz -- that file is the
-// authoritative source for these 5 positions (pot-side's clearance holes
-// were being deliberately repositioned for the new speaker housing; this
-// array needs to track wherever that source of truth puts them, not the
-// reverse). If you need to move one of these, change it in pot-side.scad
-// first and copy the value here, not the other way around.
+// FLAGGED, NOT FIXED: front_top WILL collide with the joystick mounting
+// posts once joystick-mount-dev.scad's design is ported back in (see the
+// PAUSED note below) -- computed precisely, not guessed: the joystick's
+// two post rows (front_dy=14, back_dy=-12.5 in the shelf's own local
+// frame) reach global Z=[33.43,45.31] and Z=[37.11,49.00] respectively,
+// i.e. together nearly the entire front wall's own usable Z extent
+// [0,48.895] above Z~33 -- there's no simple Z-nudge for front_top (Z=42)
+// that both clears this and stays meaningfully "near the top" of the
+// wall. This needs an actual decision (move front_top somewhere off this
+// wall entirely, or revisit the joystick posts' own reach) before the
+// joystick gets ported back, not a small tweak here.
+//
+// Must stay identical to chromacade-pot-side.scad's blank_side_mount_yz
+// (regenerate both together if the dimension constants above change) --
+// that file is the authoritative source for these positions (pot-side's
+// clearance holes were being deliberately repositioned for the new
+// speaker housing; this array needs to track wherever that source of
+// truth puts them, not the reverse). If you need to move one of these,
+// change it in pot-side.scad first and copy the value here.
 own_mount_boss_centers = [
-    [110, 12],
-    [110, 42],
-    [74, 48],
-    [45, 73],
+    [114.73, 12],
+    [114.73, 42],
+    [56.701, 61.834],
     [14, 95],
 ];
 
@@ -229,14 +260,14 @@ pot_side_mount_yz = [
 
 // Dispatches per mount rather than a generic loop -- front_bottom/
 // front_top/top_back flush directly against a global-frame wall (pass the
-// real wall_y/wall_z); shelf_panel/panel_top go through panel_mount_boss()
-// (local frame, rotated) instead -- see both modules' own comments.
+// real wall_y/wall_z); panel_top goes through panel_mount_boss() (local
+// frame, rotated) instead -- see both modules' own comments. shelf_panel
+// removed 2026-08-19 (see own_mount_boss_centers' comment).
 module blank_side_mount_bosses() {
     flat_mount_boss(own_mount_boss_centers[0][1], "y", wall_y=case_d-wall); // front_bottom
     flat_mount_boss(own_mount_boss_centers[1][1], "y", wall_y=case_d-wall); // front_top
-    panel_mount_boss(37.014); // shelf_panel (tilted joint, panel's own frame)
-    panel_mount_boss(-1.170); // panel_top (tilted joint, panel's own frame)
-    flat_mount_boss(own_mount_boss_centers[4][0], "z", wall_z=case_h-wall); // top_back
+    panel_mount_boss(15); // panel_top (tilted joint, panel's own frame, local y=15 -- in line with the note keys)
+    flat_mount_boss(own_mount_boss_centers[3][0], "z", wall_z=case_h-wall); // top_back
 }
 
 module blank_side_mounts() {

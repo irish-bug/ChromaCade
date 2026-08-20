@@ -28,12 +28,14 @@
 //     against the real part in hand is flagged ESTIMATE in a comment right
 //     there -- update the constant once you've calipered the actual part,
 //     which is the entire point of this file existing.
-//   - blank-side's own 5 mount bosses are now correct (2026-08-19) --
-//     positions match pot-side's blank_side_mount_yz exactly, and all 5
-//     use the same square-cylinder boss technique, wall-anchored, as
-//     pot-side's square_boss(). See that file's comments for the earlier
-//     history if it comes up (both a position-drift bug and a wrong-
-//     anchor/wrong-shape bug were found and fixed the same day).
+//   - blank-side's own 4 mount bosses (was 5 until 2026-08-19 -- the
+//     shelf/panel joint mount was removed) are now correct: positions
+//     match pot-side's blank_side_mount_yz exactly, and all 4 use the
+//     same square-cylinder boss technique, wall-anchored, as pot-side's
+//     square_boss(). See that file's comments for the earlier history if
+//     it comes up (a position-drift bug, a wrong-anchor/wrong-shape bug,
+//     and a mount-count/position revision were all found and fixed the
+//     same day).
 $fn = 60;
 
 /* [Render Selection] */
@@ -304,22 +306,21 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
 }
 
 pot_blank_side_mount_yz = [
-    [100, 12],
-    [100, 42],
-    [74, 48],
-    [45, 73],
+    [114.73, 12],
+    [114.73, 42],
+    [56.701, 61.834],
     [14, 95],
 ];
 
 module pot_side_mount_bosses() {
-    square_boss(pot_edge_x, 100, "z", z_start=wall, height=boss_w);
+    square_boss(pot_edge_x, 110, "z", z_start=wall, height=boss_w);
     square_boss(pot_edge_x, 30, "z", z_start=wall, height=boss_w);
     square_boss(pot_edge_x, 85, "y", y_start=wall, height=boss_w);
     square_boss(pot_edge_x, 20, "y", y_start=wall, height=boss_w);
 }
 
 module pot_side_mounts() {
-    translate([pot_edge_x, 100, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([pot_edge_x, 110, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([pot_edge_x, 30, wall + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([pot_edge_x, wall + boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     translate([pot_edge_x, wall + boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
@@ -448,11 +449,11 @@ module pot_side_piece() {
 
 // ============================================================================
 // BLANK-SIDE -- copy of chromacade-blank-side.scad's own geometry (see
-// header note above about keeping this in sync by hand). All 5 mounts use
+// header note above about keeping this in sync by hand). All 4 mounts use
 // the same flat_mount_boss() square-cylinder technique now (2026-08-19) --
 // front_bottom/front_top/top_back unrotated (flush against a global-frame
-// wall), shelf_panel/panel_top wrapped in the panel's own rotate()
-// (panel_mount_boss()) since they sit at tilted joints -- see
+// wall), panel_top wrapped in the panel's own rotate() (panel_mount_boss())
+// since it sits at a tilted joint -- see
 // chromacade-blank-side.scad's fuller comments on both, kept brief here.
 // ============================================================================
 module flat_mount_boss(pos, thick_axis, wall_z=-wall, wall_y=-wall) {
@@ -490,10 +491,9 @@ module panel_mount_boss(pos_y) {
 }
 
 own_mount_boss_centers = [
-    [110, 12],
-    [110, 42],
-    [74, 48],
-    [45, 73],
+    [114.73, 12],
+    [114.73, 42],
+    [56.701, 61.834],
     [14, 95],
 ];
 
@@ -507,9 +507,8 @@ pot_side_mount_yz = [
 module blank_side_mount_bosses() {
     flat_mount_boss(own_mount_boss_centers[0][1], "y", wall_y=case_d-wall); // front_bottom
     flat_mount_boss(own_mount_boss_centers[1][1], "y", wall_y=case_d-wall); // front_top
-    panel_mount_boss(37.014); // shelf_panel (tilted joint, panel's own frame)
-    panel_mount_boss(-1.170); // panel_top (tilted joint, panel's own frame)
-    flat_mount_boss(own_mount_boss_centers[4][0], "z", wall_z=case_h-wall); // top_back
+    panel_mount_boss(15); // panel_top (tilted joint, panel's own frame, local y=15 -- in line with the note keys)
+    flat_mount_boss(own_mount_boss_centers[3][0], "z", wall_z=case_h-wall); // top_back
 }
 
 module blank_side_mounts() {

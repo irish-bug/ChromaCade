@@ -64,10 +64,11 @@ edge_clearance = 0.15;
 // This piece (pot-side) owns 4 mounts — 2 on the bottom strip, 2 on the
 // back strip — each a pilot bore (screw threads into this piece's own
 // plastic) starting right at this piece's edge nearest blank-side and
-// reaching backward into solid material. Blank-side owns 5 more — near the
-// front wall's bottom and top, the shelf/panel joint, the panel/top joint,
-// and the top/back joint — this piece just gets a plain clearance hole for
-// those, through its endcap.
+// reaching backward into solid material. Blank-side owns 4 more (was 5
+// until 2026-08-19 -- the shelf/panel joint mount was removed, see
+// blank_side_mount_yz below) — near the front wall's bottom and top, the
+// panel/top joint, and the top/back joint — this piece just gets a plain
+// clearance hole for those, through its endcap.
 //
 // Sized for M3 screws: 2.5mm self-tapping pilot (~0.83x nominal, standard
 // for 3D-printed plastic), 3.4mm clearance (standard loose fit).
@@ -167,23 +168,23 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
     }
 }
 
-// Blank-side's 5 mount positions (Y,Z) — computed against the p1..p5
-// profile points the same way hardware_cutouts() derives shelf_my/panel_my
-// (point along a segment, inset half a wall-thickness toward the interior);
-// hardcoded here as plain numbers since this file only needs them for
-// clearance holes. Regenerate (see chromacade-blank-side.scad's matching
-// own_mount_yz, which must stay identical) if the dimension constants above
-// change.
-// front_bottom's Z and top_back's Y are shifted from the original 15%-
-// along-segment wall-inset points (7.33 and 4.38) to 14 each — must match
-// chromacade-blank-side.scad's own_mount_boss_centers exactly; see that
-// file's comment for why (clearance from this piece's own bottom/back
-// strips, which extend almost the full case width).
+// Blank-side's 4 mount positions (Y,Z) — down from 5 as of 2026-08-19, per
+// direct feedback on the corrected-shape render (this is a mirror, not the
+// source of truth -- see chromacade-blank-side.scad's own_mount_boss_centers
+// for the full reasoning behind each change, kept in sync here by hand):
+//   - shelf/panel joint mount REMOVED entirely ("hanging off in space").
+//   - panel/top joint mount moved from [45,73] to [56.701,61.834] -- was
+//     colliding with the OLED cutout; new position is in line with the MX
+//     note-key row in the panel's own local frame.
+//   - front wall bottom/top moved from Y=110 to Y=114.73 on both -- the
+//     bore wasn't centered in its boss (only 1.27mm of material past it on
+//     the free side); 114.73 is the true center of a boss_w=12 boss flush
+//     at the front wall's interior face.
+// Regenerate together if the dimension constants above change.
 blank_side_mount_yz = [
-    [110, 12],      // front wall, near bottom
-    [110, 42],   // front wall, near top
-    [74, 48],    // shelf/panel joint
-    [45, 73],    // panel/top joint
+    [114.73, 12],   // front wall, near bottom
+    [114.73, 42],   // front wall, near top
+    [56.701, 61.834], // panel/top joint
     [14, 95],       // top/back joint
 ];
 
