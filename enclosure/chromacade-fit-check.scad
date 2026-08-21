@@ -532,6 +532,32 @@ module blank_side_mounts() {
     }
 }
 
+// Gap-blocking bridges -- mirrored from chromacade-blank-side.scad, see
+// that file's own extensive comment for the full design history (three
+// real bugs found and fixed via the real-geometry interference check
+// before printing: solid-not-hollow endcap, corner rounding, edge-vs-
+// volume overlap). Verified margin ~2mm against pot-side's real,
+// already-printed geometry.
+gap_bridge_x_far   = -99;
+gap_bridge_x_near  = -87;
+gap_bridge_proud   = 3;
+gap_anchor_x_far   = -90;
+gap_anchor_x_near  = -85;
+
+module gap_lip_front_bottom() {
+    translate([(gap_anchor_x_near + gap_anchor_x_far)/2, (124.5 + case_d + 1)/2, 18])
+    cube([gap_anchor_x_near - gap_anchor_x_far, (case_d + 1) - 124.5, 20], center=true);
+    translate([(gap_bridge_x_near + gap_bridge_x_far)/2, (case_d + case_d + gap_bridge_proud)/2, 18])
+    cube([gap_bridge_x_near - gap_bridge_x_far, gap_bridge_proud, 20], center=true);
+}
+
+module gap_lip_top_back() {
+    translate([(gap_anchor_x_near + gap_anchor_x_far)/2, 18, (103.5 + case_h + 1)/2])
+    cube([gap_anchor_x_near - gap_anchor_x_far, 20, (case_h + 1) - 103.5], center=true);
+    translate([(gap_bridge_x_near + gap_bridge_x_far)/2, 18, (case_h + case_h + gap_bridge_proud)/2])
+    cube([gap_bridge_x_near - gap_bridge_x_far, 20, gap_bridge_proud], center=true);
+}
+
 module blank_side_clearance_holes() {
     for (yz = pot_side_mount_yz) {
         translate([case_w/2 - wall/2, yz[0], yz[1]])
@@ -682,6 +708,8 @@ module blank_side_piece() {
             blank_strips();
             blank_side_mount_bosses();
             joystick_mount_bosses();
+            gap_lip_front_bottom();
+            gap_lip_top_back();
         }
         blank_hardware_cutouts();
         blank_side_mounts();
