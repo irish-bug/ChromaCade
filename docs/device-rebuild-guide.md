@@ -45,10 +45,13 @@ Then reboot. Current Raspberry Pi OS (kernel 6.18.x) ships `wm8960-soundcard.dtb
 sudo apt update
 sudo apt install -y \
     python3-pytest python3-gpiozero python3-pil python3-pygame \
-    python3-smbus python3-smbus2 i2c-tools alsa-utils
+    python3-smbus python3-smbus2 i2c-tools alsa-utils \
+    fluidsynth fluid-soundfont-gm
 ```
 
-All of these are Debian-packaged — no `pip`/PEP 668 fighting needed for this group. (`python3-pytest` pulls in `python3-iniconfig`/`python3-pluggy` automatically.)
+All of these are Debian-packaged — no `pip`/PEP 668 fighting needed for this group. (`python3-pytest` pulls in `python3-iniconfig`/`python3-pluggy` automatically. `fluidsynth` pulls in `libfluidsynth3`, `qsynth`, and a `fluidsynth.service` user unit as its own dependencies — harmless, that service is the standalone fluidsynth daemon, a different usage pattern from `pyfluidsynth`'s in-process library use below, not something this project runs.) `fluid-soundfont-gm` installs the real ~140MB `FluidR3_GM.sf2` General MIDI soundfont `audio_engine.py` actually loads (see `docs/open-questions.md`'s FluidSynth entry for the full story) — `libfluidsynth3` alone (a transitive dependency of the Adafruit stack below) is NOT sufficient on its own, it's just the runtime library with no soundfont data.
+
+**Found missing entirely from this section 2026-08-20/21** — `testing/fluidsynth_test.py` failed with `ModuleNotFoundError` on a `plinkplonk` that had otherwise followed this whole guide, because neither `fluidsynth`/`fluid-soundfont-gm` (apt) nor `pyfluidsynth` (pip, next section) were ever in this doc's own instructions, despite `docs/decision-log.md`'s 2026-08-15 entry establishing `pyfluidsynth` needs the same sudo-pip treatment as the Adafruit stack — that entry documented the *convention*, but nobody had gone back and added the actual install step here. Fixed by adding both here and in the pip section below.
 
 ## 5. Python packages (pip) — the Adafruit CircuitPython stack
 
@@ -61,14 +64,15 @@ sudo pip3 install --break-system-packages \
     adafruit-blinka \
     adafruit-circuitpython-ads1x15 \
     adafruit-circuitpython-ssd1306 \
-    adafruit-circuitpython-neopixel
+    adafruit-circuitpython-neopixel \
+    pyfluidsynth
 ```
 
-This provides `board`, `busio`, `neopixel`, `adafruit_ads1x15.*`, `adafruit_ssd1306` — needed for the ADS1115 (joystick analog read), the SSD1306 OLED, and the WS2812 LED ring/strip, respectively.
+This provides `board`, `busio`, `neopixel`, `adafruit_ads1x15.*`, `adafruit_ssd1306` — needed for the ADS1115 (joystick analog read), the SSD1306 OLED, and the WS2812 LED ring/strip, respectively — plus `fluidsynth` (the Python binding `audio_engine.py` imports; not to be confused with the apt package of the same name in the previous section, which is the C library + soundfont it wraps). `fluidsynth` itself doesn't strictly need root the way `neopixel`'s PWM/DMA access does, but install it with the same `sudo` anyway — keeping root and the regular user's environments identical is the whole point of `docs/decision-log.md`'s convention, don't reintroduce a split between them for one package.
 
 **Full verification — run this exact command with `sudo`, not without.** A plain `python3 -c "..."` verification only proves the `plink` user's environment is correct; it says nothing about root's, which is the environment that actually matters here (`chromacade.service` and every WS2812 test script in `testing/` run as root). This is precisely how the 2026-08-20 gap slipped past this doc in the first place:
 ```bash
-sudo python3 -c "import pytest, gpiozero, PIL, pygame, board, busio, neopixel, adafruit_ads1x15.ads1115, adafruit_ads1x15.analog_in, adafruit_ssd1306"
+sudo python3 -c "import pytest, gpiozero, PIL, pygame, board, busio, neopixel, adafruit_ads1x15.ads1115, adafruit_ads1x15.analog_in, adafruit_ssd1306, fluidsynth"
 ```
 
 There is still no `requirements.txt` anywhere in this repo (checked, doesn't exist) — this doc is currently the only record of the real dependency list. Worth turning this section into one at some point rather than relying on this doc staying in sync by hand.
