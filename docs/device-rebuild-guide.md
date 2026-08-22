@@ -29,15 +29,18 @@ git checkout plinkplonk   # or whatever branch is current -- check CLAUDE.md's
 
 ## 3. Boot config — WM8960 Audio HAT
 
-Add to `/boot/firmware/config.txt` (the rest of that file's contents are stock Raspberry Pi OS defaults — camera/display auto-detect, `vc4-kms-v3d`, etc. — leave those alone):
+Add to `/boot/firmware/config.txt` (the rest of that file's contents are stock Raspberry Pi OS defaults — camera/display auto-detect, `vc4-kms-v3d`, etc. — leave those alone), and **change the Imager-default `dtparam=audio=on` to `off`**:
 
 ```
 dtparam=i2c_arm=on
 dtparam=i2s=on
+dtparam=audio=off
 dtoverlay=wm8960-soundcard
 ```
 
-Then reboot. Current Raspberry Pi OS (kernel 6.18.x) ships `wm8960-soundcard.dtbo` as a stock overlay — no vendor install script/DKMS module needed, despite what older WM8960 setup guides say. Verify: `aplay -l` should show `card N: wm8960soundcard`; `sudo i2cdetect -y 1` should show the codec responding at `0x1a`.
+`dtparam=audio=off` disables the Pi's onboard PWM audio path (the physical headphone-jack output, `snd_bcm2835`/shows up as an aplay -l card named "Headphones") — Raspberry Pi Imager enables it by default, and this section didn't previously mention turning it back off. Not just unused dead weight: it claims the same PWM0/PWM1 hardware peripheral the LED ring (GPIO12) and strip (GPIO13) use for WS2812 data, a well-documented conflict class for Pi + NeoPixel projects (see `hardware/gpio-pin-assignments.md`'s "Onboard PWM audio conflict" entry — found and fixed on unit #1 back on 2026-08-12, but never made it into this doc when it was written for `plinkplonk`, so the conflict quietly came back on this device via the Imager's own default). **Found again 2026-08-21** on `plinkplonk` specifically because `aplay -l` still showed the onboard "Headphones" card despite this guide's other steps all being followed — fixed by editing `/boot/firmware/config.txt` and rebooting (a `sudo sed -i` one-liner works fine for just this line), confirmed via a real reboot: onboard card gone from `aplay -l`, `wm8960soundcard` still present and working, mixer settings (the "Left/Right Output Mixer PCM" switches from §6 below) survived the restart, no new `dmesg` errors.
+
+Then reboot. Current Raspberry Pi OS (kernel 6.18.x) ships `wm8960-soundcard.dtbo` as a stock overlay — no vendor install script/DKMS module needed, despite what older WM8960 setup guides say. Verify: `aplay -l` should show `card N: wm8960soundcard` and should **not** show a "Headphones" card; `sudo i2cdetect -y 1` should show the codec responding at `0x1a`.
 
 ## 4. System packages (apt)
 
