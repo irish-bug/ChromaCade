@@ -317,89 +317,18 @@ module blank_side_mounts() {
     }
 }
 
-// Gap-blocking bridges -- flagged 2026-08-20/21 as a toddler-safety
-// issue, not just a cosmetic seam: the 0.15mm edge_clearance gap between
-// this piece's strips and the OTHER piece's endcap (see edge_clearance's
-// own comment for why the gap exists at all) is a straight-through slot
-// running exterior-to-interior. Confirmed via the real-geometry
-// interference check (translating this piece's actual rendered geometry
-// toward pot-side and re-checking, not hand-derived coordinates): real
-// margin against pot-side's actual, already-printed geometry is under
-// 1mm at BOTH seam ends, not the ~3mm first (wrongly) claimed.
-//
-// pot-side is already printed and can't change, so this piece has to
-// close the gap alone. Only front_bottom's and top_back's zones are
-// covered here -- the front-wall/top-segment seam continues past these
-// two localized bridges (matching the two zones actually flagged live,
-// where blank-side's strips meet pot-side's endcap near the p1/p5
-// corners), not the WHOLE seam length or the separate back-wall/bottom-
-// floor seam near this piece's own endcap (a different, independently-
-// found gap -- not yet fixed, flagged separately, not in scope here).
-//
-// Three real bugs found getting this design right, each caught by the
-// real-geometry interference check before committing to a print rather
-// than by reasoning alone -- worth keeping the history, this is not a
-// simple shape:
-//   1. First attempt reached toward pot-side but INSET from the wall
-//      surface, on the assumption pot-side's endcap is a hollow wall-
-//      profile shape with clear space behind it. Checked shell_solid()'s
-//      actual definition instead of continuing to assume -- it's a
-//      difference() between the full-case_w outer profile and the SAME
-//      profile inset by wall, extruded only case_w-2*wall (centered), so
-//      the inner cavity stops `wall` short of BOTH ends -- the endcap
-//      zone is SOLID across its whole profile, not hollow. No clear
-//      interior space to reach into at that X range at all.
-//   2. Second attempt went OUTSIDE the wall surface instead (correct
-//      general direction) but used one flat rectangle whose near edge
-//      dipped a couple mm INTO the wall, across its FULL X-range, to
-//      physically anchor to this piece's own material. Collided anyway,
-//      for two independent reasons: outer_profile()'s offset(r=6)
-//      offset(r=-6) corner rounding pulls the true wall surface INWARD
-//      approaching the p1/p5 corners (confirmed empirically: front
-//      wall's real Y drops from 125.73 at Z=6 down to ~124 by Z=2), AND
-//      pot-side's endcap is solid clear through its own X range (see
-//      bug 1) -- so any point below the true wall surface is inside
-//      pot-side's material for X in [-97.79,-92.79], corner or not.
-//   3. Fixed by splitting each bridge into two pieces: an anchor,
-//      confined to X well clear of pot-side's real edge, which is the
-//      only part allowed to dip below the wall surface; and a bridge
-//      piece, which crosses into pot-side's X range but never dips below
-//      the true surface (Y=case_d or Z=case_h exactly) regardless of X.
-//      First version of the split still failed ("Simple: no", non-
-//      manifold) because the two pieces only shared a single edge/face,
-//      not a real volume -- CSG union needs genuine 3D overlap, not a
-//      touch. Fixed by giving them real overlap in both X and Y-or-Z.
-gap_bridge_x_far   = -99; // ~1.2mm past pot-side's endcap outer face (-97.79)
-gap_bridge_x_near  = -87; // bridge's near edge, well into this piece's own
-                           // territory -- safe this far in since the
-                           // bridge never dips below the true wall surface
-gap_bridge_proud   = 3;   // how far past the true wall surface it stands
-gap_anchor_x_far   = -90; // anchor's far edge -- clear of pot-side's real
-                           // edge (-92.79) by 2.79mm
-gap_anchor_x_near  = -85; // matches nothing in particular, just comfortably
-                           // within this piece's own solid front-wall/top area
-// Overlap between the two pieces: X=[-90,-87] (3mm, anchor_x_far to
-// bridge_x_near) and Y-or-Z=[case_d or case_h, +1] (1mm, anchor reaches
-// 1mm past the surface where bridge already lives) -- real volume, not
-// a shared face.
-
-module gap_lip_front_bottom() {
-    // Anchor: dips into the wall (Y=[124.5, case_d+1]) but only across
-    // X=[-90,-85], entirely this piece's own territory.
-    translate([(gap_anchor_x_near + gap_anchor_x_far)/2, (124.5 + case_d + 1)/2, 18])
-    cube([gap_anchor_x_near - gap_anchor_x_far, (case_d + 1) - 124.5, 20], center=true);
-    // Bridge: crosses to pot-side's side (X to -99) but stays at or
-    // above the true wall surface (Y>=case_d) the whole way.
-    translate([(gap_bridge_x_near + gap_bridge_x_far)/2, (case_d + case_d + gap_bridge_proud)/2, 18])
-    cube([gap_bridge_x_near - gap_bridge_x_far, gap_bridge_proud, 20], center=true);
-}
-
-module gap_lip_top_back() {
-    translate([(gap_anchor_x_near + gap_anchor_x_far)/2, 18, (103.5 + case_h + 1)/2])
-    cube([gap_anchor_x_near - gap_anchor_x_far, 20, (case_h + 1) - 103.5], center=true);
-    translate([(gap_bridge_x_near + gap_bridge_x_far)/2, 18, (case_h + case_h + gap_bridge_proud)/2])
-    cube([gap_bridge_x_near - gap_bridge_x_far, 20, gap_bridge_proud], center=true);
-}
+// Gap-blocking bridges (front_bottom/top_back "gap lips") -- REMOVED
+// 2026-08-22. Confirmed via direct visual inspection (not just the CSG
+// interference check that had signed off on them) that they didn't
+// actually close anything: the underlying window/gap where the two
+// pieces don't meet along X (at the bottom-front and top-back) is still
+// there, and the bridges themselves just floated nearby without solving
+// it -- "not a successful solution," removed rather than kept as
+// pointless geometry. The real problem (pot-side/blank-side not meeting
+// across the full X width at either the bottom-front or top-back
+// corner) is still open -- see git history for this block's previous
+// content (three iterations, each verified against pot-side's real
+// geometry, all insufficient) before attempting another fix here.
 
 module blank_side_clearance_holes() {
     for (yz = pot_side_mount_yz) {
@@ -521,8 +450,6 @@ difference() {
         strips();
         blank_side_mount_bosses();
         joystick_mount_bosses();
-        gap_lip_front_bottom();
-        gap_lip_top_back();
     }
     hardware_cutouts();
     joystick_mount_pilot_holes();
