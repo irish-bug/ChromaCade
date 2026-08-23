@@ -345,7 +345,8 @@ module pot_yz_half_plane(side) {
     seam = p5 - p1;
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
-    seam_margin = 1;
+    seam_margin = 0; // 2026-08-22, matches the two real files -- see
+                      // chromacade-pot-side.scad's comment for the reasoning
     p1m = p1 + perp_unit*seam_margin;
     p5m = p5 + perp_unit*seam_margin;
     big = 2000;
@@ -557,7 +558,8 @@ module blank_yz_half_plane(side) {
     seam = p5 - p1;
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
-    seam_margin = 3;
+    seam_margin = 0; // 2026-08-22, matches the two real files -- see
+                      // chromacade-blank-side.scad's comment for the reasoning
     p1m = p1 + perp_unit*seam_margin;
     p5m = p5 + perp_unit*seam_margin;
     big = 2000;

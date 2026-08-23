@@ -194,11 +194,12 @@ module yz_half_plane(side) {
     seam = p5 - p1;
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
-    // Retreat the mask line a few mm from the exact p1-p5 line — see
-    // chromacade-pot-side.scad's matching comment (outer_profile()'s
-    // rounding doesn't pass through p1/p5 exactly, leaving a sliver of
-    // near-touching material at a literal-coordinate mask cut).
-    seam_margin = 3;
+    // seam_margin set to 0 2026-08-22, matching chromacade-blank-side.scad
+    // and chromacade-pot-side.scad -- see the former's comment for the
+    // full reasoning. This file is already documented elsewhere as stale
+    // re: the mount-boss system; kept in sync here only per the shared-
+    // dimension convention.
+    seam_margin = 0;
     p1m = p1 + perp_unit*seam_margin;
     p5m = p5 + perp_unit*seam_margin;
     big = 2000;

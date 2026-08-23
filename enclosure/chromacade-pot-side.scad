@@ -363,15 +363,23 @@ module yz_half_plane(side) {
     // Verified numerically before writing this file. side=-1 flips it.
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
-    // Retreat the mask line a few mm from the exact p1-p5 line, into this
-    // piece's own kept side. outer_profile()'s offset(r=6)/offset(r=-6)
-    // rounding doesn't pass through p1/p5 exactly, so a mask cut at the
-    // literal coordinates leaves a sliver of near-touching material where
-    // the rounded wall surface and the straight mask line diverge near the
-    // corner (found via the pot-side/blank-side interference check — small,
-    // but non-empty). 3mm comfortably clears the 6mm rounding radius's
-    // local effect.
-    seam_margin = 1;
+    // seam_margin set to 0 2026-08-22 per direct instruction -- this piece's
+    // value (1) and blank-side's (3) had drifted apart, neither matching
+    // the other, and together they were the actual cause of the window
+    // where the two pieces don't meet along X at the bottom-front/top-back
+    // (not edge_clearance, which is what several earlier fix attempts
+    // wrongly targeted -- see git history for that dead end). ORIGINAL
+    // reasoning for a non-zero margin, kept here since it's a real,
+    // previously-confirmed risk, not just historical noise: outer_profile()'s
+    // offset(r=6)/offset(r=-6) rounding doesn't pass through p1/p5 exactly,
+    // so a mask cut at the literal coordinates was found (via the pot-side/
+    // blank-side interference check) to leave a small, non-empty sliver of
+    // near-touching material where the rounded wall surface and the
+    // straight mask line diverge near the corner. Re-verify with that same
+    // interference check before trusting margin=0 in a real print --
+    // don't assume the rounding concern doesn't apply just because this
+    // comment is old.
+    seam_margin = 0;
     p1m = p1 + perp_unit*seam_margin;
     p5m = p5 + perp_unit*seam_margin;
     big = 2000;

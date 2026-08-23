@@ -482,11 +482,15 @@ module yz_half_plane(side) {
     seam = p5 - p1;
     perp = side * [-seam[1], seam[0]];
     perp_unit = perp / norm(perp);
-    // Retreat the mask line a few mm from the exact p1-p5 line — see
-    // chromacade-pot-side.scad's matching comment (outer_profile()'s
-    // rounding doesn't pass through p1/p5 exactly, leaving a sliver of
-    // near-touching material at a literal-coordinate mask cut).
-    seam_margin = 3;
+    // seam_margin set to 0 2026-08-22, matching chromacade-pot-side.scad --
+    // see that file's comment for the full reasoning (this piece's old
+    // value, 3, and pot-side's old value, 1, had drifted apart and were
+    // together the real cause of the bottom-front/top-back window, not
+    // edge_clearance). Re-verify with the pot-side/blank-side interference
+    // check before trusting this in a real print -- the original non-zero
+    // margin existed because of a real, previously-confirmed corner-
+    // rounding sliver issue, not for no reason.
+    seam_margin = 0;
     p1m = p1 + perp_unit*seam_margin;
     p5m = p5 + perp_unit*seam_margin;
     big = 2000;
