@@ -24,7 +24,12 @@ case_d = 4.95  * in2mm; // 4.5in + 10%
 wall   = 5;
 
 front_h = 1.925 * in2mm; // 1.75in + 10%
-shelf_d = 1.875 * in2mm; // 1.5in + 25% (controller shelf)
+shelf_d = 60; // 2026-08-22: increased from 1.875in+25% (47.625mm) to fit
+               // the joystick with a reserved 20mm front clearance zone
+               // plus the 27mm stick hole centered in the remaining 40mm
+               // -- see chromacade-blank-side.scad's joystick section for
+               // the full reasoning. Shifts case_h (derived from this via
+               // the p0-p5 chain) from 104.915 to 106.637.
 shelf_a = 8;
 panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
@@ -181,10 +186,17 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
 //     the free side); 114.73 is the true center of a boss_w=12 boss flush
 //     at the front wall's interior face.
 // Regenerate together if the dimension constants above change.
+// panel/top joint updated 2026-08-22 (56.701,61.834 -> 44.447,63.556) --
+// shelf_d changed 47.625->60, which shifts panel_my/panel_mz (this entry
+// is a static snapshot of panel_mount_boss(15)'s real position, not a
+// formula, so it goes stale on any upstream dimension change -- see
+// chromacade-blank-side.scad's own_mount_boss_centers comment for the
+// full story, including how this was found: a disconnected 12-vertex
+// island in the rendered mesh).
 blank_side_mount_yz = [
     [114.73, 12],   // front wall, near bottom
     [114.73, 42],   // front wall, near top
-    [56.701, 61.834], // panel/top joint
+    [44.447, 63.556], // panel/top joint
     [14, 95],       // top/back joint
 ];
 

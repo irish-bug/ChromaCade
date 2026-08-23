@@ -21,23 +21,45 @@ case_d = 4.95  * in2mm; // 4.5in + 10%
 wall   = 5;
 
 front_h = 1.925 * in2mm; // 1.75in + 10%
-shelf_d = 1.875 * in2mm; // 1.5in + 25% (controller shelf)
+shelf_d = 60; // 2026-08-22: increased from 1.875in+25% (47.625mm) to fit
+               // the joystick with a reserved 20mm front clearance zone
+               // plus the 27mm stick hole centered in the remaining 40mm
+               // (see joy_reserved_front/joy_y_offset below). Shifts
+               // case_h (derived from this via the p0-p5 chain) from
+               // 104.915 to 106.637 -- must stay in sync across every
+               // file that redeclares this constant.
 shelf_a = 8;
 panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
 
-// NEW dual-cone speaker housing (2026-08-19) -- ONE 98x43x20mm housing,
-// centered on the front wall, replacing the old two single-cone positions.
-// Housing has 2x 35mm cones, each 22.5mm off the housing's own center
-// (45mm apart total), vertically centered on the front wall -- MEASURED
-// against the real part. Two separate housings (4 total cones) were
-// considered and don't fit: even edge-to-edge with zero margin they'd
-// need case_w >= 206mm, over the 203.2mm (8in) print bed limit -- see
-// docs/decision-log.md. Each cone gets its own round grille (a
-// stadium_hex_grill() with equal w/h degenerates to a circle, no rotation
-// needed since it's now symmetric).
-spk_cone_d      = 35;
-spk_cone_offset = 22.5;
+// REVERTED 2026-08-22 back to the original two-single-driver-speaker
+// design -- the 2026-08-19 dual-cone housing (98x43x20mm, one housing,
+// two 35mm cones at spk_cone_offset=22.5) didn't fit in the printed
+// enclosure; going back to the speaker that was already the plan before
+// that detour (see hardware/speaker specs -- 70x31mm plate, oval driver,
+// 17mm deep, MEASURED against the real part). Two of these, same
+// spk_cx=45 spacing (90mm apart) as the original design -- that spacing
+// was already established and never itself the problem.
+//
+// Grille is a portrait stadium (pill) matched exactly to the cone area,
+// not the full 70x31mm mounting plate (the plate's own extent matters
+// for depth clearance -- see the speaker-body clearance check in
+// hardware_cutouts() below -- not for the visible grille cut, which only
+// needs to expose the actual driver); rotated 90° at the cut site to sit
+// landscape on the (landscape) front wall enclosure.
+spk_grille_w = 1.0 * in2mm;  // 25.4mm = 1"   (stadium width  = cone width)
+spk_grille_h = 1.5 * in2mm;  // 38.1mm = 1.5" (stadium height = cone height)
+spk_cx       = 45;
+
+// Full mounting-plate footprint, for depth-clearance checking only (not
+// what gets cut) -- MEASURED, hardware/speaker specs. Speaker's own long
+// axis (70mm) runs along the case's width (X) once rotated 90° to sit
+// landscape, matching the grille's own rotation; short axis (31mm) runs
+// vertically (Z); 17mm reaches back into the case (Y) from the front
+// wall's interior face.
+spk_plate_w = 70;
+spk_plate_h = 31;
+spk_plate_depth = 17;
 
 p0 = [0, 0];
 p1 = [case_d, 0];
@@ -221,10 +243,28 @@ module panel_mount_boss(pos_y) {
 // speaker housing; this array needs to track wherever that source of
 // truth puts them, not the reverse). If you need to move one of these,
 // change it in pot-side.scad first and copy the value here.
+// panel_top's entry (index 2) is a STATIC snapshot of panel_mount_boss(15)'s
+// real global position -- it is NOT a formula, so it goes stale whenever
+// panel_my/panel_mz shift, which happens whenever shelf_d (or any other
+// upstream dimension feeding the p0-p5 chain) changes. Exactly this
+// happened 2026-08-22 (shelf_d 47.625->60): the boss itself, built fresh
+// via panel_mount_boss(15) at render time, moved correctly to the new
+// panel_my/panel_mz -- but this array's stale (56.701,61.834) didn't, so
+// blank_side_mounts()'s pilot hole (which drills straight from this array,
+// not through panel_mount_boss()'s own transform) kept cutting the OLD
+// position, severing the boss from the wall (confirmed via connected-
+// component analysis on the rendered mesh: the boss existed but floated
+// as a disconnected 12-vertex island). Recomputed via the panel-local
+// forward transform (Y = panel_my + y*cos(panel_a) + z*sin(panel_a),
+// Z = panel_mz - y*sin(panel_a) + z*cos(panel_a), at local (y=15,z=-11)
+// -- see the comment block above) rather than read off a render, so this
+// stays reproducible. Still a static value, still goes stale on the next
+// upstream dimension change -- recompute the same way if that happens
+// again, don't assume it's still current.
 own_mount_boss_centers = [
     [114.73, 12],
     [114.73, 42],
-    [56.701, 61.834],
+    [44.447, 63.556],
     [14, 95],
 ];
 
@@ -392,6 +432,26 @@ module blank_side_clearance_holes() {
 joy_x       = -65; // matches the shelf's joystick stick-hole X position
 joy_stick_d = 27;  // CONFIRMED 2026-08-19 -- no longer under test
 
+// Depth (Y, front-to-back on the shelf) repositioning -- 2026-08-22,
+// alongside the shelf_d increase to 60mm above. Reserves the first 20mm
+// of the shelf (nearest the front wall) as a clearance zone nothing may
+// intrude into, then centers the stick hole in the remaining depth.
+// joy_y_offset is a formula off shelf_d, not a hardcoded number, so it
+// stays correct if shelf_d changes again -- the existing code below
+// already treats local Y=0 as the shelf's own geometric midpoint (via
+// shelf_my/shelf_mz = the p2-p3 average), so this is expressed as an
+// offset FROM that midpoint, not an absolute depth.
+joy_reserved_front  = 20; // nothing may intrude into this zone, front edge (p2) inward
+joy_depth_from_front = joy_reserved_front + (shelf_d - joy_reserved_front) / 2; // = 40 at shelf_d=60
+// SIGN FIXED 2026-08-22, caught by re-deriving from scratch rather than
+// trusting the first pass: joy_hole_front_dy=+14 means POSITIVE local Y
+// is toward the front wall (smaller depth-from-front-edge), so
+// depth_from_front = shelf_d/2 - local_Y, not local_Y - shelf_d/2 as the
+// first version of this line computed (which moved the joystick TOWARD
+// the front face -- the opposite of what was asked -- rather than back
+// toward the panel).
+joy_y_offset = shelf_d / 2 - joy_depth_from_front; // offset from shelf's own midpoint; negative = toward the back
+
 // Real hardware measurements (2026-08-18/19) -- names match the original
 // a4f6a10 commit that these bosses first shipped under, for continuity.
 joy_hole_dx       = 9;    // board hole +/-9mm left-right, both pairs
@@ -428,7 +488,7 @@ module joystick_mount_bosses() {
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0])
-    translate([joy_x, 0, 0])
+    translate([joy_x, joy_y_offset, 0])
     for (p = joystick_boss_xy())
         translate([p[0], p[1], -wall - joy_boss_h])
         cylinder(h = joy_boss_h + 0.5, d = joy_boss_d);
@@ -439,7 +499,7 @@ module joystick_mount_pilot_holes() {
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0])
-    translate([joy_x, 0, 0])
+    translate([joy_x, joy_y_offset, 0])
     for (p = joystick_boss_xy())
         translate([p[0], p[1], -wall - joy_boss_h - 0.5])
         cylinder(h = joy_boss_h + 1, d = joy_pilot_d);
@@ -450,7 +510,7 @@ module joystick_gimbal_clearance() {
     shelf_mz = (p2[1] + p3[1]) / 2;
     translate([0, shelf_my, shelf_mz])
     rotate([-shelf_a, 0, 0])
-    translate([joy_x, 0, -wall/2])
+    translate([joy_x, joy_y_offset, -wall/2])
     sphere(r = joy_gimbal_r);
 }
 
@@ -567,12 +627,12 @@ module hardware_cutouts() {
     fan_cutout();
 
     // Speaker grilles — hex-hole pattern cut straight into the front wall
-    // (no separate insert), one round grille per cone on the single
-    // dual-cone housing (see spk_cone_d/spk_cone_offset above).
+    // (no separate insert). Stadium shape is portrait-native in the module;
+    // rotated 90° here so it sits landscape on the landscape enclosure.
     translate([0, case_d, front_h/2])
     rotate([90, 0, 0]) {
-        translate([-spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
-        translate([ spk_cone_offset, 0, 0]) stadium_hex_grill(spk_cone_d, spk_cone_d);
+        translate([-spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
+        translate([ spk_cx, 0, 0]) rotate([0, 0, 90]) stadium_hex_grill(spk_grille_w, spk_grille_h);
     }
 
     shelf_my = (p2[0] + p3[0]) / 2;
@@ -584,8 +644,12 @@ module hardware_cutouts() {
         // pre-boss print, then 26.5mm -- a tiny bit too small -- before
         // landing on 27mm). Corrected 2026-08-18: this hole (x=-65) was
         // previously mislabeled as the rocker's -- it's the joystick's, per
-        // the same correction that moved joy_x below.
-        translate([-65, 0, 0]) cylinder(h=wall*4, d=joy_stick_d, center=true);
+        // the same correction that moved joy_x below. Now uses joy_x
+        // directly instead of a second hardcoded -65 (the two had to stay
+        // in sync by hand, exactly the kind of drift-prone duplication
+        // this project keeps getting bitten by elsewhere). Y shifted by
+        // joy_y_offset -- 2026-08-22, see joy_reserved_front above.
+        translate([joy_x, joy_y_offset, 0]) cylinder(h=wall*4, d=joy_stick_d, center=true);
         // Both encoders shifted -7mm along the shelf (toward the back,
         // away from the front wall) -- 2026-08-19, the encoder bodies
         // (15x12x10mm, reaching ENC_BODY_D=10mm behind the panel) were

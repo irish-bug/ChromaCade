@@ -27,7 +27,13 @@ case_d = 4.95  * in2mm; // 4.5in + 10%
 wall   = 5;
 
 front_h = 1.925 * in2mm; // 1.75in + 10%
-shelf_d = 1.875 * in2mm; // 1.5in + 25% (controller shelf)
+shelf_d = 60; // 2026-08-22: increased from 1.875in+25% (47.625mm), see
+               // chromacade-blank-side.scad for the reasoning (joystick
+               // repositioning). This file is already documented as
+               // stale re: the mount-boss system (see CLAUDE.md) and
+               // does NOT have the joystick-repositioning logic ported
+               // to it -- shelf_d kept in sync here only per the shared-
+               // dimension convention, not because this file is current.
 shelf_a = 8;
 panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;

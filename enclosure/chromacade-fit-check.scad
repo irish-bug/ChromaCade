@@ -56,7 +56,9 @@ case_d = 4.95  * in2mm; // 4.5in + 10%
 wall   = 5;
 
 front_h = 1.925 * in2mm; // 1.75in + 10%
-shelf_d = 1.875 * in2mm; // 1.5in + 25% (controller shelf)
+shelf_d = 60; // 2026-08-22: increased from 1.875in+25% (47.625mm), see
+               // chromacade-blank-side.scad for the reasoning (joystick
+               // repositioning, joy_reserved_front/joy_y_offset).
 shelf_a = 8;
 panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
@@ -307,10 +309,14 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
     }
 }
 
+// panel/top joint updated 2026-08-22 (56.701,61.834 -> 44.447,63.556) --
+// see chromacade-blank-side.scad's own_mount_boss_centers comment; this
+// entry is a static snapshot that goes stale whenever shelf_d (or any
+// other p0-p5 upstream dimension) changes.
 pot_blank_side_mount_yz = [
     [114.73, 12],
     [114.73, 42],
-    [56.701, 61.834],
+    [44.447, 63.556],
     [14, 95],
 ];
 
@@ -505,10 +511,12 @@ module panel_mount_boss(pos_y) {
     flat_mount_boss(pos_y, "z");
 }
 
+// panel_top updated 2026-08-22, same reasoning as pot_blank_side_mount_yz
+// above and chromacade-blank-side.scad's own_mount_boss_centers.
 own_mount_boss_centers = [
     [114.73, 12],
     [114.73, 42],
-    [56.701, 61.834],
+    [44.447, 63.556],
     [14, 95],
 ];
 
