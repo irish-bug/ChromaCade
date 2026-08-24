@@ -29,6 +29,13 @@ I2C_ADDRESS = 0x3C
 LINE_HEIGHT = 12  # small-font line spacing, 5 lines fit in 64px with room to spare
 MAX_CHARS_PER_LINE = 21  # Pillow's default bitmap font is ~6px wide, 128/6 ~= 21
 
+# Panel is physically mounted/wired upside down relative to the SSD1306
+# driver's default orientation (confirmed live 2026-08-24) -- rotating
+# the rendered image before every push is simpler and more portable
+# than chasing the driver's COM/segment-remap init commands, and it's
+# the same Pillow Image either way.
+DISPLAY_ROTATION_DEGREES = 180
+
 
 class OledDisplay:
     def __init__(self):
@@ -40,6 +47,13 @@ class OledDisplay:
     def _blank_image(self):
         image = Image.new("1", (WIDTH, HEIGHT))
         return image, ImageDraw.Draw(image)
+
+    def _push(self, image):
+        """Every real draw funnels through here so the physical-mount
+        rotation (DISPLAY_ROTATION_DEGREES) only has to be applied in
+        one place."""
+        self.oled.image(image.rotate(DISPLAY_ROTATION_DEGREES))
+        self.oled.show()
 
     def clear(self):
         self.oled.fill(0)
@@ -53,8 +67,7 @@ class OledDisplay:
         image, draw = self._blank_image()
         for i, line in enumerate(lines[: HEIGHT // LINE_HEIGHT]):
             draw.text((0, i * LINE_HEIGHT), line[:MAX_CHARS_PER_LINE], font=self.small_font, fill=255)
-        self.oled.image(image)
-        self.oled.show()
+        self._push(image)
 
     def show_play(self, note_label, font_name, freq_hz, bend_hz, volume_percent):
         """Normal-play status, matching control-layout.md's spec: note
@@ -67,5 +80,4 @@ class OledDisplay:
         draw.text((0, 24), font_name, font=self.small_font, fill=255)
         draw.text((0, 36), f"{freq_hz:.0f} Hz {bend_sign}{bend_hz:.0f} Hz", font=self.small_font, fill=255)
         draw.text((0, 48), f"Vol {volume_percent:.0f}%", font=self.small_font, fill=255)
-        self.oled.image(image)
-        self.oled.show()
+        self._push(image)
