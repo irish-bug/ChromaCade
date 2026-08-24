@@ -53,6 +53,13 @@ Fender pots are audio-taper (logarithmic), not linear — actually ideal for vol
 
 Confirmed via labeled board photo: separate BAT+/BAT- pads (raw battery) vs. labeled 5V OUT +/- pads (regulated boost output) — wire the Pi to the OUT pads, not the battery pads directly. Do NOT use 4x AAA batteries (raw 4.8–6.4V, unregulated, outside Pi's safe input range in either direction) — this boost/charge board setup was chosen specifically to avoid that problem.
 
+## Cooling (unit #2, plinkplonk / Pi 4B only)
+| Part | Notes | Status |
+|---|---|---|
+| Raspberry Pi cooling fan, 8-pack, brushless, one-to-two splitter included | 7mm thick, 2-wire (3.3V/5V DC, no PWM/tach line) -- includes M2.5×15mm mounting screws. Side-panel case fans + heatsinks (not an active SoC cooler) for this unit, given intermittent ~1hr/day play use; see `decision-log.md`/`open-questions.md` for the reasoning and the separate active-cooler plan for the dev unit. | Cart |
+
+**Screw length depends on final enclosure wall thickness, not yet finalized as of 2026-08-18** -- the included M2.5×15mm screws may be too short once the actual side-panel mounting boss depth is known from the new CAD; check against the real wall thickness before assuming these are long enough, order longer ones if not. Brushless DC fans can't have their direction reversed by swapping polarity (unlike a brushed motor) -- reversing polarity just stops them spinning, doesn't spin them backwards -- so orient by physically flipping the fan or designing the mounting boss for whichever side the screws need to land on, not by rewiring.
+
 ## Structural / prototyping
 | Part | Notes | Status |
 |---|---|---|
