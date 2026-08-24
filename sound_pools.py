@@ -37,8 +37,15 @@ actual sound files present.
 import os
 import subprocess
 
-NOPES_DIR = "/home/shane/ChromaCade/audio/nopes"
-YAYS_DIR = "/home/shane/ChromaCade/audio/yays"
+# Derived from this file's own location, not hardcoded to any one
+# device/user's home directory -- found hardcoded to unit #1's builder
+# path (/home/shane/ChromaCade) 2026-08-24, broke chromacade.py outright
+# on plinkplonk (a different user, plink). Repo root is this file's own
+# parent directory since sound_pools.py lives at the repo root alongside
+# audio/.
+_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+NOPES_DIR = os.path.join(_REPO_ROOT, "audio", "nopes")
+YAYS_DIR = os.path.join(_REPO_ROOT, "audio", "yays")
 
 STARTOVER_SOUND = "startover.wav"
 TRY_AGAIN_SOUND = "tryagain.wav"
