@@ -1,25 +1,41 @@
-// ChromaCade Synthesizer - Main Housing (wordmark-embossed variant)
-// Same as chromacade-housing.scad, plus a raised "ChromaCade" wordmark on the
-// panel exterior, centered in the gap between the OLED and LED ring. Kept as
-// a separate standalone file rather than a toggle in chromacade-housing.scad,
-// matching this repo's file-per-variant convention (see decision-log.md).
+// ChromaCade Synthesizer - Blank-side housing, wordmark-embossed variant
+// (blank endcap + front + shelf + panel + top, plus a raised "ChromaCade"
+// wordmark on the panel exterior between the OLED and LED ring)
+//
+// Same split rationale as chromacade-blank-side.scad (this is the current,
+// actively-developed model — the plain file is kept only until this
+// variant's wordmark print is validated on real hardware). One of two
+// printed pieces (see chromacade-pot-side.scad for the other) — split
+// 2026-08-17 so each piece has exactly one full side wall as its print-bed
+// face, printed side-down to avoid the support material a 45°-angled panel
+// would otherwise need. This piece owns the +X endcap (the side without
+// the volume-pot hole), plus the front wall, shelf, panel, and the
+// top/ceiling segment above the panel.
+//
 // The wordmark is embedded as traced polygon path data (see wordmark_points
-// below, converted from ChromaCade-wordmark-paths.svg) — no font or external
-// file needed to render this file. An earlier text()-based version needed the
-// Comfortaa font, which OpenSCAD couldn't reliably reproduce; see the comment
-// above wordmark_emboss() for why that approach was dropped.
+// below, converted from ChromaCade-wordmark-paths.svg) — no font or
+// external file needed to render this file (see wordmark_emboss() for why
+// an earlier text()-based approach was dropped). See chromacade-pot-side.scad
+// for the partition-construction rationale (avoids the stray-rib failure
+// mode of independently-inset cuts).
 $fn = 60;
 
-// --- Global Dimensions ---
+// --- Global Dimensions --- (must match chromacade-pot-side.scad)
 in2mm = 25.4;
-case_w = 7    * in2mm;
-case_d = 4.5  * in2mm;
+case_w = 7.7   * in2mm; // 7in + 10%
+case_d = 4.95  * in2mm; // 4.5in + 10%
 wall   = 5;
 
-front_h = 1.75 * in2mm;
-shelf_d = 1.5  * in2mm;
+front_h = 1.925 * in2mm; // 1.75in + 10%
+shelf_d = 60; // 2026-08-22: increased from 1.875in+25% (47.625mm), see
+               // chromacade-blank-side.scad for the reasoning (joystick
+               // repositioning). This file is already documented as
+               // stale re: the mount-boss system (see CLAUDE.md) and
+               // does NOT have the joystick-repositioning logic ported
+               // to it -- shelf_d kept in sync here only per the shared-
+               // dimension convention, not because this file is current.
 shelf_a = 8;
-panel_l = 2.5  * in2mm;
+panel_l = 2.75  * in2mm; // 2.5in + 10%
 panel_a = 45;
 
 // Grille is a portrait stadium (pill) matched exactly to the cone area;
@@ -36,20 +52,6 @@ p4 = [p3[0] - panel_l*cos(panel_a), p3[1] + panel_l*sin(panel_a)];
 p5 = [0, p4[1]];
 
 case_h = p4[1];
-
-boss_x     = case_w/2 - wall - 5;
-boss_z_top = case_h - wall - 15;
-boss_z_bot = wall + 15;
-boss_len   = 10;
-
-// Center top/bottom bosses (back-panel anti-bowing support). Unlike boss_z_top/
-// boss_z_bot above, these aren't inset for X-flush contact with a side wall —
-// there's no side wall at x=0. Instead they're offset 5mm in from the ceiling/
-// floor's inner surface so the *square* boss (see mounting_boss) sits Z-flush
-// against the ceiling/floor. (A previous attempt reused boss_z_top/boss_z_bot
-// unchanged at x=0, which touched nothing on any side — floating, unprintable.)
-boss_z_top_ctr = case_h - wall - 5;
-boss_z_bot_ctr = wall + 5;
 
 // "ChromaCade" wordmark outline, embedded directly rather than import()-ed from
 // ChromaCade-wordmark-paths.svg (kept in-repo as the source asset — regenerate
@@ -98,41 +100,74 @@ wordmark_paths = [
     [288,289,290,291,292,293,294,295,296,297,298,299,300,301,302,303,304,305,306,307,308], [309,310,311,312,313,314,315,316,317,318,319,320,321,322], // 'e'
 ];
 
+// Small deliberate gap between the two pieces' strip walls and the other
+// piece's endcap — see chromacade-pot-side.scad's matching comment. Defined
+// here (not down by strips()) because edge_x below needs it — a forward
+// reference makes OpenSCAD warn "Ignoring unknown variable" and silently
+// drop every mount hole positioned from it.
+edge_clearance = 0.15;
+
+// Mounting holes joining this piece to chromacade-pot-side.scad — screwed
+// together from the sides (X axis), right at each piece's own edge; see
+// that file's header comment for the full rationale (an earlier attempt
+// bridging the diagonal p1/p5 seam needed ~6" screws).
+//
+// This piece (blank-side) owns 5 mounts — near the front wall's bottom and
+// top, the shelf/panel joint, the panel/top joint, and the top/back joint —
+// each a pilot bore into this piece's own material, starting right at this
+// piece's edge nearest pot-side. Pot-side owns 4 more (2 bottom, 2 back);
+// this piece just gets clearance holes through its endcap for those.
+pilot_d = 3;
+clear_d = 3.5;
+engage  = 15;
+
+edge_x = -case_w/2 + wall + edge_clearance; // this piece's edge nearest pot-side
+
+// This piece's own 5 mount positions (Y,Z) — must stay identical to
+// chromacade-pot-side.scad's blank_side_mount_yz (that file explains where
+// these numbers come from) and to chromacade-blank-side.scad's own copy.
+// Regenerate all three together if the dimension constants above change.
+own_mount_yz = [
+    [123.23, 7.33],
+    [123.23, 41.56],
+    [85.29, 52.05],
+    [34.82, 95.74],
+    [4.38, 102.41],
+];
+
+// Pot-side's 4 mount positions (Y,Z) — must match its pot_side_mounts().
+pot_side_mount_yz = [
+    [100, wall/2],
+    [30, wall/2],
+    [wall/2, 85],
+    [wall/2, 20],
+];
+
+module blank_side_mounts() {
+    for (yz = own_mount_yz) {
+        translate([edge_x, yz[0], yz[1]]) rotate([0, 90, 0]) cylinder(h=engage, d=pilot_d);
+    }
+}
+
+module blank_side_clearance_holes() {
+    for (yz = pot_side_mount_yz) {
+        translate([case_w/2 - wall/2, yz[0], yz[1]])
+        rotate([0, 90, 0]) cylinder(h=wall + 10, d=clear_d, center=true);
+    }
+}
+
 // --- Assembly ---
 union() {
     difference() {
-        main_chassis();
+        union() {
+            endcap(1);
+            strips();
+        }
         hardware_cutouts();
+        blank_side_mounts();
+        blank_side_clearance_holes();
     }
     wordmark_emboss();
-}
-
-module main_chassis() {
-    difference() {
-        color("ivory")
-        rotate([90, 0, 90])
-        linear_extrude(case_w, center=true)
-        outer_profile();
-
-        rotate([90, 0, 90])
-        linear_extrude(case_w - (wall * 2), center=true)
-        offset(delta = -wall) outer_profile();
-
-        back_hole();
-    }
-
-    translate([boss_x, wall, 0]) {
-        translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-    }
-    translate([-boss_x, wall, 0]) {
-        translate([0, 0, boss_z_top]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-    }
-    translate([0, wall, 0]) {
-        translate([0, 0, boss_z_top_ctr]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-        translate([0, 0, boss_z_bot_ctr]) rotate([-90, 0, 0]) mounting_boss(boss_len);
-    }
 }
 
 module outer_profile() {
@@ -140,24 +175,59 @@ module outer_profile() {
     offset(r=6) offset(r=-6) polygon(pts);
 }
 
-module back_hole() {
-    w = case_w - wall*2;
-    h = case_h - wall*2;
-    translate([0, 0, case_h/2])
-    rotate([90, 0, 0])
-    linear_extrude(wall * 3, center=true)
-    offset(r=3) offset(r=-3) square([w, h], center=true);
+module shell_solid() {
+    difference() {
+        rotate([90, 0, 90])
+        linear_extrude(case_w, center=true)
+        outer_profile();
+
+        rotate([90, 0, 90])
+        linear_extrude(case_w - (wall * 2), center=true)
+        offset(delta = -wall) outer_profile();
+    }
 }
 
-module mounting_boss(len) {
-    // Square cross-section (not round) so the boss meets the side wall on a
-    // flush 10x10mm face instead of being tangent to it along a single line —
-    // a round boss here only ever line-contacts the flat wall, which is a weak
-    // bond and a real risk of a barely-fused, snap-off connection when printed.
-    difference() {
-        translate([-5, -5, 0]) cube([10, 10, len]);
-        translate([0, 0, -1])
-        cylinder(h=len+2, d=3, center=false);
+// Half-plane clip in the (Y,Z) profile plane, split along the p1-p5 seam
+// line — see chromacade-pot-side.scad for the full derivation. side=-1
+// keeps the front+shelf+panel+top half (away from p0).
+module yz_half_plane(side) {
+    seam = p5 - p1;
+    perp = side * [-seam[1], seam[0]];
+    perp_unit = perp / norm(perp);
+    // seam_margin set to 0 2026-08-22, matching chromacade-blank-side.scad
+    // and chromacade-pot-side.scad -- see the former's comment for the
+    // full reasoning. This file is already documented elsewhere as stale
+    // re: the mount-boss system; kept in sync here only per the shared-
+    // dimension convention.
+    seam_margin = 0;
+    p1m = p1 + perp_unit*seam_margin;
+    p5m = p5 + perp_unit*seam_margin;
+    big = 2000;
+    pts = [p1m, p5m, p5m + perp_unit*big, p1m + perp_unit*big];
+    rotate([90, 0, 90])
+    linear_extrude(case_w, center=true)
+    polygon(pts);
+}
+
+// Full-hexagon endcap slice, wall-thick, at this piece's own X extreme.
+// side=1 -> endcap at X=+case_w/2 (blank side).
+module endcap(side) {
+    intersection() {
+        shell_solid();
+        translate([side * (case_w/2 - wall/2), case_d/2, case_h/2])
+        cube([wall, case_d + 80, case_h + 80], center=true);
+    }
+}
+
+// This piece's front+shelf+panel+top wall strips, spanning from its own
+// endcap's outer face to just short of the OTHER piece's endcap inner face
+// (see edge_clearance, defined near the top of this file).
+module strips() {
+    intersection() {
+        shell_solid();
+        yz_half_plane(-1); // front+shelf+panel+top side (away from p0)
+        translate([(wall + edge_clearance)/2, case_d/2, case_h/2])
+        cube([case_w - wall - edge_clearance, case_d + 80, case_h + 80], center=true);
     }
 }
 
@@ -210,13 +280,6 @@ module hardware_cutouts() {
         translate([65, -15, -(wall - 0.5)])
         cylinder(h=1, d=28, center=true);
     }
-
-    // Side-panel hole for the Fender 500K volume pot -- needs its 3/8" (9.525mm)
-    // mounting bushing, not a bare 8mm hole (regression; unit #1 was hand-drilled
-    // out to fit -- fixed here so future prints don't need that workaround).
-    translate([-case_w/2, case_d/3, case_h/1.5])
-    rotate([0, 90, 0])
-    cylinder(h=wall*4, d=9.525, center=true);
 }
 
 // Toddler-safe portrait stadium hex grill — validated on test-mk2.scad's plate E.

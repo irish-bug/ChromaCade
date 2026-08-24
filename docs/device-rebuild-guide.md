@@ -133,3 +133,39 @@ sudo systemctl enable --now chromacade.service chromacade-boot-chime.service
 Once enabled, `systemctl status chromacade.service` / `journalctl -u chromacade.service -f` are how to check it's actually running rather than assuming.
 
 Separately, still open per `docs/open-questions.md`'s "Future / stretch" section: full read-only root + overlay-fs, and the dedicated non-root service user mentioned above. Do those *before* depending on this unit for unattended live use, not as part of a basic rebuild.
+
+## 9. Parent's-guide web page (Caddy)
+
+Serves `web/` (the Quickstart/Parental-Settings/Add-a-Song pages) on port 80. Not installed as part of §4's apt packages since it's a separate concern (static docs, not the instrument app) — set up here instead, verified live on `plinkplonk` 2026-08-24.
+
+**a) Install Caddy.** Available directly from Debian trixie's own repo (2.6.2) — no third-party apt source needed, unlike most of Caddy's own install docs assume:
+
+```bash
+sudo apt install -y caddy
+```
+
+The package's postinst creates a dedicated `caddy` system user/group, installs its own systemd unit (`/usr/lib/systemd/system/caddy.service`, already `AmbientCapabilities=CAP_NET_BIND_SERVICE` so it can bind port 80 without root), and enables + starts it immediately against a placeholder `/etc/caddy/Caddyfile`.
+
+**b) Grant the `caddy` user access to the repo checkout.** This is the one real gotcha: Caddy runs as its own unprivileged `caddy` user (correct, least-privilege default — do not "fix" this by making it run as root or as `plink`), but a fresh account's home directory (`/home/plink`) is `700` by default, so `caddy` can't traverse into it at all regardless of what `web/`'s own permissions are. Without this step the site 403s (or the file_server logs a permission error) the moment it's pointed at a repo path under `/home`:
+
+```bash
+sudo usermod -aG plink caddy
+sudo chmod 750 /home/plink
+```
+
+Scoped narrowly on purpose — this only grants members of the `plink` group (now: `plink` and `caddy`) traverse+read access, not "other"/world. `caddy` still can't write anything.
+
+**c) Deploy the tracked Caddyfile and reload:**
+
+```bash
+sudo cp ~/ChromaCade/web/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl restart caddy
+```
+
+`web/Caddyfile`'s `root` path is per-device, same caveat as `chromacade.service`'s `ExecStart`/`WorkingDirectory` in §8 — check it matches the actual checkout path before restarting.
+
+**Verify:**
+```bash
+systemctl is-active caddy   # should be "active"
+curl -s http://localhost/ | head -5   # should be the Quickstart Guide's <title>, not Caddy's default placeholder page
+```

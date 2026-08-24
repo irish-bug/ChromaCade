@@ -1,7 +1,9 @@
 # ChromaCade — Project Overview & Task Breakdown
 
+**Status note (2026-08-20): tracks 3, 4, and 5 below (core audio engine, display & color system, menu & Simon/Learn mode) are now substantially built** — real code at the repo root (`chromacade.py` and its supporting modules; see top-level `CLAUDE.md`'s Repo state section), not open/unclaimed work. This doc is kept as the original team-onboarding record, not an accurate map of what's currently open.
+
 ## What we're building
-A DIY musical instrument for toddlers, built around a Raspberry Pi Zero 2 W. It's a teaching instrument, not a performance instrument — every design choice is judged on whether it helps a small child build real musical intuition (note names, octave equivalence, the sharp/flat relationship, chord color), not on how musically flexible or feature-rich it is.
+A DIY musical instrument for toddlers, built around a Raspberry Pi 4B (unit #1 was a Pi Zero 2 W but is no longer available; the current build, unit #2, is a Pi 4B — see `docs/decision-log.md`'s "Platform / compute" section). It's a teaching instrument, not a performance instrument — every design choice is judged on whether it helps a small child build real musical intuition (note names, octave equivalence, the sharp/flat relationship, chord color), not on how musically flexible or feature-rich it is.
 
 A few things that shape the whole design:
 

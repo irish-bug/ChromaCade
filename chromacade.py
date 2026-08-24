@@ -192,39 +192,51 @@ def main():
     tutor = {"session": None, "song_name": None}
     simon = {"session": None, "source_name": None, "saved_font_index": None}
     oled_throttle = {"t": 0.0}
+    # Guards ring/oled hardware writes -- added 2026-08-24 alongside
+    # note_on()/note_off() backgrounding their display update (see
+    # _background() and _refresh_display() below for why). Neither
+    # NeoPixel.show() nor the SSD1306's I2C write is safe against
+    # concurrent/interleaved calls, now that update_ring()/
+    # update_play_oled() can run from more than one thread at once (this
+    # backgrounded call, plus the ADS1115 poll thread's direct calls via
+    # pitch_bend()/volume_change()) -- same underlying class of problem
+    # ChromaCadeAudio's own RLock already guards for FluidSynth.
+    _display_lock = threading.Lock()
 
     def update_ring():
         """Normal-play ring behavior -- verbatim from play.py."""
-        if not held:
-            ring.clear()
-            play_state["shown"] = None
-            play_state["shown_base"] = None
-            return
-        base = held[-1]
-        letter = bent_letter(base, play_state["bend"])
-        if letter != play_state["shown"]:
-            if play_state["shown"] is not None and base == play_state["shown_base"]:
-                print(f"COLOR   {play_state['shown']} -> {letter} (bend crossed the halfway point)")
-            ring.show(letter)
-            play_state["shown"] = letter
-        play_state["shown_base"] = base
-
-    def update_play_oled(force=False):
-        now = time.monotonic()
-        if not force and now - oled_throttle["t"] < OLED_THROTTLE_SECONDS:
-            return
-        oled_throttle["t"] = now
-        if held:
+        with _display_lock:
+            if not held:
+                ring.clear()
+                play_state["shown"] = None
+                play_state["shown_base"] = None
+                return
             base = held[-1]
             letter = bent_letter(base, play_state["bend"])
-            note_label = f"{letter}{ACCIDENTAL_SYMBOLS[audio.accidental]}{audio.octave}"
-            base_midi = midi_note(base, audio.octave, audio.accidental)
-            base_freq = midi_to_freq(base_midi)
-            bent_freq = midi_to_freq(base_midi + play_state["bend"] * MAX_BEND_SEMITONES)
-            bend_hz = bent_freq - base_freq
-        else:
-            note_label, base_freq, bend_hz = "--", 0.0, 0.0
-        oled.show_play(note_label, audio.font_name, base_freq, bend_hz, play_state["volume_percent"])
+            if letter != play_state["shown"]:
+                if play_state["shown"] is not None and base == play_state["shown_base"]:
+                    print(f"COLOR   {play_state['shown']} -> {letter} (bend crossed the halfway point)")
+                ring.show(letter)
+                play_state["shown"] = letter
+            play_state["shown_base"] = base
+
+    def update_play_oled(force=False):
+        with _display_lock:
+            now = time.monotonic()
+            if not force and now - oled_throttle["t"] < OLED_THROTTLE_SECONDS:
+                return
+            oled_throttle["t"] = now
+            if held:
+                base = held[-1]
+                letter = bent_letter(base, play_state["bend"])
+                note_label = f"{letter}{ACCIDENTAL_SYMBOLS[audio.accidental]}{audio.octave}"
+                base_midi = midi_note(base, audio.octave, audio.accidental)
+                base_freq = midi_to_freq(base_midi)
+                bent_freq = midi_to_freq(base_midi + play_state["bend"] * MAX_BEND_SEMITONES)
+                bend_hz = bent_freq - base_freq
+            else:
+                note_label, base_freq, bend_hz = "--", 0.0, 0.0
+            oled.show_play(note_label, audio.font_name, base_freq, bend_hz, play_state["volume_percent"])
 
     def stop_active_tutor():
         """Abort whatever Tutor progress exists -- no celebration, this
@@ -348,6 +360,15 @@ def main():
         this isn't a new class of risk, just a new caller."""
         threading.Thread(target=target, args=args, daemon=True).start()
 
+    def _refresh_display():
+        """update_ring() + update_play_oled(force=True), bundled so a
+        backgrounded call (see note_on()/note_off() below) still does
+        both in their original order. The hardware writes themselves
+        are individually lock-guarded inside update_ring()/
+        update_play_oled(), not here -- see _display_lock."""
+        update_ring()
+        update_play_oled(force=True)
+
     def _simon_handle_wrong():
         simon_miss_feedback()
         simon["session"].reset()
@@ -366,8 +387,18 @@ def main():
             print(f"PRESS   {letter}")
             audio.note_on(letter)
             held.append(letter)
-            update_ring()
-            update_play_oled(force=True)
+            # Backgrounded 2026-08-24 -- update_ring()/update_play_oled()
+            # were blocking this same callback (and therefore whatever
+            # gpiozero's pin factory serializes button-event dispatch
+            # through) until their I2C/NeoPixel writes finished, which
+            # measurably staggered chords: audio.note_on() above already
+            # fires immediately either way, but a held-up callback
+            # delayed the NEXT button's press event from even being
+            # processed. Confirmed live -- 3-note chords played as a
+            # fast arpeggio instead of together, worse on fast-decay
+            # voices. held.append() stays synchronous/in-order above;
+            # only the display catch-up is deferred.
+            _background(_refresh_display)
         elif state == "tutor_active":
             session = tutor["session"]
             audio.note_on(letter)
@@ -405,8 +436,7 @@ def main():
             audio.note_off(letter)
             if letter in held:
                 held.remove(letter)
-            update_ring()
-            update_play_oled(force=True)
+            _background(_refresh_display)  # see note_on()'s comment above
         elif state == "tutor_active":
             audio.note_off(letter)
         elif state == "simon_active":

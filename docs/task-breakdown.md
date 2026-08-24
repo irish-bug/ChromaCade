@@ -1,5 +1,7 @@
 # Task Breakdown — Toddler Synth Team Build
 
+**Status note (2026-08-20): tracks 3, 4, and 5 below (core audio engine, display & color system, menu & Simon/Learn mode) are now substantially built** — real code at the repo root (`chromacade.py` and its supporting modules; see top-level `CLAUDE.md`'s Repo state section), not proposed/unclaimed work. This doc is kept as the original team-planning record, not an accurate map of what's currently open — check the real code first before assuming any of the bullets below still need doing.
+
 Three people: Shane (lead — hardware, embedded systems, project coordination), brother (software-inclined), dad from the nanny-share (software-inclined). Split below is organized by discipline/workstream rather than by unit, so people can specialize and parallelize. Treat this as a starting proposal — reassign once everyone's had a session or two and knows what they actually enjoy.
 
 ## 1. Hardware & Wiring — Shane
