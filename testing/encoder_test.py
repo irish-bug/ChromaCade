@@ -5,17 +5,20 @@ ChromaCade -- EC11 rotary encoder bring-up test (octave or font).
 Tests one EC11 encoder's A/B quadrature signals and pushbutton, wired
 per gpio-pin-assignments.md:
 
-    Octave encoder: A->GPIO5(pin29)  B->GPIO6(pin31)  Button->GPIO25(pin22) (unconfirmed, see caveat below)
-    Font encoder:   A->GPIO26(pin37) B->GPIO16(pin36) Button->GPIO20(pin38)
+    Octave encoder: A->GPIO5(pin29)  B->GPIO6(pin31)  Button->GPIO8(pin24)
+    Font encoder:   A->GPIO26(pin37) B->GPIO16(pin36) Button->GPIO7(pin26)
     (both: Common + button's other leg -> GND)
 
-Octave button's GPIO25 assignment is pending a retest on a clean spare
-(GPIO7 or GPIO8) -- it never registered on GPIO25, suspected solder
-damage on that pad from the old 3-key test mount, not necessarily a
-dead switch. Use --button-pin to test an alternate pin without editing
-this file, e.g.:
+Both button pins were retested and moved here 2026-08-14 (see
+decision-log.md's "octave encoder's push-button... was never dead"
+entry) -- GPIO25 (octave's original pin) had solder-damage history
+from the old 3-key test mount and never registered; GPIO20 (font's
+original pin) is permanently claimed by the I2S peripheral and could
+never register regardless of wiring. Neither is a valid retest target
+anymore -- hardware_poller.py already uses GPIO8/GPIO7 for real. Use
+--button-pin to test some other pin without editing this file, e.g.:
 
-    python3 encoder_test.py --which octave --button-pin 7
+    python3 encoder_test.py --which octave --button-pin 14
 
 Usage:
     python3 encoder_test.py --which octave [--button-pin N]
@@ -36,8 +39,8 @@ from gpiozero import RotaryEncoder, Button
 from signal import pause
 
 PINS = {
-    "octave": {"a": 5, "b": 6, "button": 25},
-    "font": {"a": 26, "b": 16, "button": 20},
+    "octave": {"a": 5, "b": 6, "button": 8},
+    "font": {"a": 26, "b": 16, "button": 7},
 }
 
 counts = {"CW": 0, "CCW": 0, "press": 0}
