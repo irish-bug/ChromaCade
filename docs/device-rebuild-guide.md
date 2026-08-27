@@ -48,6 +48,18 @@ dtoverlay=wm8960-soundcard
 
 Then reboot. Current Raspberry Pi OS (kernel 6.18.x) ships `wm8960-soundcard.dtbo` as a stock overlay — no vendor install script/DKMS module needed, despite what older WM8960 setup guides say. Verify: `aplay -l` should show `card N: wm8960soundcard` and should **not** show a "Headphones" card; `sudo i2cdetect -y 1` should show the codec responding at `0x1a`.
 
+## 3b. Boot config -- disable the red PWR LED
+
+Added to `plinkplonk`'s `/boot/firmware/config.txt` 2026-08-27, in a `[all]` block at the end of the file (alongside the stock per-board `[cm4]`/`[cm5]`/`[pi5]` sections Raspberry Pi Imager already writes -- leave those alone):
+
+```
+[all]
+dtparam=pwr_led_trigger=default-on
+dtparam=pwr_led_activelow=off
+```
+
+The board's red power LED was shining straight through the translucent-PLA case -- distracting for a toddler instrument that's supposed to draw attention to the note keys/ring, not a status light. This is the standard (if counterintuitive-looking) incantation for permanently killing that LED, not a typo: the board's default device-tree config already wires/configures the LED active-low (driving the GPIO low is what lights it up). Setting `pwr_led_trigger=default-on` forces the LED subsystem into a steady, non-reactive "on" state (no blinking/disk-activity flicker) -- read that as "steady state," not "the LED will be lit." `pwr_led_activelow=off` is what actually matters for visible brightness: it flips the polarity the kernel applies when driving that steady "on" state, so instead of pulling the pin low (lighting the LED, per the real wiring), it drives the pin high -- which for this LED's actual active-low wiring means off. Needs a reboot to take effect (`config.txt` is read at boot, not hot-reloadable) -- verify by eye, there's no software-readable "is the LED actually off" check.
+
 ## 4. System packages (apt)
 
 ```bash
