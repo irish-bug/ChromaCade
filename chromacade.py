@@ -359,13 +359,17 @@ def main():
 
     def _stop_after_complete():
         """STOP_LETTER press from either *_await_continue state --
-        brief confirmation, then back to Play. Backgrounded from
-        note_on() below (see _background()'s own docstring) since this
-        sleeps and would otherwise stall gpiozero's button-callback
-        dispatch thread, the same class of bug as the pre-2026-08-24
-        chord-timing issue."""
+        brief visual confirmation, then back to Play. No sound here --
+        removed 2026-08-27, direct feedback: all_done.wav already
+        played once as part of _offer_continue()'s upfront announcement
+        ("they already pressed the red button" -- replaying the same
+        clip again on the press that CHOSE that option is redundant,
+        not a fresh confirmation. The OLED flash stays; only the audio
+        was cut. Still backgrounded from note_on() below (see
+        _background()'s own docstring) since this sleeps and would
+        otherwise stall gpiozero's button-callback dispatch thread, the
+        same class of bug as the pre-2026-08-24 chord-timing issue."""
         oled.show_lines(["ALL DONE!"])
-        play_wav(pools["all_done"].next())
         time.sleep(ALL_DONE_FLASH_SECONDS)
         tutor["song_name"] = None
         simon["source_name"] = None
