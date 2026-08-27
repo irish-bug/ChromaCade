@@ -236,6 +236,20 @@ def main():
     # pitch_bend()/volume_change()) -- same underlying class of problem
     # ChromaCadeAudio's own RLock already guards for FluidSynth.
     _display_lock = threading.Lock()
+    # Coalesces display-refresh requests -- added 2026-08-27, found live
+    # ("LEDs not keeping up with the keys and notes"). The 2026-08-24 fix
+    # above (backgrounding update_ring()/update_play_oled() so they can't
+    # block gpiozero's callback dispatch) fixed audio/chord timing, but
+    # spawned a brand new thread PER note_on()/note_off() with no
+    # coalescing -- fast playing (a run of notes, not just chords) queued
+    # up threads faster than the I2C OLED write + NeoPixel show() could
+    # drain them, and _display_lock only serializes access, it doesn't
+    # skip stale work, so the ring visibly cycled through a backlog of
+    # already-superseded states instead of just showing the current one.
+    # Fixed by replacing "one thread per event" with one persistent
+    # worker (_display_worker() below) woken by this Event -- see that
+    # function's own docstring for why this coalesces for free.
+    _display_dirty = threading.Event()
 
     def update_ring():
         """Normal-play ring behavior -- verbatim from play.py."""
@@ -439,12 +453,40 @@ def main():
 
     def _refresh_display():
         """update_ring() + update_play_oled(force=True), bundled so a
-        backgrounded call (see note_on()/note_off() below) still does
+        single refresh request (see _display_worker() below) still does
         both in their original order. The hardware writes themselves
         are individually lock-guarded inside update_ring()/
         update_play_oled(), not here -- see _display_lock."""
         update_ring()
         update_play_oled(force=True)
+
+    def _request_display_refresh():
+        """Called from note_on()/note_off()'s "play" branch -- just
+        flags that a refresh is needed rather than spawning a thread
+        per call (see _display_dirty's own comment above for why).
+        Setting an already-set Event is a harmless no-op, which is
+        exactly the coalescing this wants: N note events in a burst
+        collapse into "at least one more refresh happens soon", not N
+        redundant ones."""
+        _display_dirty.set()
+
+    def _display_worker():
+        """The one persistent thread that actually calls
+        _refresh_display() -- started once, below, alongside the
+        poller. Blocks on _display_dirty rather than polling, so it's
+        idle (no CPU, no I2C/NeoPixel traffic) whenever nothing's
+        changed. Coalescing falls out of this loop shape for free:
+        update_ring()/update_play_oled() both read LIVE state (`held`,
+        `play_state`) rather than anything captured at request time, so
+        no matter how many times _display_dirty got set while this
+        thread was busy with the previous refresh, the next iteration
+        renders whatever is CURRENTLY true in one pass -- there's no
+        backlog of stale intermediate states to work through, unlike
+        the one-thread-per-event version this replaced."""
+        while True:
+            _display_dirty.wait()
+            _display_dirty.clear()
+            _refresh_display()
 
     def _simon_handle_wrong():
         simon_miss_feedback()
@@ -464,18 +506,21 @@ def main():
             print(f"PRESS   {letter}")
             audio.note_on(letter)
             held.append(letter)
-            # Backgrounded 2026-08-24 -- update_ring()/update_play_oled()
-            # were blocking this same callback (and therefore whatever
-            # gpiozero's pin factory serializes button-event dispatch
-            # through) until their I2C/NeoPixel writes finished, which
-            # measurably staggered chords: audio.note_on() above already
-            # fires immediately either way, but a held-up callback
-            # delayed the NEXT button's press event from even being
-            # processed. Confirmed live -- 3-note chords played as a
-            # fast arpeggio instead of together, worse on fast-decay
-            # voices. held.append() stays synchronous/in-order above;
-            # only the display catch-up is deferred.
-            _background(_refresh_display)
+            # Deferred 2026-08-24 (then switched from a per-event thread
+            # to _request_display_refresh()'s coalesced Event 2026-08-27,
+            # see _display_dirty's own comment) -- update_ring()/
+            # update_play_oled() were blocking this same callback (and
+            # therefore whatever gpiozero's pin factory serializes
+            # button-event dispatch through) until their I2C/NeoPixel
+            # writes finished, which measurably staggered chords:
+            # audio.note_on() above already fires immediately either
+            # way, but a held-up callback delayed the NEXT button's
+            # press event from even being processed. Confirmed live --
+            # 3-note chords played as a fast arpeggio instead of
+            # together, worse on fast-decay voices. held.append() stays
+            # synchronous/in-order above; only the display catch-up is
+            # deferred.
+            _request_display_refresh()
         elif state == "tutor_active":
             session = tutor["session"]
             audio.note_on(letter)
@@ -523,7 +568,7 @@ def main():
             audio.note_off(letter)
             if letter in held:
                 held.remove(letter)
-            _background(_refresh_display)  # see note_on()'s comment above
+            _request_display_refresh()  # see note_on()'s comment above
         elif state == "tutor_active":
             audio.note_off(letter)
         elif state == "simon_active":
@@ -690,6 +735,10 @@ def main():
             subprocess.run(["shutdown", "-h", "now"])
         else:
             subprocess.run(["reboot"])
+
+    # Started once, daemon (dies with the process, same as every other
+    # _background() thread) -- see _display_worker()'s own docstring.
+    threading.Thread(target=_display_worker, daemon=True).start()
 
     # Must stay referenced for the life of the program -- see play.py's
     # identical note on this (garbage-collected poller silently kills
