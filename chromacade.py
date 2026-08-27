@@ -228,28 +228,27 @@ def main():
     oled_throttle = {"t": 0.0}
     # Guards ring/oled hardware writes -- added 2026-08-24 alongside
     # note_on()/note_off() backgrounding their display update (see
-    # _background() and _refresh_display() below for why). Neither
-    # NeoPixel.show() nor the SSD1306's I2C write is safe against
-    # concurrent/interleaved calls, now that update_ring()/
-    # update_play_oled() can run from more than one thread at once (this
-    # backgrounded call, plus the ADS1115 poll thread's direct calls via
+    # _background(), _ring_worker(), and _oled_worker() below for why).
+    # Neither NeoPixel.show() nor the SSD1306's I2C write is safe
+    # against concurrent/interleaved calls, now that update_ring()/
+    # update_play_oled() can run from more than one thread at once (the
+    # two workers below, plus the ADS1115 poll thread's direct calls via
     # pitch_bend()/volume_change()) -- same underlying class of problem
     # ChromaCadeAudio's own RLock already guards for FluidSynth.
     _display_lock = threading.Lock()
-    # Coalesces display-refresh requests -- added 2026-08-27, found live
-    # ("LEDs not keeping up with the keys and notes"). The 2026-08-24 fix
-    # above (backgrounding update_ring()/update_play_oled() so they can't
-    # block gpiozero's callback dispatch) fixed audio/chord timing, but
-    # spawned a brand new thread PER note_on()/note_off() with no
-    # coalescing -- fast playing (a run of notes, not just chords) queued
-    # up threads faster than the I2C OLED write + NeoPixel show() could
-    # drain them, and _display_lock only serializes access, it doesn't
-    # skip stale work, so the ring visibly cycled through a backlog of
-    # already-superseded states instead of just showing the current one.
-    # Fixed by replacing "one thread per event" with one persistent
-    # worker (_display_worker() below) woken by this Event -- see that
-    # function's own docstring for why this coalesces for free.
-    _display_dirty = threading.Event()
+    # Two SEPARATE coalescing Events, not one shared -- 2026-08-27, found
+    # live ("LEDs not keeping up") after the single-worker version below
+    # (also added 2026-08-27, same day, superseded within the hour) still
+    # lagged. Measured directly on plinkplonk: ring.show() ~1.3ms/call,
+    # oled.show_play() ~179ms/call -- a single worker doing both in one
+    # pass on one thread meant every ring update was stuck waiting behind
+    # the ~140x-slower OLED write, capping the RING's effective refresh
+    # rate at the OLED's ~5.5/sec instead of its own much faster ceiling.
+    # Splitting into _ring_dirty/_oled_dirty with two independent workers
+    # lets the ring coalesce-and-refresh on its own fast cadence,
+    # completely decoupled from however long the OLED write takes.
+    _ring_dirty = threading.Event()
+    _oled_dirty = threading.Event()
 
     def update_ring():
         """Normal-play ring behavior -- verbatim from play.py."""
@@ -451,42 +450,48 @@ def main():
         this isn't a new class of risk, just a new caller."""
         threading.Thread(target=target, args=args, daemon=True).start()
 
-    def _refresh_display():
-        """update_ring() + update_play_oled(force=True), bundled so a
-        single refresh request (see _display_worker() below) still does
-        both in their original order. The hardware writes themselves
-        are individually lock-guarded inside update_ring()/
-        update_play_oled(), not here -- see _display_lock."""
-        update_ring()
-        update_play_oled(force=True)
-
     def _request_display_refresh():
-        """Called from note_on()/note_off()'s "play" branch -- just
-        flags that a refresh is needed rather than spawning a thread
-        per call (see _display_dirty's own comment above for why).
+        """Called from note_on()/note_off()'s "play" branch -- flags
+        both the ring and OLED workers rather than spawning a thread
+        per call (see _ring_dirty/_oled_dirty's own comment above).
         Setting an already-set Event is a harmless no-op, which is
         exactly the coalescing this wants: N note events in a burst
-        collapse into "at least one more refresh happens soon", not N
-        redundant ones."""
-        _display_dirty.set()
+        collapse into "at least one more refresh happens soon" on each
+        worker, not N redundant ones. Deliberately sets both from one
+        call (not two separately-named request functions) -- every
+        current caller wants both updated; split them further only if
+        a caller ever wants just one."""
+        _ring_dirty.set()
+        _oled_dirty.set()
 
-    def _display_worker():
-        """The one persistent thread that actually calls
-        _refresh_display() -- started once, below, alongside the
-        poller. Blocks on _display_dirty rather than polling, so it's
-        idle (no CPU, no I2C/NeoPixel traffic) whenever nothing's
-        changed. Coalescing falls out of this loop shape for free:
-        update_ring()/update_play_oled() both read LIVE state (`held`,
-        `play_state`) rather than anything captured at request time, so
-        no matter how many times _display_dirty got set while this
-        thread was busy with the previous refresh, the next iteration
-        renders whatever is CURRENTLY true in one pass -- there's no
-        backlog of stale intermediate states to work through, unlike
-        the one-thread-per-event version this replaced."""
+    def _ring_worker():
+        """Persistent thread that calls update_ring() -- started once,
+        below, alongside the poller and _oled_worker(). Blocks on
+        _ring_dirty rather than polling, so it's idle (no CPU, no
+        NeoPixel traffic) whenever nothing's changed. Coalescing falls
+        out of this loop shape for free: update_ring() reads LIVE state
+        (`held`, `play_state`) rather than anything captured at request
+        time, so no matter how many times _ring_dirty got set while
+        this thread was busy, the next iteration renders whatever is
+        CURRENTLY true in one pass. Split from OLED refreshes
+        2026-08-27 specifically so this loop's own ~1.3ms-per-call
+        NeoPixel writes never wait behind the OLED's ~179ms I2C writes
+        -- see _ring_dirty's own comment for the measurements."""
         while True:
-            _display_dirty.wait()
-            _display_dirty.clear()
-            _refresh_display()
+            _ring_dirty.wait()
+            _ring_dirty.clear()
+            update_ring()
+
+    def _oled_worker():
+        """Same idea as _ring_worker(), for update_play_oled(). Kept
+        as its own thread/Event (not folded back into _ring_worker())
+        specifically so its much slower I2C writes never throttle the
+        ring's own refresh rate -- that coupling was the actual bug
+        this whole 2026-08-27 change fixes."""
+        while True:
+            _oled_dirty.wait()
+            _oled_dirty.clear()
+            update_play_oled(force=True)
 
     def _simon_handle_wrong():
         simon_miss_feedback()
@@ -507,8 +512,8 @@ def main():
             audio.note_on(letter)
             held.append(letter)
             # Deferred 2026-08-24 (then switched from a per-event thread
-            # to _request_display_refresh()'s coalesced Event 2026-08-27,
-            # see _display_dirty's own comment) -- update_ring()/
+            # to _request_display_refresh()'s coalesced Events 2026-08-27,
+            # see _ring_dirty/_oled_dirty's own comment) -- update_ring()/
             # update_play_oled() were blocking this same callback (and
             # therefore whatever gpiozero's pin factory serializes
             # button-event dispatch through) until their I2C/NeoPixel
@@ -736,9 +741,11 @@ def main():
         else:
             subprocess.run(["reboot"])
 
-    # Started once, daemon (dies with the process, same as every other
-    # _background() thread) -- see _display_worker()'s own docstring.
-    threading.Thread(target=_display_worker, daemon=True).start()
+    # Started once each, daemon (dies with the process, same as every
+    # other _background() thread) -- see _ring_worker()/_oled_worker()'s
+    # own docstrings for why these are two separate threads, not one.
+    threading.Thread(target=_ring_worker, daemon=True).start()
+    threading.Thread(target=_oled_worker, daemon=True).start()
 
     # Must stay referenced for the life of the program -- see play.py's
     # identical note on this (garbage-collected poller silently kills
