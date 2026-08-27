@@ -225,6 +225,24 @@ def main():
     play_state = {"bend": 0.0, "shown": None, "shown_base": None, "volume_percent": 0.0}
     tutor = {"session": None, "song_name": None}
     simon = {"session": None, "source_name": None, "saved_font_index": None}
+    # Guards CONTINUE_LETTER/STOP_LETTER against being acted on WHILE
+    # _offer_continue()'s voice announcement is still playing -- added
+    # 2026-08-27, found live ("press red, it just goes back to Play and
+    # doesn't say anything"). app["state"] flips to *_await_continue
+    # BEFORE that announcement finishes (has to, see _offer_continue()'s
+    # own docstring -- otherwise a press during it hits the stale
+    # tutor_active/simon_active branch and crashes on a None session),
+    # so a press landing DURING the announcement was already being acted
+    # on immediately -- starting the next song, or firing
+    # _stop_after_complete()'s own play_wav() -- while the announcement's
+    # own aplay calls (via play_wav_sequence(), still running on its own
+    # thread) were still in flight through the same shared dmix device.
+    # Overlapping/competing aplay processes on the same clip is exactly
+    # the kind of thing that can wash out into what sounds like nothing
+    # played. Not ready until the announcement truly finishes; a press
+    # during it is a clean no-op (like "menu"/"tutor_demo"/"simon_demo"
+    # already are) rather than an accepted-but-garbled one.
+    continue_ready = {"value": False}
     oled_throttle = {"t": 0.0}
     # Guards ring/oled hardware writes -- added 2026-08-24 alongside
     # note_on()/note_off() backgrounding their display update (see
@@ -329,10 +347,15 @@ def main():
         already be routed to the *_await_continue branch (a safe no-op
         for anything but CONTINUE_LETTER/STOP_LETTER) rather than the
         stale tutor_active/simon_active branch, which would call
-        .press() on a None session and crash."""
+        .press() on a None session and crash. continue_ready gates the
+        SEPARATE question of whether to actually ACT on that letter yet
+        -- see its own comment above for why a press during the
+        announcement needs to be ignored, not just safely routed."""
         oled.show_lines(["KEEP GOING?", "PRESS GREEN", "ALL DONE?", "PRESS RED"])
+        continue_ready["value"] = False
         app["state"] = f"{mode}_await_continue"
         play_wav_sequence([pools["keep_going"].next(), pools["all_done"].next()])
+        continue_ready["value"] = True
 
     def _stop_after_complete():
         """STOP_LETTER press from either *_await_continue state --
@@ -568,12 +591,16 @@ def main():
             elif result == "complete":
                 _background(finish_simon)
         elif state == "tutor_await_continue":
-            if letter == CONTINUE_LETTER:
+            if not continue_ready["value"]:
+                pass  # announcement still playing -- see continue_ready's own comment
+            elif letter == CONTINUE_LETTER:
                 _continue_tutor()
             elif letter == STOP_LETTER:
                 _background(_stop_after_complete)
         elif state == "simon_await_continue":
-            if letter == CONTINUE_LETTER:
+            if not continue_ready["value"]:
+                pass  # announcement still playing -- see continue_ready's own comment
+            elif letter == CONTINUE_LETTER:
                 _continue_simon()
             elif letter == STOP_LETTER:
                 _background(_stop_after_complete)
