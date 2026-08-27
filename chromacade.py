@@ -548,7 +548,18 @@ def main():
             audio.set_pitch_bend(bend_fraction)
 
     def volume_change(volume_fraction):
-        if app["state"] in ("play", "tutor_active", "simon_active"):
+        # tutor_demo/simon_demo added 2026-08-26 -- found live, the pot
+        # was a no-op during play_demo()/play_simon_sequence() (the
+        # watch-the-song-play phase), same ChromaCadeAudio call as
+        # tutor_active/simon_active so no new threading concern (the
+        # RLock added for the concurrent-access crash fix already
+        # serializes this against whatever play_demo() is doing on its
+        # own thread). octave_change()/accidental_change()/pitch_bend()
+        # have this same "*_active" but not "*_demo" gap -- not fixed
+        # here since only the volume pot was actually reported broken,
+        # but worth knowing it's not unique to volume if this comes up
+        # again.
+        if app["state"] in ("play", "tutor_active", "simon_active", "tutor_demo", "simon_demo"):
             audio.set_volume(volume_fraction)
             play_state["volume_percent"] = volume_fraction * 100
             if app["state"] == "play":
