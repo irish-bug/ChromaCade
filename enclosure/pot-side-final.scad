@@ -1,4 +1,10 @@
-// ChromaCade Synthesizer - Pot-side housing (volume-pot endcap + back + bottom)
+// pot-side-final -- volume-pot endcap + back wall + bottom
+//
+// FINAL, 2026-08-27. Supersedes chromacade-pot-side.scad and
+// chromacade-pot-side-thinner.scad (both retired). Prints as the mate to
+// blank-side-final.scad. Two changes from the -thinner file: `wall`
+// restored to 5 (see its comment -- the seam bug that wasted a 6h print),
+// and the seam-gap assertions below.
 //
 // One of two printed pieces (see chromacade-blank-side(-embossed).scad for
 // the other) — split 2026-08-17 so each piece has exactly one full side
@@ -21,7 +27,37 @@ $fn = 60;
 in2mm = 25.4;
 case_w = 7.7   * in2mm; // 7in + 10%
 case_d = 4.95  * in2mm; // 4.5in + 10%
+// CORRECTED 2026-08-27: was 3 in chromacade-pot-side-thinner.scad -- the
+// single cause of the bad seam on the printed pot-side piece. `wall` is the
+// STRUCTURAL wall constant, shared with blank-side (5), and drives edge_x,
+// every mount-boss position, the endcap mask's own depth and the relief
+// slab's width. Setting it to 3 collapsed (wall - wall_thin) to ZERO, so
+// endcap_relief() removed nothing (exterior face stayed at -case_w/2 =
+// -97.79 instead of -95.79) and edge_x drifted 2mm outward (+94.64 instead
+// of +92.64), overlapping blank-side's endcap and forcing the assembly 2mm
+// wide on this side. Measured on the printed part: 195mm assembled vs the
+// correct 191.58mm. Thinning belongs to wall_thin and the relief cuts ONLY;
+// never to `wall`. The seam assertions below now refuse to render if these
+// three definitions ever disagree again.
 wall   = 5;
+
+// EXPERIMENTAL variant (2026-08-24), this file only -- NOT in
+// chromacade-pot-side.scad. Thins the bottom+back strips and this piece's
+// own endcap (the passive enclosure walls) from wall(5) down to
+// wall_thin(3) to save print time/material, via an ADDITIONAL relief cut
+// layered on top of the existing, unchanged geometry -- see
+// interior_relief_2d()/endcap_relief() below. Deliberately does NOT touch
+// `wall` itself: wall still drives edge_x, every mount-boss position, and
+// the endcap mask's own placement, all unchanged, so alignment with
+// chromacade-blank-side.scad stays exactly as verified. Only the material
+// BETWEEN the existing interior surface and the new, closer-to-the-
+// exterior one gets removed. Mount bosses (pot_side_mount_bosses(),
+// pi_mount_bosses()) are unioned in AFTER the relief cut is applied to
+// endcap()/strips() individually (see the Assembly section below), not
+// subtracted from the combined whole -- so they keep their full original
+// size/strength regardless of the relief, the same fastening-load
+// reasoning as everywhere else this session's mount work.
+wall_thin = 3;
 
 front_h = 1.925 * in2mm; // 1.75in + 10%
 shelf_d = 60; // 2026-08-22: increased from 1.875in+25% (47.625mm) to fit
@@ -93,8 +129,12 @@ edge_clearance = 0.15;
 pilot_d   = 2.5;
 clear_d   = 3.4;
 engage    = 15;  // pilot bore depth into solid material
-boss_w    = 12;  // square boss cross-section (also the bore's radial center)
-boss_body = 14;  // boss length along X, full cross-section
+// Shrunk 12/14 -> 10/10, EXPERIMENTAL-file change 2026-08-24 (direct
+// instruction, applied live in the OpenSCAD GUI before an export that
+// exposed a real edge issue -- see this file's other wall_thin-era
+// comments). boss_ramp unchanged at 10.
+boss_w    = 10;  // square boss cross-section (also the bore's radial center)
+boss_body = 10;  // boss length along X, full cross-section
 boss_ramp = 10;  // 45°-taper length beyond boss_body, toward this piece's own bed/endcap side
 
 edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-side
@@ -132,10 +172,22 @@ edge_x = case_w/2 - wall - edge_clearance; // this piece's edge nearest blank-si
 // the exterior back surface (bore center at only boss_w/2=6mm from the
 // exterior, vs the bottom-strip bores' wall+boss_w/2=11mm). Same fix,
 // same axis logic, rotated 90°: y_start=wall, height=boss_w.
-module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
+// w/body/ramp default to the shared boss_w/boss_body/boss_ramp constants so
+// every existing call is unaffected -- added 2026-08-24 so the bottom-strip
+// mount nearest the front (pos=110 below) could shrink to a smaller cube,
+// matching chromacade-blank-side.scad's front_bottom, to free up boss reach
+// for the speaker layout (see that file's spk_cx comment). Unlike
+// front_bottom's, this boss KEEPS its taper (ramp stays default) -- this
+// piece has no nearby already-supported feature the way blank-side's
+// joystick posts give front_bottom, so removing the taper here would add a
+// real unsupported overhang, not a free one. ramp=0 still supported (skips
+// the hull() rather than emitting a degenerate zero-length one) for
+// consistency with flat_mount_boss()'s same parameterization, even though
+// no current call here uses it.
+module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0, w=boss_w, body=boss_body, ramp=boss_ramp) {
     if (thick_axis == "z") {
-        translate([x0 - boss_body, pos - boss_w/2, z_start])
-        cube([boss_body, boss_w, height]);
+        translate([x0 - body, pos - w/2, z_start])
+        cube([body, w, height]);
 
         // Wedge, not a pyramid -- corrected 2026-08-18, third pass. A
         // linear_extrude(scale=0) taper shrinks BOTH cross-section
@@ -148,27 +200,29 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
         // flush throughout the taper and only collapses the height --
         // an actual ramp down to the bottom, printable face-down with
         // no support.
+        if (ramp > 0)
         hull() {
-            translate([x0 - boss_body - 0.01, pos - boss_w/2, z_start])
-            cube([0.01, boss_w, height]);
+            translate([x0 - body - 0.01, pos - w/2, z_start])
+            cube([0.01, w, height]);
 
-            translate([x0 - boss_body - boss_ramp, pos - boss_w/2, z_start])
-            cube([0.01, boss_w, 0.01]);
+            translate([x0 - body - ramp, pos - w/2, z_start])
+            cube([0.01, w, 0.01]);
         }
     } else {
-        translate([x0 - boss_body, y_start, pos - boss_w/2])
-        cube([boss_body, height, boss_w]);
+        translate([x0 - body, y_start, pos - w/2])
+        cube([body, height, w]);
 
         // Same wedge-not-pyramid correction, pinned at y_start (this
         // strip's own INTERIOR surface, matching the "z" case) instead
         // of the back wall's exterior -- a ramp down to the back, not a
         // point.
+        if (ramp > 0)
         hull() {
-            translate([x0 - boss_body - 0.01, y_start, pos - boss_w/2])
-            cube([0.01, height, boss_w]);
+            translate([x0 - body - 0.01, y_start, pos - w/2])
+            cube([0.01, height, w]);
 
-            translate([x0 - boss_body - boss_ramp, y_start, pos - boss_w/2])
-            cube([0.01, 0.01, boss_w]);
+            translate([x0 - body - ramp, y_start, pos - w/2])
+            cube([0.01, 0.01, w]);
         }
     }
 }
@@ -193,11 +247,18 @@ module square_boss(x0, pos, thick_axis, z_start=0, height=boss_w, y_start=0) {
 // chromacade-blank-side.scad's own_mount_boss_centers comment for the
 // full story, including how this was found: a disconnected 12-vertex
 // island in the rendered mesh).
+// front wall near bottom's Y updated 2026-08-24: 114.73 -> 116.73, matching
+// chromacade-blank-side.scad's front_bottom shrinking to an 8mm cube (its
+// own_mount_boss_centers comment has the full derivation). This clearance
+// hole must stay centered on THAT boss, not the old 12mm-cube center.
+// Indices 1-3 updated 2026-08-24 to match blank-side-final.scad's
+// own boss_w 12->10 shrink -- see that file's own_mount_boss_centers comment
+// for the exact derivation of each new value.
 blank_side_mount_yz = [
-    [114.73, 12],   // front wall, near bottom
-    [114.73, 42],   // front wall, near top
-    [44.447, 63.556], // panel/top joint
-    [14, 95],       // top/back joint
+    [116.73, 12],   // front wall, near bottom -- 8mm-cube boss as of 2026-08-24
+    [115.73, 42],   // front wall, near top
+    [45.154, 64.263], // panel/top joint
+    [14, 96.637],   // top/back joint
 ];
 
 // Raspberry Pi 4B mounting bosses (2026-08-19) -- standoffs on this piece's
@@ -247,15 +308,21 @@ function pi_mount_xy() = [
 // down to the bottom, printable face-down with no support, toward this
 // piece's own bed/endcap side (-X), same direction as the case-joining
 // bosses on this same floor.
+// Anchored at wall_thin, not wall -- EXPERIMENTAL-file change 2026-08-24.
+// The floor's own interior surface is now wall_thin deep here (see
+// wall_thin's comment up top), so the boss's base has to start there too,
+// or it floats disconnected from the (now shallower) floor -- confirmed
+// live via connected-component analysis when this was still anchored at
+// the old wall value.
 module pi_mount_boss(cx, cy) {
-    translate([cx - pi_boss_w/2, cy - pi_boss_w/2, wall])
+    translate([cx - pi_boss_w/2, cy - pi_boss_w/2, wall_thin])
     cube([pi_boss_w, pi_boss_w, pi_boss_h]);
 
     hull() {
-        translate([cx - pi_boss_w/2 - 0.01, cy - pi_boss_w/2, wall])
+        translate([cx - pi_boss_w/2 - 0.01, cy - pi_boss_w/2, wall_thin])
         cube([0.01, pi_boss_w, pi_boss_h]);
 
-        translate([cx - pi_boss_w/2 - pi_boss_ramp, cy - pi_boss_w/2, wall])
+        translate([cx - pi_boss_w/2 - pi_boss_ramp, cy - pi_boss_w/2, wall_thin])
         cube([0.01, pi_boss_w, 0.01]);
     }
 }
@@ -271,38 +338,40 @@ module pi_mount_bosses() {
 // screws drive straight down through the board into the boss beneath it.
 module pi_mount_pilot_holes() {
     for (p = pi_mount_xy())
-        translate([p[0], p[1], wall - 0.5])
+        translate([p[0], p[1], wall_thin - 0.5])
         cylinder(h = pi_boss_h + 1, d = pi_pilot_d);
 }
 
+// All four anchored at wall_thin, not wall -- EXPERIMENTAL-file change
+// 2026-08-24, same reasoning as pi_mount_boss() above: the strip's own
+// interior surface moved to wall_thin, so every boss base has to move
+// with it or it's disconnected from the (now shallower) strip material.
+// Their own pilot holes below (pot_side_mounts()) must match.
 module pot_side_mount_bosses() {
-    square_boss(edge_x, 110, "z", z_start=wall, height=boss_w);
-    square_boss(edge_x, 30, "z", z_start=wall, height=boss_w);
-    square_boss(edge_x, 85, "y", y_start=wall, height=boss_w);
-    square_boss(edge_x, 20, "y", y_start=wall, height=boss_w);
+    // Shrunk to a plain 8mm cube 2026-08-24 (ramp kept -- see square_boss()'s
+    // own comment for why this one differs from blank-side's front_bottom)
+    // to free up boss reach for the speaker layout.
+    square_boss(edge_x, 110, "z", z_start=wall_thin, height=8, w=8, body=8);
+    square_boss(edge_x, 30, "z", z_start=wall_thin, height=boss_w);
+    square_boss(edge_x, 85, "y", y_start=wall_thin, height=boss_w);
+    square_boss(edge_x, 20, "y", y_start=wall_thin, height=boss_w);
 }
 
 module pot_side_mounts() {
-    // Bottom-strip (z-axis) bores centered at wall + boss_w/2, matching
-    // the boss above: flush with the bottom strip's own interior surface
-    // (z=wall) at its bottom face, standing up boss_w into the interior
-    // from there -- corrected 2026-08-18, second pass (see square_boss()
-    // comment). NOT wall/2 -- that was this module's first-pass fix,
-    // which just embedded the boss inside material that's already there.
-    // chromacade-blank-side.scad's pot_side_mount_yz must be updated to
-    // match this new Z value.
-    translate([edge_x, 110, wall + boss_w/2]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, 30, wall + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    // Bottom-strip (z-axis) bores centered at wall_thin + boss_w/2 (was
+    // wall + boss_w/2), matching pot_side_mount_bosses()'s z_start move
+    // to wall_thin above -- EXPERIMENTAL-file change 2026-08-24, same
+    // "flush with the strip's own interior surface" convention as the
+    // original file, just at the new, shallower depth.
+    // Z=7 (wall_thin+8/2), not wall_thin+boss_w/2 -- this bore matches the
+    // mount above shrunk to an 8mm cube 2026-08-24, see
+    // pot_side_mount_bosses().
+    translate([edge_x, 110, wall_thin + 4]) rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, 30, wall_thin + boss_w/2])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
     //
-    // Back-strip (y-axis) bores: same convention, corrected 2026-08-19 --
-    // centered at wall + boss_w/2 from the back wall's exterior (y=0),
-    // matching the bottom-strip bores' distance from THEIR exterior
-    // exactly (both now 11mm), instead of the old boss_w/2=6mm, which
-    // put the bore too close to the exterior back surface (not enough
-    // material behind it to survive an edge-on drop). Keep
-    // chromacade-blank-side.scad's pot_side_mount_yz in sync with this.
-    translate([edge_x, wall + boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
-    translate([edge_x, wall + boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    // Back-strip (y-axis) bores: same wall_thin move.
+    translate([edge_x, wall_thin + boss_w/2, 85])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
+    translate([edge_x, wall_thin + boss_w/2, 20])  rotate([0, -90, 0]) cylinder(h=engage, d=pilot_d);
 }
 
 module pot_side_clearance_holes() {
@@ -312,11 +381,129 @@ module pot_side_clearance_holes() {
     }
 }
 
+
+// --- SEAM-GAP ASSERTIONS (added 2026-08-27) ---------------------------------
+// Three places independently decide where this piece's material starts and
+// stops along X, and nothing used to check that they agreed:
+//
+//   1. edge_x            -- the mating edge nearest the other piece; every
+//                           mount boss and pilot bore is positioned from it.
+//   2. strips()'s X-mask -- the clipping cube's own center/width.
+//   3. endcap_relief()   -- the exterior slab removed for the thinner endcap.
+//
+// A single wrong constant in any one of them is invisible in a render (the
+// piece still looks right on its own, still renders a clean manifold) and
+// only shows up as a gap or an interference after ~6 hours of printing --
+// which is exactly what happened to chromacade-pot-side-thinner.scad, whose
+// `wall` was 3 instead of 5: relief width collapsed to 0, edge_x moved 2mm
+// outward, assembled case measured 195mm instead of 191.58mm.
+//
+// These are recomputed here from the SAME literal expressions the modules
+// below use (deliberately duplicated, not factored out -- a shared helper
+// would move in lockstep with a bad edit and check nothing) and compared.
+// assert() aborts the render, so a mismatch can never reach a slicer.
+seam_eps = 1e-6;
+
+// Independent restatements of the three definitions:
+seam_edge_x_def   = case_w/2 - wall - edge_clearance;                    // edge_x
+seam_strip_w      = case_w - wall - edge_clearance;         // strips()' mask width
+seam_strip_cx     = -(wall + edge_clearance)/2;        // strips()' mask center
+seam_strip_inner  = seam_strip_cx + seam_strip_w/2;             // mating end
+seam_strip_outer  = seam_strip_cx - seam_strip_w/2;             // exterior end
+seam_relief_w     = wall - wall_thin;                       // endcap_relief() slab width
+seam_relief_cx    = -(case_w/2 - seam_relief_w/2);
+seam_relief_inner = seam_relief_cx + seam_relief_w/2;
+seam_relief_outer = seam_relief_cx - seam_relief_w/2;
+
+// The thinning must actually be a thinning. wall==wall_thin (the real bug)
+// makes the relief a zero-width no-op; wall<wall_thin would grow the piece.
+assert(wall > wall_thin,
+    str("SEAM: wall (", wall, ") must exceed wall_thin (", wall_thin,
+        ") -- a zero/negative relief means endcap_relief() removes nothing ",
+        "and this piece prints ", wall - wall_thin, "mm over-wide per side."));
+
+// 1 vs 2: the strips' mating end IS edge_x. If these part company, every
+// mount boss sits at one X and the material it should be embedded in at
+// another -- the class of error that leaves bosses as floating islands.
+assert(abs(seam_strip_inner - edge_x) < seam_eps,
+    str("SEAM: strips() X-mask mating end (", seam_strip_inner,
+        ") != edge_x (", edge_x, ")"));
+assert(abs(seam_edge_x_def - edge_x) < seam_eps,
+    str("SEAM: edge_x (", edge_x, ") does not match its own definition (",
+        seam_edge_x_def, ") -- a constant it depends on was changed."));
+
+// 2 vs 3: the relief only bites the endcap+strips if the strips still reach
+// the TRUE exterior face before the cut. This is what silently held on
+// pot-side while the relief itself did nothing.
+assert(abs(abs(seam_strip_outer) - case_w/2) < seam_eps,
+    str("SEAM: strips() must reach the true exterior face (", -case_w/2,
+        ") pre-relief; reaches ", seam_strip_outer));
+assert(abs(abs(seam_relief_outer) - case_w/2) < seam_eps,
+    str("SEAM: endcap_relief() must start at the true exterior face (",
+        -case_w/2, "); starts at ", seam_relief_outer));
+
+// 3 alone: the relief cuts OUTWARD only. Cutting past the endcap's interior
+// face (case_w/2 - wall) is the direction the 2026-08-24 reversal fixed --
+// it would move edge_x's reference surface and desync both pieces.
+assert(abs(seam_relief_inner) > case_w/2 - wall + seam_eps,
+    str("SEAM: endcap_relief() reaches ", seam_relief_inner,
+        ", past the endcap's interior face (", -(case_w/2 - wall),
+        ") -- it must remove exterior material only."));
+
+// Cross-file: both pieces shed (wall - wall_thin) from their own endcap, so
+// the assembled width is case_w - 2*(wall - wall_thin). 191.58mm is the
+// value the good blank-side half was printed against; the bad pot-side gave
+// 195mm. Both finals must agree with it to 0.01mm.
+case_w_assembled_expected = 191.58;
+seam_assembled = case_w - 2*(wall - wall_thin);
+assert(abs(seam_assembled - case_w_assembled_expected) < 0.01,
+    str("SEAM: assembled case width would be ", seam_assembled,
+        "mm, not the ", case_w_assembled_expected,
+        "mm both halves are cut for."));
+
+// The deliberate mating gap is edge_clearance and nothing else -- this is
+// the number that read 4mm cumulative on the printed pair.
+seam_mating_gap = (case_w/2 - wall) - abs(seam_strip_inner);
+assert(abs(seam_mating_gap - edge_clearance) < seam_eps,
+    str("SEAM: mating gap to the other piece's endcap interior face is ",
+        seam_mating_gap, "mm, not edge_clearance (", edge_clearance, "mm)."));
+// ---------------------------------------------------------------------------
+
 // --- Assembly ---
+// FIXED 2026-08-26: endcap_relief(-1) must be subtracted from endcap(-1)
+// AND strips() TOGETHER, not from the endcap alone. The previous structure
+// relieved each separately, which reads as if both were handled -- but
+// strips_relief() is an INTERIOR ring (it thins wall->wall_thin in the
+// (Y,Z) profile) and does not touch the strips' X extent. strips() spans
+// X from -case_w/2 (this piece's true exterior face) to
+// case_w/2-wall-edge_clearance, so with only the endcap relieved, the
+// back+bottom strips still reached -case_w/2 while the endcap face had
+// moved in to -case_w/2+(wall-wall_thin). Result: a 2mm proud rim along
+// the back and bottom with the endcap recessed inside it, bounded by the
+// p1-p5 seam diagonal -- i.e. exactly the "triangular piece cut out of the
+// endcap" appearance that was reported and fixed on
+// blank-side-final.scad. Same bug, same fix, found while
+// building the fit check against that file.
+//
+// strips_relief() is still applied, and still separately: it does a
+// different job (interior wall thickness) and must NOT be merged into this
+// cut. Only the X-slab relief moves.
+//
+// Consequence: this piece's overall X footprint shrinks by
+// (wall-wall_thin)=2mm. Combined with blank-side's matching 2mm, total
+// case width is 4mm under nominal case_w -- expected for wall_thin=3 on
+// both endcaps. Interior volume is unchanged (both reliefs cut exterior
+// material), and every mating reference (edge_x, edge_clearance, the mount
+// bosses, the seam) is interior-anchored and unmoved.
 difference() {
     union() {
-        endcap(-1);
-        strips();
+        difference() {
+            union() {
+                endcap(-1);
+                difference() { strips(); strips_relief(); }
+            }
+            endcap_relief(-1);
+        }
         pot_side_mount_bosses();
         pi_mount_bosses();
     }
@@ -330,6 +517,60 @@ module outer_profile() {
     pts = [p0, p1, p2, p3, p4, p5];
     offset(r=6) offset(r=-6) polygon(pts);
 }
+
+// 2D ring between the wall-inset boundary (today's interior surface) and
+// the wall_thin-inset boundary (the new, shallower one) -- i.e. exactly
+// the extra band of material to remove to go from a wall(5)-thick shell
+// to wall_thin(3). offset(delta=-wall_thin) is the BIGGER shape (less
+// inset) since wall_thin < wall, so it has to come first in the
+// difference() or this is empty.
+module interior_relief_2d() {
+    difference() {
+        offset(delta = -wall_thin) outer_profile();
+        offset(delta = -wall) outer_profile();
+    }
+}
+
+// Same relief, applied to strips()'s own (Y,Z) region and X-range --
+// intersected with the same yz_half_plane(1)/X-mask strips() itself uses,
+// so this only ever removes material strips() actually produced. No boss
+// exclusion needed: every boss's own z_start/y_start was moved to
+// wall_thin (see pot_side_mount_bosses()/pi_mount_boss()), so their base
+// sits flush with wherever this relief leaves the interior surface,
+// same as the un-thinned file's bosses sit flush with the un-thinned
+// surface. An earlier attempt tried keeping the OLD wall-deep surface
+// under just the bosses via a padded minkowski() exclusion instead --
+// abandoned, the bosses ended up as isolated pedestals disconnected from
+// the relieved floor around them rather than actually solving anything.
+module strips_relief() {
+    intersection() {
+        rotate([90, 0, 90])
+        linear_extrude(case_w, center=true)
+        interior_relief_2d();
+
+        yz_half_plane(1);
+
+        translate([-(wall + edge_clearance)/2, case_d/2, case_h/2])
+        cube([case_w - wall - edge_clearance, case_d + 80, case_h + 80], center=true);
+    }
+}
+
+// Shaves the innermost (wall-wall_thin) slice off the endcap's own X-depth
+// -- keeps the true exterior face and the endcap's overall (Y,Z) mask
+// footprint exactly where they are, only pulls the interior-facing face
+// closer to the outside (wall deep -> wall_thin deep). Center-X derived
+// the same way endcap()'s own mask is (side * distance-from-center), see
+// that module -- worked through algebraically in this file's own history/
+// commit message rather than eyeballed.
+// REVERSED 2026-08-24, direct instruction -- see
+// blank-side-final.scad's matching module for the full
+// reasoning. Removes the outermost slice, keeps the interior-facing
+// surface (and everything aligned against it -- edge_x, the mount
+// bosses, edge_clearance) exactly where the un-thinned design has it.
+module endcap_relief(side) {
+    translate([side * (case_w/2 - (wall-wall_thin)/2), case_d/2, case_h/2])
+    cube([wall - wall_thin, case_d + 80, case_h + 80], center=true);
+}                    
 
 // The full shell, unpartitioned — same construction as the pre-split
 // design (shell = outer profile minus the wall-inset inner profile,
