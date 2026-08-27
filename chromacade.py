@@ -127,7 +127,7 @@ from led_strip import LedStrip
 from menu import Menu
 from oled_display import OledDisplay
 from simon_sequences import FAMOUS_NUMBERS, SimonSession, pool_source, random_source, sequence_from_number
-from sound_pools import build_pools, play_wav
+from sound_pools import build_pools, play_wav, play_wav_sequence
 from tutor_mode import (
     DEFAULT_TEMPO,
     MISS_COLOR,
@@ -284,16 +284,29 @@ def main():
 
     def _offer_continue(mode):
         """Shared by Tutor-song-complete and Simon-game-complete: shows
-        the keep-going/stop prompt (+ voice clip) and switches to the
-        matching "<mode>_await_continue" state, where note_on() below
-        interprets CONTINUE_LETTER/STOP_LETTER instead of playing
-        notes. Deliberately does NOT clear tutor["song_name"]/
+        the keep-going/stop prompt, announces BOTH choices by voice
+        (requested 2026-08-26, so a listener knows both options exist
+        before deciding, not just the one that happens to play first),
+        and switches to the matching "<mode>_await_continue" state,
+        where note_on() below interprets CONTINUE_LETTER/STOP_LETTER
+        instead of playing notes. play_wav_sequence() (not two
+        play_wav() calls) plays keep_going then all_done back to back,
+        not overlapping -- see that function's own docstring.
+        Deliberately does NOT clear tutor["song_name"]/
         simon["source_name"] here -- still needed if CONTINUE_LETTER
         gets pressed, both to know which mode to resume and to compute
-        "the next one" via _next_in_cycle()."""
+        "the next one" via _next_in_cycle(). State flips to
+        "<mode>_await_continue" BEFORE the (now blocking, since
+        play_wav_sequence() waits for both clips) voice announcement,
+        not after -- session was just set to None above, so any note
+        press landing during the multi-second announcement needs to
+        already be routed to the *_await_continue branch (a safe no-op
+        for anything but CONTINUE_LETTER/STOP_LETTER) rather than the
+        stale tutor_active/simon_active branch, which would call
+        .press() on a None session and crash."""
         oled.show_lines(["KEEP GOING?", "PRESS GREEN", "ALL DONE?", "PRESS RED"])
-        play_wav(pools["keep_going"].next())
         app["state"] = f"{mode}_await_continue"
+        play_wav_sequence([pools["keep_going"].next(), pools["all_done"].next()])
 
     def _stop_after_complete():
         """STOP_LETTER press from either *_await_continue state --

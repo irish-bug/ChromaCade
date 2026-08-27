@@ -135,3 +135,19 @@ def play_wav(path):
     to surface -- suppressing it once already hid a real bug (the old
     NOPE_SOUND_PATH ~-expansion issue), not worth repeating."""
     subprocess.Popen(["aplay", path], stdout=subprocess.DEVNULL)
+
+
+def play_wav_sequence(paths):
+    """Like play_wav(), but blocks between each path so they play one
+    after another instead of overlapping/garbling through the shared
+    dmix device -- every other use in this module is fire-and-forget
+    on purpose (flash/animation timing that doesn't care when the
+    sound actually finishes), but the keep-going/all-done prompt
+    (requested 2026-08-26: announce BOTH choices, not just one) needs
+    both spoken clips to be intelligible back to back. Safe to block
+    the caller -- chromacade.py only ever calls this from a spot
+    that's already running on its own background thread, not gpiozero's
+    callback-dispatch thread. subprocess.run() (not Popen) is exactly
+    "wait for this one before returning"."""
+    for path in paths:
+        subprocess.run(["aplay", path], stdout=subprocess.DEVNULL)
