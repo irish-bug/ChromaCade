@@ -235,7 +235,20 @@ def main():
     # two workers below, plus the ADS1115 poll thread's direct calls via
     # pitch_bend()/volume_change()) -- same underlying class of problem
     # ChromaCadeAudio's own RLock already guards for FluidSynth.
-    _display_lock = threading.Lock()
+    #
+    # TWO locks, not one shared -- split 2026-08-27, found live ("once
+    # [the OLED] gets backed up the lag spills over into the LED ring").
+    # ring.show() and the SSD1306 I2C write use completely different
+    # hardware peripherals (WS2812 PWM/DMA vs I2C) and don't need to be
+    # serialized against EACH OTHER, only against concurrent calls to
+    # the SAME one -- a single shared lock meant _ring_worker() still had
+    # to wait for _oled_worker() to release it before doing its own,
+    # much faster write, even though the two Events below already run
+    # them on independent threads. Since _request_display_refresh() sets
+    # both Events together on every note press, this collision was
+    # happening on nearly every press, not some rare edge case.
+    _ring_lock = threading.Lock()
+    _oled_lock = threading.Lock()
     # Two SEPARATE coalescing Events, not one shared -- 2026-08-27, found
     # live ("LEDs not keeping up") after the single-worker version below
     # (also added 2026-08-27, same day, superseded within the hour) still
@@ -252,7 +265,7 @@ def main():
 
     def update_ring():
         """Normal-play ring behavior -- verbatim from play.py."""
-        with _display_lock:
+        with _ring_lock:
             if not held:
                 ring.clear()
                 play_state["shown"] = None
@@ -268,7 +281,7 @@ def main():
             play_state["shown_base"] = base
 
     def update_play_oled(force=False):
-        with _display_lock:
+        with _oled_lock:
             now = time.monotonic()
             if not force and now - oled_throttle["t"] < OLED_THROTTLE_SECONDS:
                 return
