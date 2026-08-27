@@ -19,22 +19,32 @@ import board
 import neopixel
 
 NOTE_COLORS = {
-    # C/D confusion flagged live 2026-08-15. First attempt added a
-    # blue tint to C to cool it away from orange -- overcorrected,
-    # flagged live as now reading too close to B/pink instead (blue
-    # pushes red toward magenta fast, even in small amounts). Reverted
-    # C to pure (255,0,0) and fixed it from the other side instead: D
-    # was only 45/255 (18%) green, barely past red at all, more
-    # "red-orange" than orange. Bumped to 100/255 (~39%), closer to
-    # the midpoint between C's 0 and E's 170 -- a clearer, more
-    # distinct orange, further from both red and E's yellow-orange.
-    "C": (255, 0, 0),
-    "D": (255, 100, 0),
-    "E": (255, 170, 0),
-    "F": (0, 200, 0),
-    "G": (0, 100, 255),
-    "A": (60, 0, 255),
-    "B": (255, 20, 147),
+    # Replaced wholesale 2026-08-20 with values live-tuned via
+    # testing/led_ring16_test.py's --rgb mode on a different physical
+    # ring (a candidate 16-LED NeoPixel ring being bench-evaluated, not
+    # adopted) -- see that file's git history for the tuning session.
+    # First pass confirmed live on THIS ring/hardware the same day: ran
+    # cleanly on chromacade (real GPIO12/PWM output, no errors) and a
+    # second person (Sean) judged it a "huge improvement" over the
+    # previous set with eyes on the device directly.
+    #
+    # Superseded again 2026-08-27, direct instruction: applies the
+    # candidate ring's LATER, more complete tuning pass (all 7 colors
+    # brought to a consistent max-channel-88 ceiling, not just purple's
+    # own second-pass brightness fix) -- see testing/led_ring16_test.py's
+    # own header comment for the full reasoning (lower intensity across
+    # the board reads more distinct, not just a fix for individual
+    # problem colors). Applied from the candidate-ring bench data
+    # directly -- NOT yet re-confirmed with eyes on THIS ring the way
+    # the first pass was; do that before treating this as fully settled
+    # the way the first pass got to be.
+    "C": (88, 0, 0),
+    "D": (88, 15, 0),
+    "E": (88, 55, 0),
+    "F": (0, 88, 0),
+    "G": (0, 0, 88),
+    "A": (40, 0, 88),
+    "B": (88, 0, 35),
 }
 
 RING_PIXEL_COUNT = 7
