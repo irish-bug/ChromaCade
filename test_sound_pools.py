@@ -1,6 +1,6 @@
 import pytest
 
-from sound_pools import Cycler, _list_wav_files
+from sound_pools import Cycler, _list_wav_files, _require_file
 
 
 def test_cycler_returns_items_in_order():
@@ -42,3 +42,14 @@ def test_list_wav_files_excludes_named_files(tmp_path):
 
 def test_list_wav_files_empty_directory(tmp_path):
     assert _list_wav_files(str(tmp_path)) == []
+
+
+def test_require_file_returns_path_when_present(tmp_path):
+    f = tmp_path / "keepgoing.wav"
+    f.write_bytes(b"")
+    assert _require_file(str(f)) == str(f)
+
+
+def test_require_file_raises_when_missing(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        _require_file(str(tmp_path / "keepgoing.wav"))
