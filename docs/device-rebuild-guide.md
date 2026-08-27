@@ -16,6 +16,12 @@ Raspberry Pi OS (Debian 13 "trixie" based), flashed via Raspberry Pi Imager with
 
 Confirmed on `plinkplonk`: kernel `6.18.39+rpt-rpi-v8`, `plink` already lands in the right groups by default (`gpio`, `i2c`, `spi`, `audio`, `video`, `dialout`, `sudo`) — no manual `usermod` needed, this is standard Raspberry Pi Imager behavior for the primary user.
 
+**Switch to headless (console) boot — done on `plinkplonk` 2026-08-26.** The Imager's default desktop image boots to `graphical.target` (lightdm + labwc + wf-panel-pi + RPi Connect's `wayvnc` screen-share, confirmed running by default), which is unnecessary CPU/scheduling overhead competing with `chromacade.service`'s GPIO-poll/audio threads on a device that has no monitor attached in normal use — found while chasing a note-button responsiveness report. Fix:
+```bash
+sudo raspi-config nonint do_boot_behaviour B2   # B2 = console, autologin as the current user
+```
+This only flips `systemctl get-default` to `multi-user.target` and sets console autologin (`/etc/systemd/system/getty@tty1.service.d/autologin.conf`) — it does *not* touch `lightdm.service`'s own enablement, and doesn't need to: `graphical.target` (not `lightdm.service` itself) is what `Wants=display-manager.service`, so simply never reaching `graphical.target` at boot is sufficient. Verified via an actual reboot, not just `systemctl get-default`: `pgrep lightdm`/`labwc`/`wf-panel-pi`/`wayvnc` all come back empty after. (`wireplumber` and `rpi-connectd` still run as lighter per-user-session daemons, independent of `graphical.target` — not chased further, they're not the heavy desktop-shell processes.) SSH is unaffected either way. Trade-off: no more plugging in a monitor/keyboard directly to use the desktop on this device — fine here since SSH is the only access pattern actually used.
+
 ## 2. Repo checkout
 
 Cloned early, before the steps below, since several of them reference files from the repo directly:
@@ -119,9 +125,11 @@ python3 -m pytest   # should be 165 passed (as of this writing) with zero
 
 ## 8. Installing the systemd services
 
-Both service files are tracked in this repo (root-level `chromacade.service` for the main app; `audio/chromacade-boot-chime.service` for the boot chime) but **neither is installed/enabled on `plinkplonk` yet** — this device is still at the bring-up stage, not running either unattended.
+Both service files are tracked in this repo (root-level `chromacade.service` for the main app; `audio/chromacade-boot-chime.service` for the boot chime). **Installed/enabled on `plinkplonk` 2026-08-26** — despite existing (and having their paths already fixed) in this repo since 2026-08-20, neither had actually been copied to `/etc/systemd/system/` before that; caught while investigating why the boot chime never played.
 
 **`chromacade.service`'s `ExecStart`/`WorkingDirectory` paths are per-device** — as of 2026-08-20 they'd drifted to unit #1's builder-account path (`/home/shane/ChromaCade`) and needed fixing for unit #2's `/home/plink/ChromaCade`; check they still match whatever device/checkout you're actually installing on before enabling, since this will silently point at a nonexistent path otherwise. `User=root` is deliberate, not a leftover — needed for the LED ring/strip's PWM/DMA access (`neopixel`), see `docs/open-questions.md`'s "dedicated non-root user" entry for the still-open alternative.
+
+**`chromacade-boot-chime.service` plays `audio/yays/yuss.wav`, not a Zelda clip** — the script originally played `audio/zelda/OOT_Navi_Hello1.wav`, but that file (and its fetch script, `audio/grab_navi_sounds.sh`) is gitignored copyrighted third-party audio that only ever existed on unit #1 and was never carried over to `plinkplonk` or committed anywhere. The service failed every boot as a result (confirmed via an actual reboot, not just one manual run) until `boot_chime.sh` was switched to the git-tracked `yuss.wav` 2026-08-26. If a future rebuild wants the original Navi chime back, that asset needs to be sourced again first — don't assume it's just missing from this checkout.
 
 ```bash
 sudo cp ~/ChromaCade/chromacade.service /etc/systemd/system/
@@ -130,7 +138,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now chromacade.service chromacade-boot-chime.service
 ```
 
-Once enabled, `systemctl status chromacade.service` / `journalctl -u chromacade.service -f` are how to check it's actually running rather than assuming.
+Once enabled, `systemctl status chromacade.service` / `journalctl -u chromacade.service -f` are how to check it's actually running rather than assuming. **Verify both across an actual reboot, not just one manual `systemctl start`** — that's exactly how the missing-yuss.wav-equivalent boot-chime failure above was caught; a manual start looked clean, a real reboot didn't.
 
 Separately, still open per `docs/open-questions.md`'s "Future / stretch" section: full read-only root + overlay-fs, and the dedicated non-root service user mentioned above. Do those *before* depending on this unit for unattended live use, not as part of a basic rebuild.
 
