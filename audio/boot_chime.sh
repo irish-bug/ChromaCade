@@ -1,8 +1,14 @@
 #!/bin/bash
 # ChromaCade -- boot-ready chime.
 # Plays once at boot to signal the device has finished starting up.
-# The .wav itself is gitignored (third-party audio, not committed) --
-# see grab_navi_sounds.sh and .gitignore's "copyrighted sound assets" note.
+# Was the Zelda Navi "Hello!" clip (audio/zelda/, gitignored third-party
+# audio -- see grab_navi_sounds.sh/.gitignore's "copyrighted sound assets"
+# note) -- switched 2026-08-26 to yays/yuss.wav (already git-tracked,
+# used elsewhere for Tutor/Simon positive feedback) after finding the
+# Zelda clip only ever existed on unit #1 and was never carried over to
+# plinkplonk or committed anywhere -- this service failed every boot
+# until this changed (confirmed via a real reboot, not just one manual
+# run).
 
 sleep 5  # let ALSA/audio hardware finish initializing, same margin nektar-synth uses
 # No -D plughw:1,0 (removed 2026-08-16) -- that's exclusive hardware
@@ -19,4 +25,4 @@ sleep 5  # let ALSA/audio hardware finish initializing, same margin nektar-synth
 # on plinkplonk (a different user, plink). This script lives in audio/,
 # one level below the repo root.
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-aplay "$script_dir/zelda/OOT_Navi_Hello1.wav"
+aplay "$script_dir/yays/yuss.wav"
