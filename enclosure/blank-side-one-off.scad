@@ -613,18 +613,35 @@ joy_body_tol       = 0.75; // slop + the unmodelled small outcroppings
 
 // Total clearance carved around the cube is joy_body_tol PLUS the rib
 // setback below, so the real gap to the measured mass is ~1.75mm, not 0.75.
+// EXTENDED DOWNWARD 2026-08-27. These were bounded at the board plane,
+// which described only where the masses END UP, not how they get there --
+// a pocket the masses would have to already be inside. The board is
+// installed by lifting it straight up from below (see the ASSEMBLY note
+// above), so every mass sweeps the full height of the pocket on its way in
+// and each clearance has to be an open channel from the shelf all the way
+// down and out, not a closed recess. joy_body_drop carries them well past
+// the board plane so the channel stays open no matter what is added under
+// the shelf later -- there is nothing down there now, so this removes no
+// material today and cannot fail to remove it tomorrow.
+//
+// Deliberately NOT swept along Y (the direction the board would slide in
+// from the open back): the band is 28.5mm wide against the back rib's 24mm,
+// so a Y sweep would sever that rib and take both of its screw pads with
+// it. A vertical channel costs nothing; a horizontal one costs the mount.
+joy_body_drop = 40;
+
 module joystick_body_clearance() {
     c  = joy_body_cube/2 + joy_body_tol;
-    z0 = -wall - joy_boss_h - 0.5;
+    z0 = -wall - joy_boss_h - joy_body_drop;
 
     translate([-c, -c, z0])
-    cube([2*c, 2*c, joy_body_cube_h + 0.5]);
+    cube([2*c, 2*c, joy_body_cube_h + joy_body_drop]);
 
     translate([-joy_pcb_w/2 - joy_body_tol,
                joy_body_band_y0 - joy_body_tol, z0])
     cube([joy_pcb_w + 2*joy_body_tol,
           (joy_body_band_y1 - joy_body_band_y0) + 2*joy_body_tol,
-          joy_body_band_h + 0.5]);
+          joy_body_band_h + joy_body_drop]);
 }
 
 // Sphere radius (27mm diameter, matching joy_stick_d)// Sphere radius (27mm diameter, matching joy_stick_d), centered on the
@@ -719,13 +736,42 @@ function joystick_boss_xy() = [
 //   - The open span between the ribs clears the board's rear header and
 //     leaves the pocket visible during assembly.
 //
-// ASSEMBLY: the board does NOT go through the 27mm stick hole -- it can't,
-// it is 27 x 34mm. It goes in before the two halves are joined. This piece
-// owns only the front wall, shelf, panel and top; the bottom and back
-// belong to chromacade-pot-side.scad, so on its own this print is an open
-// C. The board slides in flat at the board plane (z=-17) from the open
-// back -- both ribs sit ABOVE that plane, so nothing obstructs the slide,
-// and the four screws locate it. Knob goes on last, from outside.
+// ASSEMBLY -- CORRECTED 2026-08-27, this was wrong and it is the reason the
+// first build needed a knife. The board does NOT go through the 27mm stick
+// hole (it is 27 x 34mm) and it goes in before the two halves are joined:
+// this piece owns only the front wall, shelf, panel and top, so on its own
+// the print is an open C with the bottom and back belonging to
+// pot-side-final.scad.
+//
+// The previous note said the board "slides in flat at the board plane from
+// the open back -- both ribs sit ABOVE that plane, so nothing obstructs the
+// slide." That was true of a BARE board and false of the real one. The
+// masses on its top face stand the full 12mm to the shelf (see
+// joy_body_cube), so a flat slide drives them straight into the back rib,
+// which hangs that same 12mm down across the whole path. The clearances
+// carved for those masses described the final position only; there was no
+// path into it. Fitting it anyway is what forced the ribs to be cut away.
+//
+// CORRECT ASSEMBLY, as of the pass-through slots (joystick_rib() below):
+// the board slides in FLAT again, from the open back, and the topside masses
+// pass through the 12 x 8mm slot in each rib rather than having to clear it.
+// That is what the slots are for and it supersedes the vertical-lift plan
+// that briefly stood here in between. Stick goes up through the 27mm hole as
+// the board reaches position; the four screws then drive upward into the
+// pads, which the slots deliberately leave intact at x = +/-9.
+//
+// The vertical route still works and is worth knowing as a fallback if a
+// mass turns out to be taller than the slot's 8mm -- the rib gap is clear
+// for it, which is the point of the setback on the rib inner edges:
+//   - the gimbal cube (+/-8.75 grown) rises through the rib gap, which runs
+//     -9.75 to +10.5 -- 1.0mm of side clearance at the back, 1.75mm front;
+//   - the long-edge band spans Y -6.25..+5.25, where NO rib exists at all,
+//     so its full 28.5mm width passes untouched;
+//   - nothing sits below the board plane, and joy_body_drop keeps the
+//     channels open through it regardless.
+// The assertions further down enforce both of those clearances, so this
+// path cannot silently close again. Knob goes on last, from outside.
+//
 joy_rib_dx       = joy_hole_dx + 3;          // +-12
 // Front rib is asymmetric on purpose: 3mm ahead of its hole (the speaker
 // limit derived above), 5mm behind it. Back rib is an even 4mm either side.
@@ -770,18 +816,107 @@ joy_rib_step = 3;
 // wall-anchored rule flat_mount_boss()'s own 2026-08-19 rebuild note
 // spells out. A slice that floated off the wall would be the very overhang
 // this exists to avoid.
+// PASS-THROUGH SLOT, added 2026-08-27 per direct instruction: 12mm wide by
+// 8mm tall, cut through the full thickness of each rib, starting 7mm from
+// the rib's FLAT end (the -X end -- the ramp is on +X, so "flat end" is
+// unambiguous). Local X therefore runs -joy_rib_dx + 7 = -5 to +7.
+//
+// This is the path the board's topside masses travel along. It changes the
+// assembly back to a horizontal slide (see the ASSEMBLY note above, updated
+// again): the masses pass THROUGH the ribs rather than needing to clear
+// them, which is what the vertical-lift plan was working around.
+//
+// Vertically the slot is OPEN AT THE BOTTOM -- it runs from the board plane
+// (z = -wall - joy_boss_h = -17) up 8mm to z = -9, leaving a 4mm web of rib
+// at the top, attached to the shelf. That is the only useful reading of
+// "8mm tall": a closed window with material below it would leave a lip at
+// the board plane for a mass to catch on, and the lip would be an
+// unsupported ledge in this print orientation besides. The 4mm web is what
+// keeps each rib a single continuous piece across the slot.
+//
+// PRINT CONSEQUENCE, known and accepted: this piece builds +X endcap down,
+// toward -X, so the slot's -X wall is material RETURNING after an 8mm gap
+// with nothing behind it -- a one-layer droop over roughly 8 x 6.5mm on the
+// slot's far edge. It cannot be chamfered away: a 45deg return needs 8mm of
+// X run, and the screw bore sits 2.75mm away at x=-9, where the pad must
+// keep its FULL 12mm height or the board no longer seats against the rib's
+// bottom face. The droop is interior, cosmetic, and one layer deep; the
+// alternative (starting the slot at the flat end, 0mm instead of 7mm)
+// removes the step entirely but sacrifices that screw pad.
+joy_slot_w         = 12;  // along X
+joy_slot_h         = 8;   // along Z, up from the board plane
+joy_slot_from_flat = 7;   // from the rib's flat (-X) end
+joy_slot_x0        = -joy_rib_dx + joy_slot_from_flat;   // -5
+joy_slot_x1        = joy_slot_x0 + joy_slot_w;           // +7
+
+// SACRIFICIAL SUPPORT INSIDE THE SLOT -- added 2026-08-27. Modelled here
+// rather than left to the slicer for one specific reason: the void below the
+// slot's returning face is bounded on the print's NEAR side by the rib
+// itself at x = +7, so a slicer asked to support that face builds a stubby
+// column trapped inside the slot, in the exact 12 x 8mm passage the slot
+// exists to provide, with no clean tool access to remove it. Two pins we
+// place deliberately are easier to snip out than one blob the slicer
+// improvises.
+//
+// HOW THEY WORK IN THIS ORIENTATION: layers advance +X -> -X, so each pin is
+// simply a short column growing along the build direction, standing on the
+// slot's near wall (solid rib at x >= +7). Columns along the build axis are
+// the cheapest thing there is to print -- no overhang, no bridging. They
+// stop 0.2mm short of the face they support (joy_slot_sup_gap), which is the
+// standard support-interface trick: the drooping first layer sags that
+// 0.2mm onto the pin and rests there without fusing to it.
+//
+// ANCHORED ONLY AT +X: each pin is fused to the near wall and free at the
+// far end, so removal is one cut at the anchor, reachable from either side
+// of the rib (the slot runs through the full thickness). Snip flush and the
+// passage is clear.
+//
+// PLACEMENT: both pins sit in the LOWER half of the face -- z -16.5..-14.9
+// and -14.0..-12.4. The top 3.4mm of the returning face is left unsupported
+// on purpose: it hangs directly off the 4mm web, which is fused to the shelf
+// along its whole length, so it barely droops. The low end is the part with
+// nothing near it. Staying below z=-12 also keeps the pins clear of
+// joystick_gimbal_clearance()'s sphere, which reaches down to z=-11.84 at
+// the back rib's inner face -- a pin any higher would be sliced off at an
+// angle by that carve and support nothing.
+//
+// SET joy_slot_support = false FOR THE PRODUCTION PART if you would rather
+// take the one-layer droop than cut four pins.
+joy_slot_support   = true;
+joy_slot_sup_gap   = 0.2;   // air gap at the supported face -- do not fuse
+joy_slot_sup_sq    = 1.6;   // pin cross-section, Z and Y
+joy_slot_sup_z     = [-16.5, -14.0];
+
 module joystick_rib(y0, y1) {
     w = y1 - y0;
 
-    translate([-joy_rib_dx, y0, -wall - joy_boss_h])
-    cube([2*joy_rib_dx, w, joy_boss_h]);
+    union() {
+        difference() {
+            union() {
+                translate([-joy_rib_dx, y0, -wall - joy_boss_h])
+                cube([2*joy_rib_dx, w, joy_boss_h]);
 
-    hull() {
-        translate([joy_rib_dx - 0.01, y0, -wall - joy_boss_h])
-        cube([0.01, w, joy_boss_h]);
+                hull() {
+                    translate([joy_rib_dx - 0.01, y0, -wall - joy_boss_h])
+                    cube([0.01, w, joy_boss_h]);
 
-        translate([joy_rib_dx + joy_rib_ramp - 0.01, y0, -wall - joy_rib_step])
-        cube([0.01, w, joy_rib_step]);
+                    translate([joy_rib_dx + joy_rib_ramp - 0.01, y0, -wall - joy_rib_step])
+                    cube([0.01, w, joy_rib_step]);
+                }
+            }
+
+            // Through the full rib thickness (+/-1mm past each face) so the cut
+            // is unambiguous rather than coincident-surface.
+            translate([joy_slot_x0, y0 - 1, -wall - joy_boss_h - 0.5])
+            cube([joy_slot_w, w + 2, joy_slot_h + 0.5]);
+        }
+
+        if (joy_slot_support)
+        for (sz = joy_slot_sup_z)
+            translate([joy_slot_x0 + joy_slot_sup_gap,
+                       y0 + w/2 - joy_slot_sup_sq/2,
+                       sz])
+            cube([joy_slot_w - joy_slot_sup_gap, joy_slot_sup_sq, joy_slot_sup_sq]);
     }
 }
 
@@ -1047,6 +1182,39 @@ assert(joy_body_band_y1 + joy_body_tol < joy_rib_front_y0,
     "JOYSTICK: long-edge mass band overlaps the front rib -- re-check the 12-22mm reading.");
 assert(joy_body_band_y0 - joy_body_tol > joy_rib_back_y1,
     "JOYSTICK: long-edge mass band overlaps the back rib -- re-check the 12-22mm reading.");
+// ---------------------------------------------------------------------------
+
+// The insertion path is vertical, so the cube must fit through the rib gap
+// as a channel, not merely rest inside it -- these two are the same
+// inequality as the joy_cube_min pair above, restated as the ASSEMBLY note
+// depends on them: if either rib inner edge ever moves inboard of the grown
+// cube face, the board cannot be lifted into place at all, no matter what
+// the carve does.
+assert(joy_rib_front_y0 > joy_cube_face && -joy_rib_back_y1 > joy_cube_face,
+    "JOYSTICK: rib gap is narrower than the gimbal cube -- the board cannot be lifted into position. See the ASSEMBLY note.");
+assert(joy_body_band_y1 + joy_body_tol < joy_rib_front_y0
+       && joy_body_band_y0 - joy_body_tol > joy_rib_back_y1,
+    "JOYSTICK: the long-edge mass band is not clear of the ribs in Y, so its full width cannot pass vertically.");
+
+// --- SLOT / BORE CLEARANCE (2026-08-27) ------------------------------------
+// The slot's X span (-5 .. +7) is not symmetric about the rib, so its two
+// ends are not equally clear of the two screw bores at x = +/-joy_hole_dx.
+// These are echo()d rather than assert()ed on purpose: the 12mm/7mm figures
+// are a direct instruction, and one of the two results is below the 1.5mm
+// minimum used everywhere else in this file. Refusing to render would
+// override that instruction; saying nothing would hide it.
+joy_slot_gap_neg = (-joy_hole_dx + joy_pilot_d/2) - joy_slot_x0;  // -X bore -> slot
+joy_slot_gap_pos = (joy_hole_dx - joy_pilot_d/2) - joy_slot_x1;   // +X bore -> slot
+echo(str("SLOT: material between slot and -X bore = ", -joy_slot_gap_neg, "mm"));
+echo(str("SLOT: material between slot and +X bore = ", joy_slot_gap_pos, "mm"));
+if (joy_slot_gap_pos < joy_pad_min)
+    echo(str("*** SLOT WARNING: only ", joy_slot_gap_pos,
+             "mm between the slot's +X end and the +X screw bore (minimum ",
+             "used elsewhere is ", joy_pad_min, "mm). Two fixes that keep ",
+             "the slot's 12mm width and its stated purpose: start it 6mm ",
+             "from the flat end instead of 7 (gives 1.75mm at BOTH ends), ",
+             "or keep the 7mm start and narrow it to 11mm (1.75mm at the ",
+             "+X end). Neither moves a screw."));
 // ---------------------------------------------------------------------------
 
 // --- Assembly ---
