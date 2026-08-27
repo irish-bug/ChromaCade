@@ -12,13 +12,14 @@ ChromaCadeAudio/HardwarePoller/LedRing/LedStrip/OledDisplay are all
 built ONCE here and stay alive for the whole session; switching modes
 just changes how the SAME poller callbacks are interpreted, via the
 app["state"] dispatch below ("play" | "menu" | "tutor_demo" |
-"tutor_active" | "simon_demo" | "simon_active"). play.py and
-tutor_mode.py are left as-is (not deleted) -- they're still useful
-standalone dev/test tools that bypass the menu entirely, and
-tutor_mode.py's play_demo()/celebrate()/miss_feedback()/TUTOR_PROGRAM/
-MISS_COLOR are reused here directly rather than duplicated. Sound
-selection (which nope/yay clip plays when) comes from sound_pools.py's
-build_pools() -- see that module's docstring for the four pools and
+"tutor_active" | "tutor_await_continue" | "simon_demo" |
+"simon_active" | "simon_await_continue"). play.py and tutor_mode.py
+are left as-is (not deleted) -- they're still useful standalone
+dev/test tools that bypass the menu entirely, and tutor_mode.py's
+play_demo()/celebrate()/miss_feedback()/TUTOR_PROGRAM/MISS_COLOR are
+reused here directly rather than duplicated. Sound selection (which
+nope/yay/prompt clip plays when) comes from sound_pools.py's
+build_pools() -- see that module's docstring for the six pools and
 their rules.
 
 Menu gesture (control-layout.md, simplified 2026-08-16 -- see
@@ -58,7 +59,10 @@ inline below too, this is the summary):
     gesture while already in the menu snaps back to the mode-select
     top level rather than preserving deep navigation.
   - Finishing a Tutor song or a Simon game (after the celebration)
-    returns to Play mode, not back into the menu's list.
+    offers a keep-going/stop prompt (CONTINUE_LETTER/STOP_LETTER,
+    added 2026-08-26 -- see that constant's own comment) rather than
+    dropping straight to Play; choosing to stop returns to Play mode,
+    not back into the menu's list, matching the original behavior.
   - Starting a song/sequence from the menu (start_tutor()/
     start_simon(), triggered by the font button's short-click) still
     blocks the control panel for its initial demo/first-round playback
@@ -147,6 +151,36 @@ SIMON_GAP_SECONDS = 0.2
 SIMON_MISS_FLASH_SECONDS = 0.15
 SIMON_MISS_FLASH_COUNT = 2
 SIMON_ROUND_COMPLETE_DELAY_SECONDS = 1.0  # pause before the next round starts, requested 2026-08-15
+
+# Continue/stop prompt after a full Tutor song or Simon game completes
+# (not a Simon round -- see _simon_handle_round_complete for that),
+# requested 2026-08-26: instead of always dropping straight back to
+# Play, offer to keep going with the next song/sequence in the same
+# mode without a parent needing to redo the menu-toggle gesture. C/F
+# reused as-is (not new hardware) -- C is already red, F is already
+# mint green (color-palette.md), so "red stops, green continues" reads
+# correctly with zero new color-teaching conflict. Scoped to its own
+# dedicated app state (like every other note-button repurposing in
+# this file, e.g. the font button's menu-select overload) so this
+# can't collide with C/F needing to be pressed as actual notes
+# mid-song/mid-round -- this state only exists in the gap between one
+# song ending and the next (if any) starting.
+CONTINUE_LETTER = "F"  # green -- keep going with the next song/sequence
+STOP_LETTER = "C"  # red -- done, back to Play
+ALL_DONE_FLASH_SECONDS = 1.5  # how long "All done!" stays up before Play
+
+
+def _next_in_cycle(items, current):
+    """current's neighbor in items, wrapping around -- used to pick
+    "the next song"/"the next sequence source" for the continue
+    prompt. Falls back to returning current itself if it isn't found
+    in items (shouldn't happen in practice) rather than raising --
+    replaying the same one is a reasonable fallback, not a real error
+    worth crashing over."""
+    if current not in items:
+        return current
+    i = items.index(current)
+    return items[(i + 1) % len(items)]
 
 
 def resolve_simon_source(source_name):
@@ -248,6 +282,40 @@ def main():
         ring.clear()
         strip.clear()
 
+    def _offer_continue(mode):
+        """Shared by Tutor-song-complete and Simon-game-complete: shows
+        the keep-going/stop prompt (+ voice clip) and switches to the
+        matching "<mode>_await_continue" state, where note_on() below
+        interprets CONTINUE_LETTER/STOP_LETTER instead of playing
+        notes. Deliberately does NOT clear tutor["song_name"]/
+        simon["source_name"] here -- still needed if CONTINUE_LETTER
+        gets pressed, both to know which mode to resume and to compute
+        "the next one" via _next_in_cycle()."""
+        oled.show_lines(["KEEP GOING?", "PRESS GREEN", "ALL DONE?", "PRESS RED"])
+        play_wav(pools["keep_going"].next())
+        app["state"] = f"{mode}_await_continue"
+
+    def _stop_after_complete():
+        """STOP_LETTER press from either *_await_continue state --
+        brief confirmation, then back to Play. Backgrounded from
+        note_on() below (see _background()'s own docstring) since this
+        sleeps and would otherwise stall gpiozero's button-callback
+        dispatch thread, the same class of bug as the pre-2026-08-24
+        chord-timing issue."""
+        oled.show_lines(["ALL DONE!"])
+        play_wav(pools["all_done"].next())
+        time.sleep(ALL_DONE_FLASH_SECONDS)
+        tutor["song_name"] = None
+        simon["source_name"] = None
+        app["state"] = "play"
+        update_play_oled(force=True)
+
+    def _continue_tutor():
+        start_tutor(_next_in_cycle(list(SONGS.keys()), tutor["song_name"]))
+
+    def _continue_simon():
+        start_simon(_next_in_cycle(SIMON_SOURCES, simon["source_name"]))
+
     def show_tutor_target():
         session = tutor["session"]
         if session.is_complete():
@@ -256,9 +324,7 @@ def main():
             oled.show_lines(["Great job!", tutor["song_name"]])
             celebrate(ring, strip, pools["big_win"].next())
             tutor["session"] = None
-            tutor["song_name"] = None
-            app["state"] = "play"
-            update_play_oled(force=True)
+            _offer_continue("tutor")
         else:
             print(f"CUE     {session.target}")
             ring.show(session.target)
@@ -321,9 +387,7 @@ def main():
             audio.font_change(simon["saved_font_index"] - audio.font_index)
             simon["saved_font_index"] = None
         simon["session"] = None
-        simon["source_name"] = None
-        app["state"] = "play"
-        update_play_oled(force=True)
+        _offer_continue("simon")
 
     def play_simon_round():
         """Blocking: plays back the current round's sequence-so-far,
@@ -427,6 +491,16 @@ def main():
                 _background(_simon_handle_round_complete, pools["simon_round_complete"].next())
             elif result == "complete":
                 _background(finish_simon)
+        elif state == "tutor_await_continue":
+            if letter == CONTINUE_LETTER:
+                _continue_tutor()
+            elif letter == STOP_LETTER:
+                _background(_stop_after_complete)
+        elif state == "simon_await_continue":
+            if letter == CONTINUE_LETTER:
+                _continue_simon()
+            elif letter == STOP_LETTER:
+                _background(_stop_after_complete)
         # "menu" / "tutor_demo" / "simon_demo": no-op, own input entirely
 
     def note_off(letter):
@@ -514,9 +588,14 @@ def main():
             system_action(action)
 
     def menu_enter():
-        if app["state"] in ("tutor_demo", "tutor_active"):
+        # *_await_continue included alongside the actively-playing
+        # states -- a parent using the menu gesture to jump straight to
+        # a different song instead of pressing CONTINUE_LETTER/
+        # STOP_LETTER should still get tutor["song_name"]/
+        # simon["source_name"] cleared, same as any other interruption.
+        if app["state"] in ("tutor_demo", "tutor_active", "tutor_await_continue"):
             stop_active_tutor()
-        elif app["state"] in ("simon_demo", "simon_active"):
+        elif app["state"] in ("simon_demo", "simon_active", "simon_await_continue"):
             stop_active_simon()
         # Any note(s) still held the instant the encoder-hold gesture
         # fires need an explicit note_off here: the state flip to
