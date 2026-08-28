@@ -26,11 +26,16 @@ import random
 from audio_engine import LETTER_ORDER
 
 FAMOUS_NUMBERS = {
-    # Enough digits for a solid number of rounds -- picked digit counts
-    # arbitrarily (not tied to anything), easy to extend.
+    # Three different lengths on purpose, requested 2026-08-27, so this
+    # source has a difficulty ladder rather than three equally-long
+    # games -- Golden Ratio shortest/easiest (10 digits), e medium (15),
+    # Pi longest/hardest (unchanged from before, 21). Still arbitrary
+    # cutoffs, not tied to anything (all three are irrational -- there's
+    # no natural stopping point in the number itself, easy to extend or
+    # shorten any of them further).
     "Pi": "3.14159265358979323846",
-    "e": "2.71828182845904523536",
-    "Golden Ratio": "1.61803398874989484820",
+    "e": "2.71828182845904",
+    "Golden Ratio": "1.618033988",
 }
 
 
