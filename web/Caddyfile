@@ -1,4 +1,10 @@
 :80 {
-	root * /home/shane/ChromaCade/web
+	# Path is per-device -- was /home/shane/ChromaCade (unit #1's builder
+	# account) until 2026-08-24, never updated when unit #1 was lost and
+	# unit #2 (plinkplonk, checkout owned by user "plink") became current.
+	# Update to match whatever device/checkout this is actually installed
+	# on -- see docs/device-rebuild-guide.md and chromacade.service's
+	# ExecStart/WorkingDirectory for the sibling fix.
+	root * /home/plink/ChromaCade/web
 	file_server
 }

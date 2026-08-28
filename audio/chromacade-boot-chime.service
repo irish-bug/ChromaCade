@@ -4,7 +4,13 @@ After=sound.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/shane/ChromaCade/audio/boot_chime.sh
+# Path is per-device -- was /home/shane/ChromaCade (unit #1's builder
+# account) until 2026-08-24, never updated when unit #1 was lost and
+# unit #2 (plinkplonk, checkout owned by user "plink") became current.
+# Update to match whatever device/checkout this is actually installed
+# on -- see docs/device-rebuild-guide.md for plinkplonk's current value,
+# and chromacade.service's ExecStart for the sibling fix.
+ExecStart=/home/plink/ChromaCade/audio/boot_chime.sh
 # Root, not shane (changed 2026-08-16) -- chromacade.service (added
 # today) runs as root and creates the shared dmix IPC semaphore first;
 # a different user (shane) then can't access it ("unable to create IPC

@@ -52,24 +52,39 @@ except ImportError:
     print("    pip3 install adafruit-circuitpython-neopixel --break-system-packages")
     sys.exit(1)
 
-# Full-saturation primaries for red/green/blue (matching led_ring_test.py's
-# own COLOR_STEPS convention) -- confirmed correct as-is on this candidate
-# ring 2026-08-20. All other entries live-tuned against this specific ring
-# via --rgb the same day, replacing generic/textbook CSS starting points --
-# green reads stronger than its numeric value on this hardware, same
-# effect docs/color-palette.md found on the project's real ring (see that
-# file for the general phenomenon). Purple in particular ended up far
-# dimmer than the CSS starting point (128,0,128), not just rebalanced --
-# at full CSS brightness it read as pink, same as the too-bright/washed-
-# out pastel effect color-palette.md describes.
+# All 7 live-tuned against this specific candidate ring via --rgb,
+# 2026-08-20. Started from full-saturation primaries for red/green/blue
+# (matching led_ring_test.py's own COLOR_STEPS convention) and generic/
+# textbook CSS values for the rest -- green reads stronger than its
+# numeric value on this hardware, same effect docs/color-palette.md
+# found on the project's real ring (see that file for the general
+# phenomenon). Every entry ended up far dimmer than its starting point,
+# not just rebalanced -- full CSS/full-saturation brightness read as
+# washed-out/pastel (purple specifically read as pink at CSS 128,0,128),
+# same effect color-palette.md describes for the project's real ring.
+# Converged on a max-channel-88 ceiling across the whole set (~1/3 of
+# full output, chosen for that headroom -- and, not incidentally, 88mph).
+#
+# Confirmed 2026-08-20, seeing all 7 together at the 88 ceiling: lower
+# intensity doesn't just fix individual problem colors, it makes EVERY
+# color read more distinct and "less white" across the board, not only
+# the ones that were visibly wrong at full brightness. Consistent with
+# color-palette.md's "additive light reads washed-out near-white"
+# point, but sharper -- it's specifically an intensity effect, not just
+# additive-vs-reflective: even colors that looked fine alone at full
+# brightness (red/green/blue) read more washed out than they needed to,
+# it just wasn't obvious until compared side by side with the dimmed
+# set. Worth keeping in mind for any future WS2812 palette work, not
+# just this ring: check a candidate color's distinctness at a lower
+# ceiling before assuming full-saturation is the right starting point.
 COLORS = [
-    ("red",    (255, 0, 0)),
-    ("orange", (255, 50, 0)),    # TUNED 2026-08-20 (was CSS 255,165,0)
-    ("yellow", (125, 85, 0)),    # TUNED 2026-08-20 (was CSS 255,255,0; first pass 255,190,0)
-    ("green",  (0, 255, 0)),
-    ("blue",   (0, 0, 255)),
-    ("purple", (10, 0, 24)),     # TUNED 2026-08-20 (was CSS 128,0,128)
-    ("pink",   (255, 0, 100)),   # TUNED 2026-08-20 (was CSS 255,192,203)
+    ("red",    (88, 0, 0)),      # TUNED 2026-08-20 (was full-sat 255,0,0)
+    ("orange", (88, 15, 0)),     # TUNED 2026-08-20 (was CSS 255,165,0; first pass 255,50,0)
+    ("yellow", (88, 55, 0)),     # TUNED 2026-08-20 (was CSS 255,255,0; passes 255,190,0, 125,85,0, 88,60,0)
+    ("green",  (0, 88, 0)),      # TUNED 2026-08-20 (was full-sat 0,255,0)
+    ("blue",   (0, 0, 88)),      # TUNED 2026-08-20 (was full-sat 0,0,255)
+    ("purple", (40, 0, 88)),     # TUNED 2026-08-20 (was CSS 128,0,128; first pass 10,0,24)
+    ("pink",   (88, 0, 35)),     # TUNED 2026-08-20 (was CSS 255,192,203; first pass 255,0,100)
 ]
 
 

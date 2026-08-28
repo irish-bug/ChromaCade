@@ -1,15 +1,16 @@
 """
-ChromaCade -- nope/yay sound pools for Tutor/Simon feedback, requested
-2026-08-16. Recordings live in audio/nopes/ and audio/yays/ (repo
-root's audio/ dir), both tracked in git -- personal recordings, not
-third-party copyrighted content like audio/zelda/'s Navi clips (see
-.gitignore). Levels already tuned live on real hardware (peak-
+ChromaCade -- nope/yay/prompt sound pools for Tutor/Simon feedback,
+requested 2026-08-16 (nopes/yays), extended 2026-08-26 (prompts).
+Recordings live in audio/nopes/, audio/yays/, and audio/prompts/
+(repo root's audio/ dir), all tracked in git -- personal recordings,
+not third-party copyrighted content like audio/zelda/'s Navi clips
+(see .gitignore). Levels already tuned live on real hardware (peak-
 normalized then compressed, see git history) -- this module doesn't
 touch volume, just which file plays when.
 
-Four pools, confirmed against the actual recorded files (nopes/: eheh,
+Six pools, confirmed against the actual recorded files (nopes/: eheh,
 nope, startover, tryagain, wahwah -- yays/: brrbrrbrrbrrr, goodjob,
-nice, thatsright, youdidit, yuss):
+nice, thatsright, youdidit, yuss -- prompts/: keepgoing, alldone):
   - Tutor error: any nopes/ file except startover.wav -- that phrase
     doesn't fit Tutor, which never actually resets/starts over, it
     just doesn't advance (feature-spec.md's "gently don't advance").
@@ -22,6 +23,14 @@ nice, thatsright, youdidit, yuss):
     ONE shared cycler between both modes' completion event (built
     once in chromacade.py, not tracked separately per mode), since the
     user specified the exact same pair/behavior for both.
+  - Keep-going prompt: keepgoing.wav, played once when a finished
+    Tutor song/Simon game offers "press green to keep going, red to
+    stop" instead of dropping straight back to Play (requested
+    2026-08-26). Only one recording, no variety needed -- still a
+    (single-item) Cycler for interface consistency with every other
+    pool chromacade.py calls .next() on.
+  - All-done confirmation: alldone.wav, played once red is actually
+    pressed to stop. Same single-item-Cycler reasoning as above.
 
 Cycler is the only pure/testable piece here (see test_sound_pools.py)
 -- picked over random.choice for every pool since the spec left most
@@ -37,12 +46,22 @@ actual sound files present.
 import os
 import subprocess
 
-NOPES_DIR = "/home/shane/ChromaCade/audio/nopes"
-YAYS_DIR = "/home/shane/ChromaCade/audio/yays"
+# Derived from this file's own location, not hardcoded to any one
+# device/user's home directory -- found hardcoded to unit #1's builder
+# path (/home/shane/ChromaCade) 2026-08-24, broke chromacade.py outright
+# on plinkplonk (a different user, plink). Repo root is this file's own
+# parent directory since sound_pools.py lives at the repo root alongside
+# audio/.
+_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+NOPES_DIR = os.path.join(_REPO_ROOT, "audio", "nopes")
+YAYS_DIR = os.path.join(_REPO_ROOT, "audio", "yays")
+PROMPTS_DIR = os.path.join(_REPO_ROOT, "audio", "prompts")
 
 STARTOVER_SOUND = "startover.wav"
 TRY_AGAIN_SOUND = "tryagain.wav"
 BIG_WIN_SOUNDS = ["brrbrrbrrbrrr.wav", "youdidit.wav"]
+KEEP_GOING_SOUND = "keepgoing.wav"
+ALL_DONE_SOUND = "alldone.wav"
 
 
 class Cycler:
@@ -69,9 +88,19 @@ def _list_wav_files(directory, exclude=()):
     )
 
 
+def _require_file(path):
+    """Like _list_wav_files, fails loudly (this time on a single named
+    file rather than a whole directory) instead of letting build_pools()
+    hand back a Cycler pointing at nothing -- see that function's own
+    docstring for why silent-until-triggered isn't acceptable here."""
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    return path
+
+
 def build_pools():
-    """Scans NOPES_DIR/YAYS_DIR and returns the four Cyclers (dict
-    keyed by name), each holding full paths ready to hand to
+    """Scans NOPES_DIR/YAYS_DIR/PROMPTS_DIR and returns the six Cyclers
+    (dict keyed by name), each holding full paths ready to hand to
     play_wav(). Fails loudly (FileNotFoundError/ValueError) if a
     directory or an expected named file is missing -- no silent
     fallback, a missing sound should be noticed immediately at
@@ -84,11 +113,15 @@ def build_pools():
         [os.path.join(YAYS_DIR, name) for name in _list_wav_files(YAYS_DIR, exclude=set(BIG_WIN_SOUNDS))]
     )
     big_win = Cycler([os.path.join(YAYS_DIR, name) for name in BIG_WIN_SOUNDS])
+    keep_going = Cycler([_require_file(os.path.join(PROMPTS_DIR, KEEP_GOING_SOUND))])
+    all_done = Cycler([_require_file(os.path.join(PROMPTS_DIR, ALL_DONE_SOUND))])
     return {
         "tutor_error": tutor_error,
         "simon_mistake": simon_mistake,
         "simon_round_complete": simon_round_complete,
         "big_win": big_win,
+        "keep_going": keep_going,
+        "all_done": all_done,
     }
 
 
@@ -102,3 +135,19 @@ def play_wav(path):
     to surface -- suppressing it once already hid a real bug (the old
     NOPE_SOUND_PATH ~-expansion issue), not worth repeating."""
     subprocess.Popen(["aplay", path], stdout=subprocess.DEVNULL)
+
+
+def play_wav_sequence(paths):
+    """Like play_wav(), but blocks between each path so they play one
+    after another instead of overlapping/garbling through the shared
+    dmix device -- every other use in this module is fire-and-forget
+    on purpose (flash/animation timing that doesn't care when the
+    sound actually finishes), but the keep-going/all-done prompt
+    (requested 2026-08-26: announce BOTH choices, not just one) needs
+    both spoken clips to be intelligible back to back. Safe to block
+    the caller -- chromacade.py only ever calls this from a spot
+    that's already running on its own background thread, not gpiozero's
+    callback-dispatch thread. subprocess.run() (not Popen) is exactly
+    "wait for this one before returning"."""
+    for path in paths:
+        subprocess.run(["aplay", path], stdout=subprocess.DEVNULL)

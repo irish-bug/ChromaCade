@@ -170,16 +170,22 @@ def bent_letter(letter, bend_fraction, max_semitones=MAX_BEND_SEMITONES):
 
 
 # Volume pot calibration -- same ADS1115, same 0-3.3V range as the
-# joystick (testing/ads1115_test.py's live sweep). Confirmed inverted
-# as wired (gpio-pin-assignments.md): clockwise turn reads as LOWER
-# voltage, but clockwise should mean louder.
+# joystick (testing/ads1115_test.py's live sweep). Originally found
+# inverted as wired on 2026-08-14 (clockwise read as LOWER voltage,
+# corrected below) -- confirmed flipped BACK live 2026-08-24 (clockwise
+# now reads as HIGHER voltage, i.e. no longer inverted), most likely
+# from the ADS1115/pot rewiring done this session. Un-inverted here to
+# match. If this flips again after future rewiring, re-derive from a
+# live loudness check (turn CW, confirm louder) rather than assuming
+# either direction is permanent -- this pot's wiring has now flipped at
+# least once.
 POT_MAX_VOLTAGE = 3.3
 
 
 def pot_volume_fraction(voltage):
     """Raw pot voltage -> normalized volume, 0.0 (silent) to 1.0 (full
     clockwise turn)."""
-    fraction = 1.0 - (voltage / POT_MAX_VOLTAGE)
+    fraction = voltage / POT_MAX_VOLTAGE
     return max(0.0, min(1.0, fraction))
 
 

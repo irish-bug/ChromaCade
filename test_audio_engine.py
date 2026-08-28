@@ -194,18 +194,20 @@ def test_smooth_alpha_half_averages_the_two():
     assert smooth(previous=1.0, new_value=3.0, alpha=0.5) == 2.0
 
 
-def test_pot_volume_fraction_zero_volts_is_full_clockwise_full_volume():
-    # confirmed inverted as wired -- clockwise turn reads as lower voltage
-    assert pot_volume_fraction(0.0) == pytest.approx(1.0, abs=0.01)
+def test_pot_volume_fraction_zero_volts_is_silent():
+    # No longer inverted -- rewiring since the original 2026-08-14
+    # calibration flipped which direction reads high vs low voltage,
+    # confirmed live 2026-08-24 (see audio_engine.py's comment).
+    assert pot_volume_fraction(0.0) == pytest.approx(0.0, abs=0.01)
 
 
-def test_pot_volume_fraction_full_voltage_is_silent():
-    assert pot_volume_fraction(3.3) == pytest.approx(0.0, abs=0.01)
+def test_pot_volume_fraction_full_voltage_is_full_clockwise_full_volume():
+    assert pot_volume_fraction(3.3) == pytest.approx(1.0, abs=0.01)
 
 
 def test_pot_volume_fraction_clamped_past_measured_extremes():
-    assert pot_volume_fraction(-1.0) == 1.0
-    assert pot_volume_fraction(5.0) == 0.0
+    assert pot_volume_fraction(-1.0) == 0.0
+    assert pot_volume_fraction(5.0) == 1.0
 
 
 def test_volume_midi_value_zero_is_silent():
