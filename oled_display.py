@@ -17,6 +17,8 @@ rather than being fully generic, since normal play's layout is fixed
 and known, unlike the menu's variable-length option lists.
 """
 
+import os
+
 import board
 import busio
 import adafruit_ssd1306
@@ -29,12 +31,26 @@ I2C_ADDRESS = 0x3C
 LINE_HEIGHT = 12  # small-font line spacing, 5 lines fit in 64px with room to spare
 MAX_CHARS_PER_LINE = 21  # Pillow's default bitmap font is ~6px wide, 128/6 ~= 21
 
-# Panel is physically mounted/wired upside down relative to the SSD1306
-# driver's default orientation (confirmed live 2026-08-24) -- rotating
-# the rendered image before every push is simpler and more portable
-# than chasing the driver's COM/segment-remap init commands, and it's
-# the same Pillow Image either way.
-DISPLAY_ROTATION_DEGREES = 180
+# Per-device, NOT a shared constant -- found live 2026-08-28: merging
+# plinkplonk into main and pulling to chromacade flipped chromacade's
+# display upside down. The two units' panels are physically mounted
+# 180 degrees opposite each other, so a single hardcoded value can
+# never be right for both -- whichever device's fix landed in this
+# file most recently silently breaks the other one the next time
+# branches merge. This was already hit twice before this fix ("we had
+# fixed it on chromacade and then had to fix on the plinkplonk"), just
+# never generalized until now.
+#
+# Reads from the environment instead, set per-device in that device's
+# own chromacade.service (Environment=CHROMACADE_OLED_ROTATION=...) --
+# the exact same already-established per-device customization point
+# ExecStart/WorkingDirectory already use, see that file's own
+# comments, not a new mechanism. Defaults to 180 if unset -- that's
+# plinkplonk's own orientation and this constant's value before this
+# fix, so plinkplonk needs no service-file change; chromacade's
+# chromacade.service sets it to 0 explicitly (see
+# docs/device-rebuild-guide.md).
+DISPLAY_ROTATION_DEGREES = int(os.environ.get("CHROMACADE_OLED_ROTATION", "180"))
 
 
 class OledDisplay:
