@@ -19,6 +19,13 @@ Type=simple
 # on -- see docs/device-rebuild-guide.md for plinkplonk's current values.
 ExecStart=/usr/bin/python3 -u /home/plink/ChromaCade/chromacade.py
 WorkingDirectory=/home/plink/ChromaCade
+# Also per-device, added 2026-08-28 -- see oled_display.py's own
+# comment. plinkplonk's OLED is mounted opposite chromacade's; this
+# device's value is 180 (the default oled_display.py falls back to if
+# this line is missing entirely, kept explicit here anyway rather than
+# relying on the fallback). chromacade's own chromacade.service must
+# set this to 0 instead -- see docs/device-rebuild-guide.md.
+Environment=CHROMACADE_OLED_ROTATION=180
 # root, not the checkout owner above -- needed for the LED ring/strip's
 # PWM/DMA access (neopixel), not for GPIO/I2C/audio in general, which a
 # normal user can get via group membership instead (gpio/i2c/audio groups).
