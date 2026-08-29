@@ -5,6 +5,21 @@
 	# Update to match whatever device/checkout this is actually installed
 	# on -- see docs/device-rebuild-guide.md and chromacade.service's
 	# ExecStart/WorkingDirectory for the sibling fix.
-	root * /home/plink/ChromaCade/web
-	file_server
+
+	# Added 2026-08-27/28 for the web-based song composer (Add Your Own
+	# Song page) -- song_editor_server.py (song-editor.service) is a
+	# separate, non-root local process (127.0.0.1:8765 only, see that
+	# file's own docstring for why). Routed BEFORE the file_server
+	# catch-all below so /api/* never falls through to a 404 static
+	# lookup. Same-origin from the browser's perspective (this Caddyfile
+	# serves both the static page and the proxied API on :80), so no
+	# CORS handling needed on the backend side.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8765
+	}
+
+	handle {
+		root * /home/plink/ChromaCade/web
+		file_server
+	}
 }
