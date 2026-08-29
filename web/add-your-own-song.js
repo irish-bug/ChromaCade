@@ -75,9 +75,45 @@ function undoLast() {
   render();
 }
 
+// "Clear all" needs a confirm step -- it's destructive and easy to
+// misclick right next to Undo -- but NOT window.confirm(): that's a
+// native browser dialog, and this page also runs inside a sandboxed
+// Artifact preview (see the "ChromaCade Composer" artifact) where
+// sandboxed iframes silently block confirm()/alert()/prompt() unless
+// allow-modals is set, returning false with no dialog ever shown at
+// all -- confirmed live, this was reported as "the button doesn't
+// work" because of exactly that. An in-page two-click arm/confirm
+// instead: first click arms it (button relabels, clearArmed=true,
+// times out back to normal after CLEAR_ARM_TIMEOUT_MS if not
+// followed up), second click within that window actually clears. No
+// native dialog anywhere, works identically in a sandboxed preview
+// and the real page.
+let clearArmed = false;
+let clearArmTimer = null;
+const CLEAR_ARM_TIMEOUT_MS = 3000;
+
+function disarmClear() {
+  clearArmed = false;
+  if (clearArmTimer) {
+    clearTimeout(clearArmTimer);
+    clearArmTimer = null;
+  }
+  const btn = document.getElementById("clear-btn");
+  btn.textContent = "Clear all";
+  btn.classList.remove("armed");
+}
+
 function clearAll() {
   if (notes.length === 0) return;
-  if (!confirm("Clear all notes and start over?")) return;
+  if (!clearArmed) {
+    clearArmed = true;
+    const btn = document.getElementById("clear-btn");
+    btn.textContent = "Click again to clear";
+    btn.classList.add("armed");
+    clearArmTimer = setTimeout(disarmClear, CLEAR_ARM_TIMEOUT_MS);
+    return;
+  }
+  disarmClear();
   notes = [];
   selectedIndex = null;
   render();
@@ -180,6 +216,12 @@ function renderPenControls() {
 function renderToolbar() {
   document.getElementById("undo-btn").disabled = notes.length === 0;
   document.getElementById("clear-btn").disabled = notes.length === 0;
+  // Any render (a note added/edited/undone, not just Clear itself
+  // completing) disarms an in-progress "click again to clear" --
+  // otherwise the button can be left showing that label while it no
+  // longer reflects a real pending confirmation, e.g. if Undo empties
+  // the list while Clear is armed.
+  if (clearArmed) disarmClear();
   const name = document.getElementById("song-name").value.trim();
   document.getElementById("save-btn").disabled = notes.length === 0 || name === "";
 }
