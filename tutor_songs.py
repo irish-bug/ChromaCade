@@ -243,23 +243,40 @@ SCORES = {
 _USER_SCORES, _USER_PROMPTS = load_user_songs()
 SCORES.update(_USER_SCORES)
 
-# Bare letter sequences for the color-matching phase -- derived from
-# SCORES (see module docstring for why octave/duration are dropped
-# deliberately, and why deriving rather than hand-duplicating matters).
-# Runs after the user-songs merge above so personal songs get the same
-# derivation, not just the bundled ones.
-SONGS = {
-    name: [_letters_in(note) for note, _duration in score if note is not None]
-    for name, score in SCORES.items()
-}
+def _derive_songs(scores):
+    """SCORES -> SONGS (bare letter-SET sequences, see module
+    docstring). Pulled into its own function, not just inlined at
+    import time, so refresh_user_songs() below can recompute this
+    after picking up newly-saved songs without duplicating the
+    derivation logic."""
+    return {
+        name: [_letters_in(note) for note, _duration in score if note is not None]
+        for name, score in scores.items()
+    }
 
-# Which bundled/user songs contain at least one chord step (a
-# multi-letter frozenset in SONGS) -- added 2026-09-02 so menu.py can
-# separate "Notes only" from "Chord songs" in the Tutor song list
-# instead of mixing them in one flat list. Derived the same way SONGS
-# is (from the data, not hand-maintained), so a song can't drift out
-# of the right bucket if its SCORE changes.
-CHORD_SONGS = frozenset(name for name, steps in SONGS.items() if any(len(step) > 1 for step in steps))
+
+def _derive_chord_songs(songs):
+    """Which songs contain at least one chord step (a multi-letter
+    frozenset in SONGS) -- added 2026-09-02 so menu.py can separate
+    "Notes only" from "Chord songs" in the Tutor song list instead of
+    mixing them in one flat list. Derived the same way SONGS is (from
+    the data, not hand-maintained), so a song can't drift out of the
+    right bucket if its SCORE changes."""
+    return {name for name, steps in songs.items() if any(len(step) > 1 for step in steps)}
+
+
+# Bare letter-set sequences for the color-matching phase -- derived
+# from SCORES, not hand-duplicated (see module docstring). Runs after
+# the user-songs merge above so personal songs get the same
+# derivation, not just the bundled ones.
+SONGS = _derive_songs(SCORES)
+
+# A plain (mutable) set, not frozen -- refresh_user_songs() below
+# updates it in place via clear()+update() so an already-imported
+# reference (chromacade.py's `from tutor_songs import CHORD_SONGS`)
+# sees the refresh too. A reassignment here (CHORD_SONGS = ...) would
+# only ever rebind *this* module's own name, not anyone else's.
+CHORD_SONGS = _derive_chord_songs(SONGS)
 
 # Optional instructional prompts shown alongside the color-matching
 # target in Tutor mode -- Simon mode (which also draws from SONGS as
@@ -280,6 +297,36 @@ PROMPTS = {
     },
 }
 PROMPTS.update(_USER_PROMPTS)
+
+
+def refresh_user_songs(directory=USER_SONGS_DIR):
+    """Re-scans user-songs/ and merges any new/changed songs into
+    SCORES/SONGS/CHORD_SONGS/PROMPTS *in place* -- added 2026-09-02 so
+    a long-running process (chromacade.service) can pick up a song
+    saved through the web composer without needing a restart (it only
+    ever scanned user-songs/ once, at import time, before this).
+    Mutates the existing dict/set objects (via .update()/.clear()+
+    .update(), never reassignment) rather than rebinding new ones, so
+    an already-imported reference in another module (chromacade.py's
+    `from tutor_songs import SCORES, SONGS, CHORD_SONGS`) sees the
+    update automatically -- a plain `SCORES = ...` here would only
+    ever rebind *this* module's own name, leaving every other module's
+    reference pointing at the stale object. Bundled songs are
+    untouched (nothing here can remove or change one, only add/update
+    user ones) -- see load_user_songs()'s own docstring for the
+    same-name-collision-overwrites behavior this inherits.
+
+    Returns the updated SONGS dict for convenience -- chromacade.py
+    needs it to also refresh Menu/SIMON_SOURCES, which live outside
+    this module and can't be mutated from here."""
+    user_scores, user_prompts = load_user_songs(directory)
+    SCORES.update(user_scores)
+    SONGS.clear()
+    SONGS.update(_derive_songs(SCORES))
+    CHORD_SONGS.clear()
+    CHORD_SONGS.update(_derive_chord_songs(SONGS))
+    PROMPTS.update(user_prompts)
+    return SONGS
 
 
 class TutorSession:

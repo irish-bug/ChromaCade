@@ -1,6 +1,15 @@
 import pytest
 
-from tutor_songs import SCORES, SONGS, TutorSession, _letters_in, load_user_songs, parse_note_name
+from tutor_songs import (
+    CHORD_SONGS,
+    SCORES,
+    SONGS,
+    TutorSession,
+    _letters_in,
+    load_user_songs,
+    parse_note_name,
+    refresh_user_songs,
+)
 
 
 def test_parse_note_name_natural():
@@ -205,3 +214,58 @@ def test_user_songs_merge_into_songs_and_prompts(tmp_path):
     }
     assert merged_songs["Merge Example"] == [frozenset({"C"}), frozenset({"D"})]
     assert user_prompts["Merge Example"] == {1: "OCTAVE UP!"}
+
+
+# --- refresh_user_songs(), added 2026-09-02 -- lets a long-running
+# process (chromacade.service) pick up a song saved via the web
+# composer without a restart. These mutate the REAL module-level
+# SCORES/SONGS/CHORD_SONGS in place (that's the whole point -- see the
+# function's own docstring), so every test below cleans up in a
+# finally block rather than leaving a fake song polluting every other
+# test that iterates SCORES.keys()/SONGS.keys() (the @pytest.mark.
+# parametrize(..., list(SCORES.keys())) tests earlier in this file).
+
+
+def test_refresh_user_songs_picks_up_new_song_in_place(tmp_path):
+    (tmp_path / "fresh.py").write_text('NAME = "Refresh Test Song"\nSCORE = [(["C4", "E4"], 1)]\n')
+    assert "Refresh Test Song" not in SCORES
+    try:
+        result = refresh_user_songs(tmp_path)
+        # Same objects, mutated -- not a fresh dict/set the caller has
+        # to go re-fetch. This is what lets chromacade.py's own
+        # already-imported SCORES/SONGS/CHORD_SONGS see the update
+        # immediately, with no re-import.
+        assert result is SONGS
+        assert "Refresh Test Song" in SCORES
+        assert SONGS["Refresh Test Song"] == [frozenset({"C", "E"})]
+        assert "Refresh Test Song" in CHORD_SONGS
+    finally:
+        SCORES.pop("Refresh Test Song", None)
+        SONGS.pop("Refresh Test Song", None)
+        CHORD_SONGS.discard("Refresh Test Song")
+
+
+def test_refresh_user_songs_does_not_touch_bundled_songs(tmp_path):
+    (tmp_path / "fresh.py").write_text('NAME = "Another Refresh Song"\nSCORE = [("C4", 1)]\n')
+    bundled_before = {name: SCORES[name] for name in SCORES if name != "Another Refresh Song"}
+    try:
+        refresh_user_songs(tmp_path)
+        for name, score in bundled_before.items():
+            assert SCORES[name] == score
+    finally:
+        SCORES.pop("Another Refresh Song", None)
+        SONGS.pop("Another Refresh Song", None)
+        CHORD_SONGS.discard("Another Refresh Song")
+
+
+def test_refresh_user_songs_is_safe_to_call_repeatedly(tmp_path):
+    (tmp_path / "fresh.py").write_text('NAME = "Repeat Refresh Song"\nSCORE = [("D4", 1)]\n')
+    try:
+        refresh_user_songs(tmp_path)
+        refresh_user_songs(tmp_path)  # same file, same NAME -- should just re-merge cleanly, not error/duplicate
+        assert SCORES["Repeat Refresh Song"] == [("D4", 1)]
+        assert SONGS["Repeat Refresh Song"] == [frozenset({"D"})]
+    finally:
+        SCORES.pop("Repeat Refresh Song", None)
+        SONGS.pop("Repeat Refresh Song", None)
+        CHORD_SONGS.discard("Repeat Refresh Song")

@@ -519,7 +519,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
       data = { ok: false, error: `Unexpected response (HTTP ${res.status})` };
     }
     if (data.ok) {
-      statusEl.textContent = `Saved! "${name}" is ready in Tutor and Simon.`;
+      statusEl.textContent = `Saved! "${name}" will show up in Tutor and Simon next time the menu opens on the device.`;
       statusEl.className = "save-status ok";
     } else {
       statusEl.textContent = data.error || "Something went wrong.";

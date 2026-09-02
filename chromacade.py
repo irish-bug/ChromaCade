@@ -136,7 +136,7 @@ from tutor_mode import (
     miss_feedback,
     play_demo,
 )
-from tutor_songs import CHORD_SONGS, PROMPTS, SCORES, SONGS, TutorSession, chord_cue_letter, target_label
+from tutor_songs import CHORD_SONGS, PROMPTS, SCORES, SONGS, TutorSession, chord_cue_letter, refresh_user_songs, target_label
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 # Simon-only now (2026-08-17) -- Tutor plays in whichever font was
@@ -749,6 +749,7 @@ def main():
             system_action(action)
 
     def menu_enter():
+        nonlocal menu
         # *_await_continue included alongside the actively-playing
         # states -- a parent using the menu gesture to jump straight to
         # a different song instead of pressing CONTINUE_LETTER/
@@ -772,6 +773,24 @@ def main():
         matching_held.clear()
         play_state["shown"] = None
         play_state["shown_base"] = None
+        # Re-scan user-songs/ and rebuild the menu's song list every
+        # time the menu gesture fires -- added 2026-09-02, direct
+        # feedback: a song saved through the web composer while
+        # chromacade.service is already running never showed up
+        # without a full service restart (SONGS/CHORD_SONGS were only
+        # ever computed once, at process start). refresh_user_songs()
+        # mutates SCORES/SONGS/CHORD_SONGS in place, so this file's
+        # own already-imported SONGS/CHORD_SONGS reflect the update
+        # immediately -- only SIMON_SOURCES (a plain list, not one of
+        # those mutated objects) and the Menu object itself (built
+        # once from a snapshot of the song list) need rebuilding here.
+        # Recreating `menu` rather than patching it in place is safe:
+        # menu.enter() below resets stage to "mode" regardless, so
+        # there's no meaningful state to lose.
+        refresh_user_songs()
+        global SIMON_SOURCES
+        SIMON_SOURCES = ["Random"] + list(FAMOUS_NUMBERS.keys()) + list(SONGS.keys())
+        menu = Menu(list(SONGS.keys()), SIMON_SOURCES, chord_songs=CHORD_SONGS)
         app["state"] = "menu"
         menu.enter()
         ring.clear()
