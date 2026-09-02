@@ -198,18 +198,28 @@
     0%, 100% { color: var(--wm-base); }
     20%, 80% { color: var(--letter-color); }
   }
+  /* Plain and fully visible by default -- NOT animating on page load.
+     The reveal+wave sequence only runs once JS adds .play to .wordmark
+     (see the script below), gated on the exact same trigger as the
+     melody (autoplay-allowed immediately, or the first click/keypress
+     otherwise) so the two can never drift apart the way they did when
+     the visual ran unconditionally on load while audio waited for a
+     gesture -- direct feedback 2026-09-02. */
   .wordmark span {
     display: inline-block;
-    opacity: 0;
+    opacity: 1;
     color: var(--wm-base);
     -webkit-text-stroke: 2px var(--wm-base);
     paint-order: stroke fill;
+  }
+  .wordmark.play span {
+    opacity: 0;
     animation:
       wordmark-reveal 0.15s ease-out calc(var(--i) * 0.16s) forwards,
       wordmark-wave 0.8s ease-in-out calc(1s + var(--i) * 0.16s) forwards;
   }
   @media (prefers-reduced-motion: reduce) {
-    .wordmark span {
+    .wordmark.play span {
       animation: none;
       opacity: 1;
       color: var(--wm-base);
@@ -402,15 +412,24 @@
     playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
   }
 
+  // Starts BOTH the visual reveal/wave (by adding .play, see the CSS
+  // above) and the melody together, from whatever moment this actually
+  // runs -- the two can only stay in sync if something drives them
+  // both from the same trigger, rather than the visual running
+  // unconditionally on load while audio waits on its own gesture.
+  function startShow() {
+    var wordmark = document.querySelector(".wordmark");
+    if (wordmark) wordmark.classList.add("play");
+    scheduleMelody(BASE_DELAY_S);
+  }
+
   if (ctx.state === "suspended") {
-    // Blocked until a user gesture -- wait for the first one, then
-    // resume and start the melody almost immediately (a short beat,
-    // not the original 1s intro delay) rather than however long it
-    // takes the visitor to click after the page loaded.
+    // Audio blocked until a user gesture -- wait for the first one
+    // (a click, or the first keypress from typing a song letter) and
+    // start the whole show at that moment, instead of running the
+    // visual on load and leaving audio to catch up late.
     var resume = function () {
-      ctx.resume().then(function () {
-        scheduleMelody(0.1);
-      });
+      ctx.resume().then(startShow);
       window.removeEventListener("pointerdown", resume);
       window.removeEventListener("keydown", resume);
     };
@@ -419,8 +438,8 @@
   } else {
     // Already allowed (e.g. a repeat visit -- browsers grant sites an
     // autoplay allowance once you've interacted with them before) --
-    // matches the visual wave's own BASE_DELAY_S so both start together.
-    scheduleMelody(BASE_DELAY_S);
+    // nothing to wait for, start immediately.
+    startShow();
   }
 })();
 </script>
