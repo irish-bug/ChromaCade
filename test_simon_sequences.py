@@ -143,10 +143,24 @@ def test_reset_after_complete_starts_a_fresh_finite_game():
 # --- SimonSession, chord-aware matching ---
 
 
+def test_chord_step_partial_press_is_pending_not_wrong():
+    # Direct bug report 2026-09-02: pressing a chord's notes one at a
+    # time was firing "wrong" (resetting the round) before the rest of
+    # the chord joined it. Holding fewer notes than the step needs
+    # must be "pending", never "wrong".
+    next_step, max_length = pool_source([frozenset({"C", "E", "G"})])
+    session = SimonSession(next_step, max_length)
+    assert session.press({"C"}) == "pending"
+    assert session.press({"C", "E"}) == "pending"
+    assert session.press({"C", "E", "G"}) == "complete"
+
+
 def test_chord_step_requires_all_letters_held_together():
     next_step, max_length = pool_source([frozenset({"C", "E", "G"})])
     session = SimonSession(next_step, max_length)
-    assert session.press({"C", "E"}) == "wrong"  # missing G
+    # Enough notes held (3) to judge, but the wrong 3 -- a genuine
+    # "wrong", not "pending" (that's only for holding FEWER than needed).
+    assert session.press({"C", "E", "A"}) == "wrong"
     session.reset()
     assert session.press({"C", "E", "G"}) == "complete"
 

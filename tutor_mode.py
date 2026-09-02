@@ -247,10 +247,16 @@ def main():
             if letter not in matching_held:
                 matching_held.append(letter)
             matched_step = session.target  # capture before press() advances index
-            if session.press(matching_held):
+            # "match"/"pending"/"miss"/"already_complete" -- see
+            # TutorSession.press()'s own docstring. "pending" (holding
+            # fewer notes than a chord target needs) is a no-op, not a
+            # miss -- fixed 2026-09-02, same bug as chromacade.py's copy
+            # of this logic.
+            result = session.press(matching_held)
+            if result == "match":
                 print(f"MATCH   {target_label(matched_step)}")
                 show_target()
-            else:
+            elif result == "miss":
                 print(f"MISS    {letter} (wanted {target_label(session.target)})")
                 miss_feedback(strip, session.target, pools["tutor_error"].next())
 

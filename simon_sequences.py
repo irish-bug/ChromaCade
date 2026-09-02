@@ -131,7 +131,21 @@ class SimonSession:
         -- same forgiving spirit as Tutor mode, just still resetting
         the whole round on a genuine miss (Simon tests recall, Tutor
         doesn't -- see module docstring). Returns one of:
-        "wrong"            -- didn't match, caller should reset()
+        "pending"          -- held_letters doesn't have enough notes
+                               yet to possibly satisfy the current
+                               step (fewer held than the step needs) --
+                               NOT wrong, just not judged yet. Caller
+                               should give no feedback and keep
+                               waiting for more presses. Direct bug
+                               report 2026-09-02: without this, every
+                               single note of a chord pressed one at a
+                               time fired "wrong" (resetting the whole
+                               round) before the rest of the chord
+                               joined it.
+        "wrong"            -- held_letters already has at least as
+                               many notes as the step needs, but
+                               doesn't cover it -- a genuine miss,
+                               caller should reset()
         "continue"         -- matched, more of this round's sequence
                                still to press
         "round_complete"   -- matched, finished reproducing this
@@ -144,7 +158,11 @@ class SimonSession:
         """
         if self.complete:
             return "already_complete"
-        if not self.sequence[self.input_index] <= frozenset(held_letters):
+        target = self.sequence[self.input_index]
+        held = frozenset(held_letters)
+        if not target <= held:
+            if len(held) < len(target):
+                return "pending"
             return "wrong"
         self.input_index += 1
         if self.input_index < len(self.sequence):

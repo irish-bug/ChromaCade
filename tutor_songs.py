@@ -359,20 +359,47 @@ class TutorSession:
         (any octave/accidental, already collapsed to bare letters --
         call this again on every press while the held set is
         changing, e.g. while a chord is being built up one finger at a
-        time). Returns True and advances if held_letters now covers
-        every letter the current target needs -- a SUPERSET match, not
-        exact equality, so holding an extra stray note alongside a
-        correct chord isn't penalized, same forgiving spirit as this
-        module's existing octave/accidental-agnostic matching. False
-        otherwise (wrong/incomplete, or the song is already complete)
-        -- caller decides what, if anything, to do differently on a
-        miss (Tutor mode: nothing, just don't advance)."""
+        time). Returns one of:
+        "match"            -- held_letters now covers every letter the
+                               current target needs -- a SUPERSET
+                               match, not exact equality, so holding an
+                               extra stray note alongside a correct
+                               chord isn't penalized, same forgiving
+                               spirit as this module's existing
+                               octave/accidental-agnostic matching.
+                               Advances.
+        "pending"          -- held_letters doesn't have enough notes
+                               yet to possibly satisfy the target (a
+                               3-note chord target with only 1 or 2
+                               notes held so far) -- NOT a miss, just
+                               not judged yet. Doesn't advance; caller
+                               should give no feedback at all and keep
+                               waiting for more presses, not flag this
+                               as wrong. Direct bug report 2026-09-02:
+                               without this, every single note of a
+                               chord pressed one at a time fired a miss
+                               before the later notes joined it, making
+                               non-simultaneous chord entry basically
+                               unusable.
+        "miss"             -- held_letters already has at least as
+                               many notes as the target needs, but
+                               doesn't cover it -- a genuine wrong
+                               chord. Doesn't advance; caller decides
+                               what, if anything, to do differently
+                               (Tutor mode: feedback, but no penalty,
+                               target stays the same).
+        "already_complete" -- press() called after the song is already
+                               complete."""
         if self.is_complete():
-            return False
-        if self.song[self.index] <= frozenset(held_letters):
+            return "already_complete"
+        target = self.song[self.index]
+        held = frozenset(held_letters)
+        if target <= held:
             self.index += 1
-            return True
-        return False
+            return "match"
+        if len(held) < len(target):
+            return "pending"
+        return "miss"
 
     def reset(self):
         self.index = 0

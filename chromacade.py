@@ -606,18 +606,32 @@ def main():
             if letter not in matching_held:
                 matching_held.append(letter)
             matched_step = session.target  # capture before press() advances index
-            if session.press(matching_held):
+            # press() now returns "match"/"pending"/"miss"/"already_complete"
+            # (was a plain bool) -- "pending" (holding fewer notes than a
+            # chord target needs) must be a true no-op, not treated as a
+            # miss. Fixed 2026-09-02: every note of a chord pressed one at
+            # a time was firing miss feedback before the rest of the chord
+            # joined it, since the old bool version had no way to express
+            # "not judged yet" separately from "wrong."
+            result = session.press(matching_held)
+            if result == "match":
                 print(f"MATCH   {target_label(matched_step)}")
                 _background(show_tutor_target)
-            else:
+            elif result == "miss":
                 print(f"MISS    {letter} (wanted {target_label(session.target)})")
                 _background(miss_feedback, strip, session.target, pools["tutor_error"].next())
+            # "pending" -- still building toward the target, no feedback
+            # yet. "already_complete" shouldn't happen in practice (this
+            # state transitions away once show_tutor_target() sees
+            # is_complete()), and isn't a miss either if it somehow did.
         elif state == "simon_active":
             session = simon["session"]
             audio.note_on(letter)
             ring.show(letter)  # requested 2026-08-15 -- press feedback, same as Play/Tutor
             if letter not in matching_held:
                 matching_held.append(letter)
+            # Same "pending" no-op as tutor_active above -- falls through
+            # every branch below untouched, which is exactly right.
             result = session.press(matching_held)
             if result == "wrong":
                 print(f"SIMON   wrong (pressed {letter}, wanted {target_label(session.sequence[session.input_index])})")

@@ -50,13 +50,13 @@ def test_target_starts_at_first_note():
 
 def test_correct_press_advances():
     session = TutorSession(["C", "D", "E"])
-    assert session.press({"C"}) is True
+    assert session.press({"C"}) == "match"
     assert session.target == {"D"}
 
 
 def test_wrong_press_does_not_advance():
     session = TutorSession(["C", "D", "E"])
-    assert session.press({"G"}) is False
+    assert session.press({"G"}) == "miss"
     assert session.target == {"C"}
 
 
@@ -68,10 +68,10 @@ def test_completes_after_last_note():
     assert session.target is None
 
 
-def test_press_after_complete_returns_false_and_stays_complete():
+def test_press_after_complete_returns_already_complete():
     session = TutorSession(["C"])
     session.press({"C"})
-    assert session.press({"C"}) is False
+    assert session.press({"C"}) == "already_complete"
     assert session.is_complete()
 
 
@@ -88,10 +88,10 @@ def test_repeated_notes_require_repeated_presses():
     # Hot Cross Buns' "CCCCC" run -- a wrong-note press in the middle of a
     # repeated run must not accidentally advance past more than one note.
     session = TutorSession(["C", "C", "C"])
-    assert session.press({"C"}) is True
-    assert session.press({"G"}) is False
+    assert session.press({"C"}) == "match"
+    assert session.press({"G"}) == "miss"
     assert session.target == {"C"}
-    assert session.press({"C"}) is True
+    assert session.press({"C"}) == "match"
     assert session.target == {"C"}
 
 
@@ -111,7 +111,7 @@ def test_bundled_songs_are_natural_notes_only(name):
 def test_bundled_songs_are_playable_start_to_finish(name):
     session = TutorSession(SONGS[name])
     for step in SONGS[name]:
-        assert session.press(step) is True
+        assert session.press(step) == "match"
     assert session.is_complete()
 
 
@@ -132,12 +132,42 @@ def test_chord_target_is_a_multi_letter_frozenset():
     assert session.target == {"C", "E", "G"}
 
 
+def test_chord_partial_press_is_pending_not_a_miss():
+    # Direct bug report 2026-09-02: pressing a chord's notes one at a
+    # time (not simultaneously) was firing a miss on every note before
+    # the last one joined it. Holding fewer notes than the target
+    # needs must be "pending" (no judgment yet), never "miss".
+    session = TutorSession([frozenset({"C", "E", "G"})])
+    assert session.press({"C"}) == "pending"
+    assert session.press({"C", "E"}) == "pending"
+    assert session.target == {"C", "E", "G"}  # still not judged, hasn't moved
+    assert session.press({"C", "E", "G"}) == "match"
+    assert session.is_complete()
+
+
 def test_chord_requires_all_letters_held_together():
     session = TutorSession([frozenset({"C", "E", "G"})])
-    assert session.press({"C", "E"}) is False  # missing G
+    # Enough notes held (3) to judge, but the wrong 3 -- a genuine miss,
+    # not "pending" (that's only for holding FEWER than the target needs).
+    assert session.press({"C", "E", "A"}) == "miss"
     assert session.target == {"C", "E", "G"}
-    assert session.press({"C", "E", "G"}) is True
+    assert session.press({"C", "E", "G"}) == "match"
     assert session.is_complete()
+
+
+def test_chord_order_of_presses_does_not_matter():
+    # "should accept C-E-G the same as E-C-G or G-C-E" -- direct
+    # request 2026-09-02. Order only matters in that later presses grow
+    # held_letters; the final set is what's judged, not the sequence.
+    for order in [["E", "C", "G"], ["G", "C", "E"], ["C", "G", "E"]]:
+        session = TutorSession([frozenset({"C", "E", "G"})])
+        held = set()
+        results = []
+        for letter in order:
+            held.add(letter)
+            results.append(session.press(set(held)))
+        assert results == ["pending", "pending", "match"], f"order {order}: {results}"
+        assert session.is_complete()
 
 
 def test_chord_match_tolerates_extra_held_notes():
@@ -145,7 +175,7 @@ def test_chord_match_tolerates_extra_held_notes():
     # correct chord isn't penalized (same forgiving spirit as octave/
     # accidental-agnostic matching elsewhere in this module).
     session = TutorSession([frozenset({"C", "E"})])
-    assert session.press({"C", "E", "A"}) is True
+    assert session.press({"C", "E", "A"}) == "match"
 
 
 def test_score_with_chord_derives_multi_letter_song_step():
