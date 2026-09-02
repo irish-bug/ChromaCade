@@ -177,6 +177,21 @@ SCORES = {
         + _phrase(["G4", "G4", "G5", "E5", "C5", "B4", "A4"], _HB_DEAR_LINE_RHYTHM)
         + _phrase(["F5", "F5", "E5", "C5", "D5", "C5"], _HB_LINE_RHYTHM)
     ),
+    # ChromaCade's own theme -- the PlinkPlonk wordmark's animated
+    # color-wave melody (web/'s composer artifact), confirmed live on
+    # plinkplonk's real hardware 2026-08-31. Crosses octaves (the last
+    # three notes ride up a fifth-plus before landing), same reason as
+    # Happy Birthday for using _phrase() over _score(). The artifact's
+    # web version harmonizes the final note into a C-major chord
+    # (C5+E5+G5 together) -- simplified to a single held C5 here since
+    # SCORE has no simultaneous-note representation, same tradeoff
+    # already made for every other bundled song. Not a placeholder
+    # rhythm -- these durations are the exact confirmed pacing (steady
+    # equal spacing, final note held twice as long to land).
+    "plink_the_plonks": _phrase(
+        ["E4", "G4", "C4", "F4", "B4", "A4", "D4", "E5", "D5", "C5"],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+    ),
 }
 
 _USER_SCORES, _USER_PROMPTS = load_user_songs()
