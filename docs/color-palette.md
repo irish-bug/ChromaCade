@@ -36,6 +36,24 @@ Still progresses monotonically around the hue wheel C through B with no backtrac
 
 The hue-arc compression and chord-blend validation described in `feature-spec.md`'s Color system section are still open (see `open-questions.md`) — both resolved assignments above are real inputs to that work, not a replacement for it.
 
+## Web/screen representation of the LED colors — resolved 2026-08-29
+
+The LED ring table above is tuned for how these values look **emitted from a real WS2812 LED**, not rendered as a CSS color on a screen — direct instruction, confirmed live: "without the actual LED lights, those colors are all too dark," noticed on both the parent-guide site (`web/index.html`'s color-key table) and the "Add Your Own Song" composer's wordmark treatment. A screen pixel and an LED aren't the same light source, even though both are emissive, so the max-88 ceiling tuned by eye against the real ring doesn't carry over.
+
+**Fix: double every channel (max-88 ceiling becomes max-176) wherever these colors are rendered as CSS/screen color, not as a re-tuning.** This is exact, not approximate — doubling every RGB channel by the same factor is a uniform scalar multiply, which leaves hue and saturation unchanged in HSV space (both are defined by *ratios* between channels, and scaling every channel by the same factor doesn't change any ratio) and only doubles value/brightness. Confirmed numerically for all 7 letters (hue and saturation identical before/after to 3 decimal places, value exactly 2×) before this was applied anywhere. No clipping risk for this specific set either -- the highest channel in the max-88 table is 88, so doubled is 176, still well under 255.
+
+| Letter | RGB (×2) | Hex (×2) |
+|---|---|---|
+| C | (176, 0, 0) | `#b00000` |
+| D | (176, 30, 0) | `#b01e00` |
+| E | (176, 110, 0) | `#b06e00` |
+| F | (0, 176, 0) | `#00b000` |
+| G | (0, 0, 176) | `#0000b0` |
+| A | (80, 0, 176) | `#5000b0` |
+| B | (176, 0, 70) | `#b00046` |
+
+Applied to `web/index.html`'s swatch table 2026-08-29. **`led_ring.py`'s actual `NOTE_COLORS` are deliberately NOT changed by this** -- those drive the real hardware and stay at the max-88 values tuned against it; this ×2 table is specifically for CSS/screen contexts (web pages, artifact previews) representing the same brand colors, not a replacement for the hardware-tuned set above. If a future screen use needs these colors again, reuse this table (or re-derive via the same ×2 rule if `NOTE_COLORS` changes) rather than eyeballing a new brightness.
+
 ## Original candidate list (as given 2026-07-19)
 Unordered, no letter assignment — superseded for the 7 in-use colors by the measured values above, kept here for provenance. Two of these were never used on a button (excluded as "not really rainbow" per `hardware-bom.md`'s note on the Elacgap set's 8 usable colors) — `#aed4dd` (pale blue/cyan, the one usable color with no letter) and the two non-rainbow ones below.
 
