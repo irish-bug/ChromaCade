@@ -66,6 +66,39 @@ def test_validate_score_rejects_bool_duration():
         validate_score([("C4", True)])
 
 
+def test_validate_score_accepts_chord():
+    score = [(["C4", "E4", "G4"], 1)]
+    assert validate_score(score) == [(["C4", "E4", "G4"], 1)]
+
+
+def test_validate_score_rejects_single_note_chord_list():
+    with pytest.raises(ValueError):
+        validate_score([(["C4"], 1)])
+
+
+def test_validate_score_rejects_oversized_chord():
+    with pytest.raises(ValueError):
+        validate_score([(["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"], 1)])
+
+
+def test_validate_score_rejects_chord_with_bad_note_name():
+    with pytest.raises(ValueError):
+        validate_score([(["C4", "H4"], 1)])
+
+
+def test_validate_score_rejects_chord_with_duplicate_letter():
+    # C4+C5 collapse to the same letter -- ChromaCadeAudio.playing is
+    # keyed by letter, so this would silently drop a note at playback,
+    # not actually sound as a chord.
+    with pytest.raises(ValueError):
+        validate_score([(["C4", "C5", "E4"], 1)])
+
+
+def test_validate_score_rejects_non_string_in_chord():
+    with pytest.raises(ValueError):
+        validate_score([(["C4", 4], 1)])
+
+
 def test_render_user_song_file_format():
     content = render_user_song_file("Example Song", [("G4", 1), (None, 0.5)])
     assert content == (

@@ -1,6 +1,6 @@
 import pytest
 
-from tutor_songs import SCORES, SONGS, TutorSession, load_user_songs, parse_note_name
+from tutor_songs import SCORES, SONGS, TutorSession, _letters_in, load_user_songs, parse_note_name
 
 
 def test_parse_note_name_natural():
@@ -29,49 +29,49 @@ def test_scores_have_matching_note_and_duration_counts(name):
 
 @pytest.mark.parametrize("name", list(SCORES.keys()))
 def test_songs_derived_from_scores_not_hand_duplicated(name):
-    derived = [parse_note_name(note)[0] for note, _ in SCORES[name] if note is not None]
+    derived = [_letters_in(note) for note, _ in SCORES[name] if note is not None]
     assert SONGS[name] == derived
 
 
 def test_target_starts_at_first_note():
     session = TutorSession(["C", "D", "E"])
-    assert session.target == "C"
+    assert session.target == {"C"}
     assert not session.is_complete()
 
 
 def test_correct_press_advances():
     session = TutorSession(["C", "D", "E"])
-    assert session.press("C") is True
-    assert session.target == "D"
+    assert session.press({"C"}) is True
+    assert session.target == {"D"}
 
 
 def test_wrong_press_does_not_advance():
     session = TutorSession(["C", "D", "E"])
-    assert session.press("G") is False
-    assert session.target == "C"
+    assert session.press({"G"}) is False
+    assert session.target == {"C"}
 
 
 def test_completes_after_last_note():
     session = TutorSession(["C", "D"])
-    session.press("C")
-    session.press("D")
+    session.press({"C"})
+    session.press({"D"})
     assert session.is_complete()
     assert session.target is None
 
 
 def test_press_after_complete_returns_false_and_stays_complete():
     session = TutorSession(["C"])
-    session.press("C")
-    assert session.press("C") is False
+    session.press({"C"})
+    assert session.press({"C"}) is False
     assert session.is_complete()
 
 
 def test_reset_returns_to_first_note():
     session = TutorSession(["C", "D", "E"])
-    session.press("C")
-    session.press("D")
+    session.press({"C"})
+    session.press({"D"})
     session.reset()
-    assert session.target == "C"
+    assert session.target == {"C"}
     assert not session.is_complete()
 
 
@@ -79,11 +79,11 @@ def test_repeated_notes_require_repeated_presses():
     # Hot Cross Buns' "CCCCC" run -- a wrong-note press in the middle of a
     # repeated run must not accidentally advance past more than one note.
     session = TutorSession(["C", "C", "C"])
-    assert session.press("C") is True
-    assert session.press("G") is False
-    assert session.target == "C"
-    assert session.press("C") is True
-    assert session.target == "C"
+    assert session.press({"C"}) is True
+    assert session.press({"G"}) is False
+    assert session.target == {"C"}
+    assert session.press({"C"}) is True
+    assert session.target == {"C"}
 
 
 def test_empty_song_rejected():
@@ -94,15 +94,55 @@ def test_empty_song_rejected():
 @pytest.mark.parametrize("name", list(SONGS.keys()))
 def test_bundled_songs_are_natural_notes_only(name):
     valid_letters = set("CDEFGAB")
-    assert set(SONGS[name]) <= valid_letters
+    for step in SONGS[name]:
+        assert step <= valid_letters
 
 
 @pytest.mark.parametrize("name", list(SONGS.keys()))
 def test_bundled_songs_are_playable_start_to_finish(name):
     session = TutorSession(SONGS[name])
-    for letter in SONGS[name]:
-        assert session.press(letter) is True
+    for step in SONGS[name]:
+        assert session.press(step) is True
     assert session.is_complete()
+
+
+def test_letters_in_rest_is_empty_set():
+    assert _letters_in(None) == frozenset()
+
+
+def test_letters_in_single_note():
+    assert _letters_in("C4") == {"C"}
+
+
+def test_letters_in_chord():
+    assert _letters_in(["C4", "E4", "G4"]) == {"C", "E", "G"}
+
+
+def test_chord_target_is_a_multi_letter_frozenset():
+    session = TutorSession([frozenset({"C", "E", "G"})])
+    assert session.target == {"C", "E", "G"}
+
+
+def test_chord_requires_all_letters_held_together():
+    session = TutorSession([frozenset({"C", "E", "G"})])
+    assert session.press({"C", "E"}) is False  # missing G
+    assert session.target == {"C", "E", "G"}
+    assert session.press({"C", "E", "G"}) is True
+    assert session.is_complete()
+
+
+def test_chord_match_tolerates_extra_held_notes():
+    # Superset match, not exact -- an extra stray note held alongside a
+    # correct chord isn't penalized (same forgiving spirit as octave/
+    # accidental-agnostic matching elsewhere in this module).
+    session = TutorSession([frozenset({"C", "E"})])
+    assert session.press({"C", "E", "A"}) is True
+
+
+def test_score_with_chord_derives_multi_letter_song_step():
+    score = [(["C4", "E4", "G4"], 1), ("D4", 1)]
+    songs = [_letters_in(note) for note, _duration in score if note is not None]
+    assert songs == [frozenset({"C", "E", "G"}), frozenset({"D"})]
 
 
 def test_load_user_songs_missing_directory_returns_empty(tmp_path):
@@ -160,8 +200,8 @@ def test_user_songs_merge_into_songs_and_prompts(tmp_path):
     user_scores, user_prompts = load_user_songs(tmp_path)
     merged_scores = {**SCORES, **user_scores}
     merged_songs = {
-        name: [parse_note_name(note)[0] for note, _duration in score if note is not None]
+        name: [_letters_in(note) for note, _duration in score if note is not None]
         for name, score in merged_scores.items()
     }
-    assert merged_songs["Merge Example"] == ["C", "D"]
+    assert merged_songs["Merge Example"] == [frozenset({"C"}), frozenset({"D"})]
     assert user_prompts["Merge Example"] == {1: "OCTAVE UP!"}

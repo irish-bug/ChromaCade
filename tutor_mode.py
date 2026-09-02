@@ -70,7 +70,7 @@ from hardware_poller import HardwarePoller
 from led_ring import LedRing, NOTE_COLORS
 from led_strip import LedStrip
 from sound_pools import build_pools, play_wav
-from tutor_songs import SCORES, SONGS, TutorSession, parse_note_name
+from tutor_songs import SCORES, SONGS, TutorSession, chord_cue_letter, parse_note_name, target_label
 
 DEFAULT_TEMPO = 90  # BPM -- slower than play_melody.py's 120 default, toddler-paced
 
@@ -108,7 +108,7 @@ MISS_COLOR = (255, 0, 0)
 MISS_FLASH_SECONDS = 0.2
 
 
-def miss_feedback(strip, target_letter, sound_path):
+def miss_feedback(strip, target_step, sound_path):
     """sound_path is required (not optional/defaulted) -- forces every
     caller to be explicit about which sound plays, on purpose: this
     used to hardcode a single nope.wav (see git history for the old
@@ -117,13 +117,24 @@ def miss_feedback(strip, target_letter, sound_path):
     nothing here was ever updated to use it. Confirmed live 2026-08-16
     -- caller (chromacade.py, or this module's own main() below) is
     now required to pass sound_pools.build_pools()["tutor_error"]
-    .next() explicitly instead."""
+    .next() explicitly instead.
+
+    target_step: a frozenset of letters (see tutor_songs.py) -- a
+    single letter for an ordinary note, more for a chord. Accepts a
+    bare single-character string too (wrapped as its own frozenset),
+    so existing single-letter callers don't need to change. For a
+    chord, the reminder-color flash shows only the last letter
+    (sorted) -- same placeholder status as chromacade.py's
+    cue_ring_for()/play_demo()'s chord-strike display, not a real
+    multi-color design (still open, see led_ring.py's docstring)."""
+    if not isinstance(target_step, frozenset):
+        target_step = frozenset({target_step})
     play_wav(sound_path)
     strip.fill(MISS_COLOR)
     time.sleep(MISS_FLASH_SECONDS)
     strip.clear()
     time.sleep(MISS_FLASH_SECONDS)
-    strip.fill(NOTE_COLORS[target_letter])
+    strip.fill(NOTE_COLORS[chord_cue_letter(target_step)])
     time.sleep(MISS_FLASH_SECONDS)
     strip.clear()
 
@@ -144,7 +155,22 @@ def play_demo(audio, ring, score, seconds_per_beat, oled=None):
     oled is optional (default None, matching every other new-callback
     pattern in this codebase) -- tutor_mode.py itself never had an
     OLED to drive, chromacade.py passes a real one so the demo's note
-    names show up there instead of only in the console print."""
+    names show up there instead of only in the console print.
+
+    note_field (the first item of each score entry) is None (rest), a
+    single note name, or a CHORD -- a list of 2+ note names played
+    together, added 2026-09-02 (see tutor_songs.py's module
+    docstring). A chord's notes are struck in list order (not
+    simultaneously in the strictest sense -- Python has no true
+    concurrent note_on, and this project doesn't need sample-accurate
+    simultaneity for it to read as a chord to a listener) and released
+    together after the shared duration. Ring color for a chord reuses
+    led_ring.py's existing placeholder for "multiple notes held"
+    (most-recently-triggered wins, ring.show() called once per note in
+    order) rather than inventing a second, divergent chord-display
+    behavior -- that question is explicitly still open project-wide,
+    see led_ring.py's own docstring and open-questions.md's "Chord
+    color behavior" entry."""
     for note_name, duration in score:
         if note_name is None:
             ring.clear()
@@ -152,16 +178,22 @@ def play_demo(audio, ring, score, seconds_per_beat, oled=None):
                 oled.show_lines(["Listen..."])
             time.sleep(duration * seconds_per_beat)
             continue
-        letter, octave, accidental = parse_note_name(note_name)
-        audio.octave = octave
-        audio.accidental = accidental
-        print(f"NOTE    {note_name}")
-        ring.show(letter)
+        chord_notes = note_name if isinstance(note_name, list) else [note_name]
+        letters = []
+        for one_note in chord_notes:
+            letter, octave, accidental = parse_note_name(one_note)
+            audio.octave = octave
+            audio.accidental = accidental
+            letters.append(letter)
+            ring.show(letter)
+            audio.note_on(letter)
+        label = "+".join(chord_notes)
+        print(f"NOTE    {label}")
         if oled:
-            oled.show_lines(["Listen...", note_name])
-        audio.note_on(letter)
+            oled.show_lines(["Listen...", label])
         time.sleep(duration * seconds_per_beat)
-        audio.note_off(letter)
+        for letter in letters:
+            audio.note_off(letter)
     ring.clear()
 
 
@@ -199,26 +231,33 @@ def main():
         session = TutorSession(SONGS[args.song])
         song_complete = threading.Event()
 
+        matching_held = []  # currently-held letters, for chord matching -- see chromacade.py's own copy
+
         def show_target():
             if session.is_complete():
                 print(f"DONE    {args.song} complete!")
                 ring.clear()
                 song_complete.set()
             else:
-                print(f"CUE     {session.target}")
-                ring.show(session.target)
+                print(f"CUE     {target_label(session.target)}")
+                ring.show(chord_cue_letter(session.target))
 
         def note_on(letter):
             audio.note_on(letter)
-            if session.press(letter):
-                print(f"MATCH   {letter}")
+            if letter not in matching_held:
+                matching_held.append(letter)
+            matched_step = session.target  # capture before press() advances index
+            if session.press(matching_held):
+                print(f"MATCH   {target_label(matched_step)}")
                 show_target()
             else:
-                print(f"MISS    {letter} (wanted {session.target})")
+                print(f"MISS    {letter} (wanted {target_label(session.target)})")
                 miss_feedback(strip, session.target, pools["tutor_error"].next())
 
         def note_off(letter):
             audio.note_off(letter)
+            if letter in matching_held:
+                matching_held.remove(letter)
 
         # Octave/rocker/joystick/font: pass straight through to normal
         # ChromaCadeAudio behavior, same as play.py -- none of these

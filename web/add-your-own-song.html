@@ -121,6 +121,14 @@
   .toolbar button { padding: 0.4rem 0.8rem; border-radius: 0.4rem; border: 1px solid #8886; background: transparent; color: inherit; cursor: pointer; }
   .toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
   .toolbar button.armed { border-color: #b91c1c; color: #b91c1c; font-weight: 700; }
+  .toolbar button[aria-pressed="true"] { background: #1e40af; border-color: #1e40af; color: #fff; font-weight: 700; }
+  /* Chord members share a beat position (see beatOffsets() in the JS)
+     -- this outline is the only visual cue tying them together across
+     lanes, so it needs to read clearly even next to a note's own
+     letter-colored background. Purple, not the same blue as
+     .selected below, so a selected chord note doesn't read as just a
+     thicker version of the same outline. */
+  .note-token.chorded { outline: 2px solid #7c3aed; outline-offset: 1px; }
 
   .editor-panel {
     border: 1px solid #8884;
@@ -204,10 +212,14 @@
 </div>
 
 <div class="toolbar">
+  <button type="button" id="chord-btn" aria-pressed="false">Build chord</button>
   <button type="button" id="undo-btn" disabled>&#8630; Undo last note</button>
   <button type="button" id="clear-btn" disabled>Clear all</button>
   <span id="note-count" style="font-size:0.85rem; opacity:0.8;">0 notes</span>
 </div>
+<p id="chord-hint" class="soon" style="display:none; margin-top:-0.5rem; margin-bottom:0.75rem;">
+  Building a chord -- add up to 7 different letters, they'll stack together. Click "Build chord" again when done.
+</p>
 
 <div class="staff" id="staff" aria-label="Your song, low notes at the bottom">
   <!-- 8 lanes (B..C, then Rest) built by JS below -->

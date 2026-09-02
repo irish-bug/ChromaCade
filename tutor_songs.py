@@ -13,21 +13,28 @@ phases, both driven from the same song data (see tutor_mode.py):
      advancing, no penalty on a miss (TutorSession below).
 
 SCORES is the source of truth: each song is a list of
-(note_name, duration_in_beats) pairs. note_name uses the same
-"C4"/"F#4"/"Bb3" scientific-pitch-notation style as
-audio/play_melody.py's note_to_midi() (parsed the same way here, via
-parse_note_name() below, just split into (letter, octave, accidental)
-instead of a combined MIDI number -- that lets the demo phase drive
-ChromaCadeAudio's letter-based note_on()/note_off() directly instead
-of duplicating a second FluidSynth pipeline). None = rest. Duration is
-in beats, independent of tempo -- tutor_mode.py's --tempo flag sets
-the actual pace, same convention as play_melody.py.
+(note_field, duration_in_beats) pairs. note_field is one of:
+  - None -- a rest.
+  - a single note name, e.g. "C4"/"F#4"/"Bb3" -- scientific-pitch-
+    notation style, same as audio/play_melody.py's note_to_midi()
+    (parsed the same way here, via parse_note_name() below, just split
+    into (letter, octave, accidental) instead of a combined MIDI
+    number -- that lets the demo phase drive ChromaCadeAudio's letter-
+    based note_on()/note_off() directly instead of duplicating a
+    second FluidSynth pipeline).
+  - a CHORD -- a list of 2+ note names played together, e.g.
+    ["C4", "E4", "G4"] -- added 2026-09-02, see _letters_in() below.
+Duration is in beats, independent of tempo -- tutor_mode.py's --tempo
+flag sets the actual pace, same convention as play_melody.py.
 
-SONGS (bare letter sequences, no octave/rhythm) is derived from SCORES
-below, not hand-duplicated, so the demo and the matching game can't
-drift apart. This is also *why* letter-only matching in TutorSession
-is correct, not just simpler: the color cue represents the note's
-pitch *class* (chroma), and octave equivalence is one of this
+SONGS (bare letter-SET sequences, no octave/rhythm) is derived from
+SCORES below, not hand-duplicated, so the demo and the matching game
+can't drift apart. Each step is a frozenset of letters -- {"C"} for an
+ordinary note, {"C","E","G"} for a chord -- never a bare string, so
+TutorSession/SimonSession only ever deal with one shape regardless of
+whether a given step is a chord. This is also *why* letter-only
+matching is correct, not just simpler: the color cue represents each
+note's pitch *class* (chroma), and octave equivalence is one of this
 project's core teaching goals (see CLAUDE.md) -- pressing that color's
 button in any octave should count as a match, not just the exact
 octave the demo happened to play it in.
@@ -96,6 +103,28 @@ def load_user_songs(directory=USER_SONGS_DIR):
     return scores, prompts
 
 
+def target_label(step):
+    """A frozenset of letters -> a readable string for the OLED/
+    console -- "C" for an ordinary note, "C+E+G" (sorted, so it's
+    stable/testable) for a chord. Shared by chromacade.py and
+    tutor_mode.py's standalone main() so both display chord targets
+    the same way."""
+    return "+".join(sorted(step))
+
+
+def chord_cue_letter(step):
+    """Which single letter to show on the ring/strip for a step that
+    might be a chord -- the LAST letter in sorted order. This is a
+    placeholder, not a design decision: real multi-color chord cueing
+    is still an explicitly open project question (open-questions.md's
+    "Chord color behavior" entry, led_ring.py's module docstring) --
+    reusing this single value everywhere a chord needs *a* color (the
+    ring cue while waiting, the strip's miss-reminder flash, the
+    strike-through during demo playback) keeps that placeholder
+    consistent rather than inventing a different one in each place."""
+    return sorted(step)[-1]
+
+
 def parse_note_name(name):
     """'F#5' -> ('F', 5, 1); 'Bb3' -> ('B', 3, -1); 'C4' -> ('C', 4, 0).
     Accidental is -1/0/1 (flat/natural/sharp), matching audio_engine.py's
@@ -107,6 +136,23 @@ def parse_note_name(name):
     letter, accidental_char, octave = m.groups()
     accidental = {"#": 1, "b": -1, None: 0}[accidental_char]
     return letter.upper(), int(octave), accidental
+
+
+def _letters_in(note_field):
+    """None -> frozenset(); 'C4' -> frozenset({'C'});
+    ['C4','E4','G4'] -> frozenset({'C','E','G'}) -- collapses a single
+    SCORE step (rest / single note / chord) down to the set of letters
+    it needs matched, octave/accidental dropped same as everywhere
+    else in this module. A chord is just "more than one letter at
+    this step" to every consumer of this -- there's no separate chord
+    type flowing through TutorSession/SimonSession, only ever
+    frozensets, so a plain note is indistinguishable from a
+    single-note "chord" once it gets here."""
+    if note_field is None:
+        return frozenset()
+    if isinstance(note_field, list):
+        return frozenset(parse_note_name(n)[0] for n in note_field)
+    return frozenset({parse_note_name(note_field)[0]})
 
 
 def _score(letters, octave, rhythm):
@@ -203,7 +249,7 @@ SCORES.update(_USER_SCORES)
 # Runs after the user-songs merge above so personal songs get the same
 # derivation, not just the bundled ones.
 SONGS = {
-    name: [parse_note_name(note)[0] for note, _duration in score if note is not None]
+    name: [_letters_in(note) for note, _duration in score if note is not None]
     for name, score in SCORES.items()
 }
 
@@ -230,15 +276,22 @@ PROMPTS.update(_USER_PROMPTS)
 
 class TutorSession:
     def __init__(self, song):
+        """song: a sequence of steps, each step a frozenset of letters
+        (see SONGS above) -- a plain note is just a frozenset of size
+        1, there's no separate chord type. Accepts a bare list of
+        single-character letters too (each wrapped as its own
+        frozenset) so a raw hand-built letter sequence still works,
+        not just something that went through SONGS' own derivation."""
         if not song:
-            raise ValueError("song must be a non-empty sequence of letters")
-        self.song = list(song)
+            raise ValueError("song must be a non-empty sequence of note-sets")
+        self.song = [s if isinstance(s, frozenset) else frozenset({s}) for s in song]
         self.index = 0
 
     @property
     def target(self):
-        """The letter the child should press next, or None once the
-        song is complete."""
+        """The frozenset of letters the child should hold next (size 1
+        for an ordinary note, more for a chord), or None once the song
+        is complete."""
         if self.is_complete():
             return None
         return self.song[self.index]
@@ -246,15 +299,22 @@ class TutorSession:
     def is_complete(self):
         return self.index >= len(self.song)
 
-    def press(self, letter):
-        """Register a note-button press. Returns True if it matched the
-        current target and the sequence advanced, False otherwise (wrong
-        note, or the song is already complete) -- caller decides what,
-        if anything, to do differently on a miss (Tutor mode: nothing,
-        just don't advance)."""
+    def press(self, held_letters):
+        """Register the current set of note letters actually held
+        (any octave/accidental, already collapsed to bare letters --
+        call this again on every press while the held set is
+        changing, e.g. while a chord is being built up one finger at a
+        time). Returns True and advances if held_letters now covers
+        every letter the current target needs -- a SUPERSET match, not
+        exact equality, so holding an extra stray note alongside a
+        correct chord isn't penalized, same forgiving spirit as this
+        module's existing octave/accidental-agnostic matching. False
+        otherwise (wrong/incomplete, or the song is already complete)
+        -- caller decides what, if anything, to do differently on a
+        miss (Tutor mode: nothing, just don't advance)."""
         if self.is_complete():
             return False
-        if letter == self.song[self.index]:
+        if self.song[self.index] <= frozenset(held_letters):
             self.index += 1
             return True
         return False
