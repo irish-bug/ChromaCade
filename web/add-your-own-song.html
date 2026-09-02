@@ -150,24 +150,27 @@
   .save-status.error { color: #b91c1c; }
   .save-status.ok { color: #15803d; }
 
-  /* PlinkPlonk wordmark: on load, each letter fades in white in
-     melody-wave order (not left-to-right reading order -- see --i on
-     each span below), then once the whole word is visible, a second
-     pass in that same order briefly flashes each letter to its real
-     LED color before settling back to white for good. White stroke
+  /* PlinkPlonk wordmark: on load, each letter fades in, in melody-wave
+     order (not left-to-right reading order -- see --i on each span
+     below), then once the whole word is visible, a second pass in
+     that same order briefly flashes each letter to its real LED color
+     before settling back to its resting color for good. The stroke
      never changes, only the fill (color) animates, so at rest the
-     word reads as plain white text -- the color wave is a one-time
+     word reads as plain text -- the color wave is a one-time
      flourish, not the resting state, since a fully colored wordmark
      tested as too hard to read. Ported from the "ChromaCade Composer"
      design artifact, 2026-09-02 -- see that artifact for the fuller
-     design rationale/iteration history.  */
-  /* Own dark pill background, not the page's own (this page has no
-     dark theme of its own -- style.css leaves light/dark entirely to
-     the browser's UA default via color-scheme: light dark, so a plain
-     white background is the common case). White wordmark lettering
-     needs a background it controls itself to stay legible in both
-     modes, rather than assuming a dark page background like the
-     artifact this was ported from had. */
+     design rationale/iteration history.
+
+     Resting/stroke color is theme-aware (--wm-base below), not a flat
+     white like the artifact used -- that artifact had its own dark
+     page background to sit against; this page has no dark theme of
+     its own, just the browser's light/dark default via style.css's
+     color-scheme: light dark, so white text needs to become dark text
+     in light mode or it's invisible against the common white
+     background. No background chip needed once the text color itself
+     adapts -- direct feedback 2026-09-02, an earlier version used a
+     dark pill behind the wordmark instead. */
   .composer-title {
     font-family: "Fredoka", ui-rounded, "Segoe UI", sans-serif;
     font-weight: 700;
@@ -179,30 +182,27 @@
     gap: 0.5rem;
     margin-bottom: 0.25rem;
   }
-  .wordmark-chip {
-    display: inline-block;
-    background: #2b2730;
-    padding: 0.3rem 0.9rem;
-    border-radius: 0.6rem;
-    line-height: 1.3;
-  }
   .wordmark {
+    --wm-base: #2b2730;
     font-style: italic;
     letter-spacing: 0.15em;
+  }
+  @media (prefers-color-scheme: dark) {
+    .wordmark { --wm-base: #fff; }
   }
   @keyframes wordmark-reveal {
     from { opacity: 0; }
     to { opacity: 1; }
   }
   @keyframes wordmark-wave {
-    0%, 100% { color: #fff; }
+    0%, 100% { color: var(--wm-base); }
     20%, 80% { color: var(--letter-color); }
   }
   .wordmark span {
     display: inline-block;
     opacity: 0;
-    color: #fff;
-    -webkit-text-stroke: 2px #fff;
+    color: var(--wm-base);
+    -webkit-text-stroke: 2px var(--wm-base);
     paint-order: stroke fill;
     animation:
       wordmark-reveal 0.15s ease-out calc(var(--i) * 0.16s) forwards,
@@ -212,7 +212,7 @@
     .wordmark span {
       animation: none;
       opacity: 1;
-      color: #fff;
+      color: var(--wm-base);
     }
   }
 </style>
@@ -226,7 +226,7 @@
 </nav>
 <div class="content">
 
-<h1 class="composer-title"><span class="wordmark-chip"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span></span> Composer</h1>
+<h1 class="composer-title"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span> Composer</h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and
