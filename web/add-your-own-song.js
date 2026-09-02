@@ -362,7 +362,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
       statusEl.className = "save-status error";
     }
   } catch (err) {
-    statusEl.textContent = "Couldn't reach the save service -- is ChromaCade online?";
+    statusEl.textContent = "Couldn't reach the save service -- is PlinkPlonk online?";
     statusEl.className = "save-status error";
   }
 });

@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChromaCade Add Your Own Song</title>
+<title>PlinkPlonk Add Your Own Song</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   /* Composer-specific styles, kept out of the shared style.css since
@@ -146,6 +149,62 @@
   .save-status { font-size: 0.9rem; }
   .save-status.error { color: #b91c1c; }
   .save-status.ok { color: #15803d; }
+
+  /* PlinkPlonk wordmark: on load, each letter fades in white in
+     melody-wave order (not left-to-right reading order -- see --i on
+     each span below), then once the whole word is visible, a second
+     pass in that same order briefly flashes each letter to its real
+     LED color before settling back to white for good. White stroke
+     never changes, only the fill (color) animates, so at rest the
+     word reads as plain white text -- the color wave is a one-time
+     flourish, not the resting state, since a fully colored wordmark
+     tested as too hard to read. Ported from the "ChromaCade Composer"
+     design artifact, 2026-09-02 -- see that artifact for the fuller
+     design rationale/iteration history.  */
+  /* Own dark pill background, not the page's own (this page has no
+     dark theme of its own -- style.css leaves light/dark entirely to
+     the browser's UA default via color-scheme: light dark, so a plain
+     white background is the common case). White wordmark lettering
+     needs a background it controls itself to stay legible in both
+     modes, rather than assuming a dark page background like the
+     artifact this was ported from had. */
+  .wordmark-chip {
+    display: inline-block;
+    background: #2b2730;
+    padding: 0.3rem 0.9rem;
+    border-radius: 0.6rem;
+  }
+  .wordmark {
+    font-family: "Fredoka", ui-rounded, "Segoe UI", sans-serif;
+    font-weight: 600;
+    font-style: italic;
+    letter-spacing: 0.15em;
+  }
+  @keyframes wordmark-reveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes wordmark-wave {
+    0%, 100% { color: #fff; }
+    20%, 80% { color: var(--letter-color); }
+  }
+  .wordmark span {
+    display: inline-block;
+    opacity: 0;
+    color: #fff;
+    -webkit-text-stroke: 2px #fff;
+    paint-order: stroke fill;
+    animation:
+      wordmark-reveal 0.15s ease-out calc(var(--i) * 0.16s) forwards,
+      wordmark-wave 0.8s ease-in-out calc(1s + var(--i) * 0.16s) forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wordmark span {
+      animation: none;
+      opacity: 1;
+      color: #fff;
+    }
+  }
 </style>
 </head>
 <body>
@@ -157,7 +216,7 @@
 </nav>
 <div class="content">
 
-<h1>ChromaCade <span class="badge">Parent's Guide</span></h1>
+<h1><span class="wordmark-chip"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span></span> <span class="badge">Parent's Guide</span></h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and
@@ -167,7 +226,7 @@
   the staff to change its octave, sharp/flat, or duration, or to delete it.
 </p>
 <p class="soon" style="display:block; margin-top:0.5rem;">
-  Playing back through ChromaCade's own speakers, and composing by playing the
+  Playing back through PlinkPlonk's own speakers, and composing by playing the
   device's physical keys instead of typing: coming soon. For now, this page composes
   and saves -- it doesn't play sound itself.
 </p>
@@ -244,6 +303,96 @@
 
 </div>
 </div>
+<script>
+"use strict";
+// PlinkPlonk's own secret jingle -- the word's letters map, via the
+// same C-D-E-F-G-A-B note-color cycle the wordmark wave above uses,
+// to C D E F G A B C D E. Ported from the "ChromaCade Composer"
+// design artifact 2026-09-02, pacing/notes confirmed live on
+// plinkplonk's real speakers (Toy Piano GM voice) that same day --
+// see audio/prompts/plinkplonk_theme.wav and tutor_songs.py's
+// "plink_the_plonks" entry for that real-hardware version. This is a
+// synthesized triangle-wave approximation, not literal FluidSynth
+// playback -- a browser has no way to run the real GM soundfont,
+// only Web Audio oscillators.
+(function () {
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return; // no Web Audio support -- the visual wave still works fine on its own
+
+  // Wave-order, not reading order -- see .wordmark span's --i above
+  // (each letter's wave step, independent of where it sits in
+  // "PlinkPlonk" itself). Swoop E-G-C, leap to B, back down through
+  // A-D, a big jump to the high E, then a descending E-D-C landing on
+  // the tonic an octave up. Exactly 10 notes: 2 C/D/E each (second
+  // occurrence an octave up), 1 each of F/G/A/B.
+  var NOTE_HZ = [
+    329.63, // E4 -- i    (--i:0)
+    392.0,  // G4 -- k    (--i:1)
+    261.63, // C4 -- P    (--i:2)
+    349.23, // F4 -- n    (--i:3)
+    493.88, // B4 -- l    (--i:4)
+    440.0,  // A4 -- P    (--i:5)
+    293.66, // D4 -- l    (--i:6)
+    659.25, // E5 -- k, octave up (--i:7)
+    587.33, // D5 -- n, octave up (--i:8)
+    523.25  // C5 -- o, octave up, tonic landing (--i:9)
+  ];
+  var BASE_DELAY_S = 1.0;
+  var STAGGER_S = 0.16;
+  var NOTE_DURATION_S = 0.5;
+  var CHORD_DURATION_S = 1.2;
+
+  var ctx = new AudioCtx();
+
+  function playNote(freq, startTime, duration, peakGain) {
+    duration = duration || NOTE_DURATION_S;
+    peakGain = peakGain || 0.15;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = "triangle"; // soft/toy-like, not a harsh square/saw
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.05);
+  }
+
+  var now = ctx.currentTime;
+  NOTE_HZ.forEach(function (freq, i) {
+    // Last note (i=9, the C5 landing) rings for the same longer
+    // duration as the chord notes layered under it below, so the root
+    // doesn't cut off while E5/G5 are still sustaining.
+    var duration = i === NOTE_HZ.length - 1 ? CHORD_DURATION_S : NOTE_DURATION_S;
+    playNote(freq, now + BASE_DELAY_S + i * STAGGER_S, duration);
+  });
+
+  // Final note (index 9) harmonized into a full C major chord instead
+  // of staying a bare tone, so the melody resolves rather than trails
+  // off. E5 reuses a pitch already heard at index 7; G5 is new, the
+  // one place a note plays without a corresponding letter flash.
+  var landingTime = now + BASE_DELAY_S + 9 * STAGGER_S;
+  playNote(659.25, landingTime, CHORD_DURATION_S, 0.09); // E5
+  playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
+
+  // Autoplay-with-sound is blocked by browser policy until a user
+  // gesture -- if so, the AudioContext starts suspended and its clock
+  // is frozen, so the notes scheduled above simply wait (still in the
+  // same relative order/spacing) until the first click/keypress
+  // resumes it, rather than being lost.
+  if (ctx.state === "suspended") {
+    var resume = function () {
+      ctx.resume();
+      window.removeEventListener("pointerdown", resume);
+      window.removeEventListener("keydown", resume);
+    };
+    window.addEventListener("pointerdown", resume, { once: true });
+    window.addEventListener("keydown", resume, { once: true });
+  }
+})();
+</script>
 <script src="add-your-own-song.js"></script>
 </body>
 </html>
