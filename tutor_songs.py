@@ -253,6 +253,14 @@ SONGS = {
     for name, score in SCORES.items()
 }
 
+# Which bundled/user songs contain at least one chord step (a
+# multi-letter frozenset in SONGS) -- added 2026-09-02 so menu.py can
+# separate "Notes only" from "Chord songs" in the Tutor song list
+# instead of mixing them in one flat list. Derived the same way SONGS
+# is (from the data, not hand-maintained), so a song can't drift out
+# of the right bucket if its SCORE changes.
+CHORD_SONGS = frozenset(name for name, steps in SONGS.items() if any(len(step) > 1 for step in steps))
+
 # Optional instructional prompts shown alongside the color-matching
 # target in Tutor mode -- Simon mode (which also draws from SONGS as
 # one of its sequence sources) stays plain note-matching with no

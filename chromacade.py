@@ -136,7 +136,7 @@ from tutor_mode import (
     miss_feedback,
     play_demo,
 )
-from tutor_songs import PROMPTS, SCORES, SONGS, TutorSession, chord_cue_letter, target_label
+from tutor_songs import CHORD_SONGS, PROMPTS, SCORES, SONGS, TutorSession, chord_cue_letter, target_label
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 # Simon-only now (2026-08-17) -- Tutor plays in whichever font was
@@ -235,7 +235,7 @@ def main():
     ring = LedRing()
     strip = LedStrip()
     oled = OledDisplay()
-    menu = Menu(list(SONGS.keys()), SIMON_SOURCES)
+    menu = Menu(list(SONGS.keys()), SIMON_SOURCES, chord_songs=CHORD_SONGS)
     pools = build_pools()
 
     app = {"state": "play"}  # "play"|"menu"|"tutor_demo"|"tutor_active"|"simon_demo"|"simon_active"
