@@ -171,16 +171,16 @@
      background. No background chip needed once the text color itself
      adapts -- direct feedback 2026-09-02, an earlier version used a
      dark pill behind the wordmark instead. */
+  /* Font/size/spacing now come from style.css's shared h1 rule (kept
+     in sync there so this page's animated wordmark matches the plain
+     "PlinkPlonk" heading on the other 2 pages) -- this class only
+     adds the layout this page's heading specifically needs (wordmark
+     + "Composer" as a wrapping flex row). */
   .composer-title {
-    font-family: "Fredoka", ui-rounded, "Segoe UI", sans-serif;
-    font-weight: 700;
-    font-size: clamp(1.9rem, 5vw, 2.6rem);
-    letter-spacing: 0.02em;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-bottom: 0.25rem;
   }
   .wordmark {
     --wm-base: #2b2730;
@@ -392,6 +392,14 @@
   // start playing well after the colors it's supposed to track. This
   // way, whenever playback actually becomes possible, it starts
   // (near-)immediately rather than replaying a stale schedule.
+  // The CSS wave (@keyframes wordmark-wave, 20%/80% { letter-color })
+  // doesn't reach full color until 20% into its 0.8s cycle -- a note
+  // starting at the same instant the wave animation *begins* is
+  // therefore audibly ahead of when its letter actually looks colored.
+  // Direct feedback 2026-09-02: shift every note onset by that same
+  // 20%-of-0.8s gap so the ear and eye land together.
+  var VISUAL_PEAK_OFFSET_S = 0.8 * 0.2;
+
   function scheduleMelody(delay) {
     var now = ctx.currentTime;
     NOTE_HZ.forEach(function (freq, i) {
@@ -399,7 +407,7 @@
       // duration as the chord notes layered under it below, so the
       // root doesn't cut off while E5/G5 are still sustaining.
       var duration = i === NOTE_HZ.length - 1 ? CHORD_DURATION_S : NOTE_DURATION_S;
-      playNote(freq, now + delay + i * STAGGER_S, duration);
+      playNote(freq, now + delay + VISUAL_PEAK_OFFSET_S + i * STAGGER_S, duration);
     });
 
     // Final note (index 9) harmonized into a full C major chord
@@ -407,7 +415,7 @@
     // than trails off. E5 reuses a pitch already heard at index 7;
     // G5 is new, the one place a note plays without a corresponding
     // letter flash.
-    var landingTime = now + delay + 9 * STAGGER_S;
+    var landingTime = now + delay + VISUAL_PEAK_OFFSET_S + 9 * STAGGER_S;
     playNote(659.25, landingTime, CHORD_DURATION_S, 0.09); // E5
     playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
   }

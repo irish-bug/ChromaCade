@@ -6,7 +6,21 @@ body {
   padding: 0 1.5rem 4rem;
   line-height: 1.55;
 }
-h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+/* Brand heading -- every h1 across these pages is "PlinkPlonk ..."
+   (see index.html/parental-settings.html/add-your-own-song.html),
+   never a different kind of heading, so this styles the bare
+   selector rather than needing a dedicated class. Fredoka is loaded
+   via a per-page <link> (not @import here, so the pages that don't
+   need it can skip the request -- though in practice all 3 currently
+   do), matching the size/font used for the composer page's animated
+   wordmark so the brand reads consistently across all 3 pages. */
+h1 {
+  font-family: "Fredoka", ui-rounded, "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  letter-spacing: 0.02em;
+  margin-bottom: 0.25rem;
+}
 h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin-top: 1.5rem; }
 .badge {
