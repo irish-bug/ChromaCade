@@ -197,10 +197,14 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* Italic + letter-spacing now come from style.css's shared
+     .wordmark rule (kept in sync there so the plain "PlinkPlonk" on
+     the other 2 pages matches this animated one exactly) -- this page
+     just adds --wm-base, the animated version's theme-aware fill
+     color, which the plain static wordmark on the other pages doesn't
+     need (it just takes the surrounding text color). */
   .wordmark {
     --wm-base: #2b2730;
-    font-style: italic;
-    letter-spacing: 0.15em;
   }
   @media (prefers-color-scheme: dark) {
     .wordmark { --wm-base: #fff; }

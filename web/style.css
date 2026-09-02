@@ -21,6 +21,21 @@ h1 {
   letter-spacing: 0.02em;
   margin-bottom: 0.25rem;
 }
+/* The "PlinkPlonk" wordmark's own emphasis -- italic + wider tracking,
+   set apart from the rest of the heading (a badge, or "Composer" on
+   the add-your-own-song page, both stay upright/normal-spacing).
+   Shared here so index.html/parental-settings.html's plain heading
+   matches the composer page's animated wordmark exactly, not just in
+   font/size (both already come from the h1 rule above) but in this
+   emphasis too -- direct request 2026-09-02. The composer page's own
+   <style> block still owns --wm-base (the animated version's
+   theme-aware fill color) and the reveal/wave keyframes -- those are
+   specific to that page's letter-by-letter animation, not needed here
+   where the word is just static text taking the surrounding color. */
+.wordmark {
+  font-style: italic;
+  letter-spacing: 0.15em;
+}
 h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin-top: 1.5rem; }
 .badge {
