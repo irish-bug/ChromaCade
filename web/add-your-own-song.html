@@ -168,15 +168,25 @@
      needs a background it controls itself to stay legible in both
      modes, rather than assuming a dark page background like the
      artifact this was ported from had. */
+  .composer-title {
+    font-family: "Fredoka", ui-rounded, "Segoe UI", sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 5vw, 2.6rem);
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
   .wordmark-chip {
     display: inline-block;
     background: #2b2730;
     padding: 0.3rem 0.9rem;
     border-radius: 0.6rem;
+    line-height: 1.3;
   }
   .wordmark {
-    font-family: "Fredoka", ui-rounded, "Segoe UI", sans-serif;
-    font-weight: 600;
     font-style: italic;
     letter-spacing: 0.15em;
   }
@@ -216,7 +226,7 @@
 </nav>
 <div class="content">
 
-<h1><span class="wordmark-chip"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span></span> <span class="badge">Parent's Guide</span></h1>
+<h1 class="composer-title"><span class="wordmark-chip"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span></span> Composer</h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and
@@ -360,36 +370,57 @@
     osc.stop(startTime + duration + 0.05);
   }
 
-  var now = ctx.currentTime;
-  NOTE_HZ.forEach(function (freq, i) {
-    // Last note (i=9, the C5 landing) rings for the same longer
-    // duration as the chord notes layered under it below, so the root
-    // doesn't cut off while E5/G5 are still sustaining.
-    var duration = i === NOTE_HZ.length - 1 ? CHORD_DURATION_S : NOTE_DURATION_S;
-    playNote(freq, now + BASE_DELAY_S + i * STAGGER_S, duration);
-  });
+  // Schedules the whole melody + landing chord starting `delay`
+  // seconds from whenever this actually runs -- called either
+  // immediately below (if audio is already allowed to play) or from
+  // the first-gesture handler further down. Deliberately NOT just
+  // scheduled once up front at page load with a fixed 1s delay: if
+  // the browser's autoplay policy has the context suspended, its
+  // clock stays frozen at that original schedule until a user gesture
+  // resumes it -- by then the *visual* wave (which isn't gated by any
+  // permission) has usually already finished, so the melody would
+  // start playing well after the colors it's supposed to track. This
+  // way, whenever playback actually becomes possible, it starts
+  // (near-)immediately rather than replaying a stale schedule.
+  function scheduleMelody(delay) {
+    var now = ctx.currentTime;
+    NOTE_HZ.forEach(function (freq, i) {
+      // Last note (i=9, the C5 landing) rings for the same longer
+      // duration as the chord notes layered under it below, so the
+      // root doesn't cut off while E5/G5 are still sustaining.
+      var duration = i === NOTE_HZ.length - 1 ? CHORD_DURATION_S : NOTE_DURATION_S;
+      playNote(freq, now + delay + i * STAGGER_S, duration);
+    });
 
-  // Final note (index 9) harmonized into a full C major chord instead
-  // of staying a bare tone, so the melody resolves rather than trails
-  // off. E5 reuses a pitch already heard at index 7; G5 is new, the
-  // one place a note plays without a corresponding letter flash.
-  var landingTime = now + BASE_DELAY_S + 9 * STAGGER_S;
-  playNote(659.25, landingTime, CHORD_DURATION_S, 0.09); // E5
-  playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
+    // Final note (index 9) harmonized into a full C major chord
+    // instead of staying a bare tone, so the melody resolves rather
+    // than trails off. E5 reuses a pitch already heard at index 7;
+    // G5 is new, the one place a note plays without a corresponding
+    // letter flash.
+    var landingTime = now + delay + 9 * STAGGER_S;
+    playNote(659.25, landingTime, CHORD_DURATION_S, 0.09); // E5
+    playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
+  }
 
-  // Autoplay-with-sound is blocked by browser policy until a user
-  // gesture -- if so, the AudioContext starts suspended and its clock
-  // is frozen, so the notes scheduled above simply wait (still in the
-  // same relative order/spacing) until the first click/keypress
-  // resumes it, rather than being lost.
   if (ctx.state === "suspended") {
+    // Blocked until a user gesture -- wait for the first one, then
+    // resume and start the melody almost immediately (a short beat,
+    // not the original 1s intro delay) rather than however long it
+    // takes the visitor to click after the page loaded.
     var resume = function () {
-      ctx.resume();
+      ctx.resume().then(function () {
+        scheduleMelody(0.1);
+      });
       window.removeEventListener("pointerdown", resume);
       window.removeEventListener("keydown", resume);
     };
     window.addEventListener("pointerdown", resume, { once: true });
     window.addEventListener("keydown", resume, { once: true });
+  } else {
+    // Already allowed (e.g. a repeat visit -- browsers grant sites an
+    // autoplay allowance once you've interacted with them before) --
+    // matches the visual wave's own BASE_DELAY_S so both start together.
+    scheduleMelody(BASE_DELAY_S);
   }
 })();
 </script>
