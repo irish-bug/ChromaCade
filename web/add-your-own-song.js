@@ -355,6 +355,28 @@ function selectNote(i) {
   render();
 }
 
+// "Repeat" -- duplicates whatever's selected (a lone note, or every
+// member of its chord if it's part of one) and appends the copy to
+// the end of the song, preserving each note's own letter/octave/
+// accidental/duration exactly. Added 2026-09-02, direct feedback:
+// building the same chord over and over by hand was tedious. The
+// duplicate becomes the new selection so the editor panel opens
+// straight onto it, ready to adjust duration/octave/accidental before
+// moving on -- deliberately does NOT try to bulk-transpose the whole
+// copied chord at once, just makes the existing per-note editor
+// controls available on freshly-placed notes instead of requiring
+// re-entry from scratch.
+function repeatSelected() {
+  if (selectedIndex === null) return;
+  const note = notes[selectedIndex];
+  const group = note.chordId === null ? [note] : notes.filter((n) => n.chordId === note.chordId);
+  const newChordId = group.length > 1 ? nextChordId++ : null;
+  const copies = group.map((n) => ({ ...n, chordId: newChordId }));
+  notes.push(...copies);
+  selectedIndex = notes.length - copies.length;
+  render();
+}
+
 function renderEditor() {
   const panel = document.getElementById("editor-panel");
   if (selectedIndex === null) {
@@ -364,7 +386,11 @@ function renderEditor() {
   const note = notes[selectedIndex];
   const isRest = note.letter === null;
   panel.classList.add("open");
-  document.getElementById("editor-position").textContent = `${selectedIndex + 1} of ${notes.length}`;
+  const group = note.chordId === null ? null : notes.filter((n) => n.chordId === note.chordId);
+  document.getElementById("editor-position").textContent =
+    group && group.length > 1
+      ? `chord ${group.map((n) => n.letter).join("+")} (${selectedIndex + 1} of ${notes.length})`
+      : `${selectedIndex + 1} of ${notes.length}`;
   document.getElementById("editor-octave-value").textContent = isRest ? "—" : note.octave;
   document.getElementById("editor-duration").value = note.duration;
   for (const id of ["editor-octave-down", "editor-octave-up", "editor-flat", "editor-natural", "editor-sharp"]) {
@@ -461,6 +487,7 @@ document.getElementById("editor-duration").addEventListener("change", (e) => {
   }
   render();
 });
+document.getElementById("editor-repeat").addEventListener("click", repeatSelected);
 document.getElementById("editor-delete").addEventListener("click", () => {
   notes.splice(selectedIndex, 1);
   selectedIndex = null;
