@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChromaCade Add Your Own Song</title>
+<title>PlinkPlonk Add Your Own Song</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   /* Composer-specific styles, kept out of the shared style.css since
@@ -60,7 +63,13 @@
     cursor: pointer;
     color: #222;
   }
-  .rest-btn { background: #8882; color: inherit; border-style: dashed; }
+  /* Solid white, not the previous translucent #8882 (~13% opacity --
+     barely visible next to the vividly-colored note buttons, and its
+     `color: inherit` text made it worse in dark mode). Fixed color
+     regardless of page theme, matching how the note buttons are also
+     fixed colors rather than adapting to light/dark -- direct
+     feedback 2026-09-02. */
+  .rest-btn { background: #fff; color: #222; border-style: dashed; }
   .palette button[draggable], .rest-btn[draggable] { cursor: grab; }
 
   .staff {
@@ -115,7 +124,8 @@
     box-sizing: border-box;
   }
   .note-token.selected { outline: 3px solid #1e40af; outline-offset: 1px; }
-  .note-token.rest-token { background: #8882; color: inherit; border-style: dashed; }
+  /* Same fix as .rest-btn above -- solid white, not translucent. */
+  .note-token.rest-token { background: #fff; color: #222; border-style: dashed; }
 
   .toolbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
   .toolbar button { padding: 0.4rem 0.8rem; border-radius: 0.4rem; border: 1px solid #8886; background: transparent; color: inherit; cursor: pointer; }
@@ -154,6 +164,82 @@
   .save-status { font-size: 0.9rem; }
   .save-status.error { color: #b91c1c; }
   .save-status.ok { color: #15803d; }
+
+  /* PlinkPlonk wordmark: on load, each letter fades in, in melody-wave
+     order (not left-to-right reading order -- see --i on each span
+     below), then once the whole word is visible, a second pass in
+     that same order briefly flashes each letter to its real LED color
+     before settling back to its resting color for good. The stroke
+     never changes, only the fill (color) animates, so at rest the
+     word reads as plain text -- the color wave is a one-time
+     flourish, not the resting state, since a fully colored wordmark
+     tested as too hard to read. Ported from the "ChromaCade Composer"
+     design artifact, 2026-09-02 -- see that artifact for the fuller
+     design rationale/iteration history.
+
+     Resting/stroke color is theme-aware (--wm-base below), not a flat
+     white like the artifact used -- that artifact had its own dark
+     page background to sit against; this page has no dark theme of
+     its own, just the browser's light/dark default via style.css's
+     color-scheme: light dark, so white text needs to become dark text
+     in light mode or it's invisible against the common white
+     background. No background chip needed once the text color itself
+     adapts -- direct feedback 2026-09-02, an earlier version used a
+     dark pill behind the wordmark instead. */
+  /* Font/size/spacing now come from style.css's shared h1 rule (kept
+     in sync there so this page's animated wordmark matches the plain
+     "PlinkPlonk" heading on the other 2 pages) -- this class only
+     adds the layout this page's heading specifically needs (wordmark
+     + "Composer" as a wrapping flex row). */
+  .composer-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .wordmark {
+    --wm-base: #2b2730;
+    font-style: italic;
+    letter-spacing: 0.15em;
+  }
+  @media (prefers-color-scheme: dark) {
+    .wordmark { --wm-base: #fff; }
+  }
+  @keyframes wordmark-reveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes wordmark-wave {
+    0%, 100% { color: var(--wm-base); }
+    20%, 80% { color: var(--letter-color); }
+  }
+  /* Plain and fully visible by default -- NOT animating on page load.
+     The reveal+wave sequence only runs once JS adds .play to .wordmark
+     (see the script below), gated on the exact same trigger as the
+     melody (autoplay-allowed immediately, or the first click/keypress
+     otherwise) so the two can never drift apart the way they did when
+     the visual ran unconditionally on load while audio waited for a
+     gesture -- direct feedback 2026-09-02. */
+  .wordmark span {
+    display: inline-block;
+    opacity: 1;
+    color: var(--wm-base);
+    -webkit-text-stroke: 2px var(--wm-base);
+    paint-order: stroke fill;
+  }
+  .wordmark.play span {
+    opacity: 0;
+    animation:
+      wordmark-reveal 0.15s ease-out calc(var(--i) * 0.16s) forwards,
+      wordmark-wave 0.8s ease-in-out calc(1s + var(--i) * 0.16s) forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wordmark.play span {
+      animation: none;
+      opacity: 1;
+      color: var(--wm-base);
+    }
+  }
 </style>
 </head>
 <body>
@@ -165,7 +251,7 @@
 </nav>
 <div class="content">
 
-<h1>ChromaCade <span class="badge">Parent's Guide</span></h1>
+<h1 class="composer-title"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span> Composer</h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and
@@ -175,7 +261,7 @@
   the staff to change its octave, sharp/flat, or duration, or to delete it.
 </p>
 <p class="soon" style="display:block; margin-top:0.5rem;">
-  Playing back through ChromaCade's own speakers, and composing by playing the
+  Playing back through PlinkPlonk's own speakers, and composing by playing the
   device's physical keys instead of typing: coming soon. For now, this page composes
   and saves -- it doesn't play sound itself.
 </p>
@@ -257,6 +343,134 @@
 
 </div>
 </div>
+<script>
+"use strict";
+// PlinkPlonk's own secret jingle -- the word's letters map, via the
+// same C-D-E-F-G-A-B note-color cycle the wordmark wave above uses,
+// to C D E F G A B C D E. Ported from the "ChromaCade Composer"
+// design artifact 2026-09-02, pacing/notes confirmed live on
+// plinkplonk's real speakers (Toy Piano GM voice) that same day --
+// see audio/prompts/plinkplonk_theme.wav and tutor_songs.py's
+// "plink_the_plonks" entry for that real-hardware version. This is a
+// synthesized triangle-wave approximation, not literal FluidSynth
+// playback -- a browser has no way to run the real GM soundfont,
+// only Web Audio oscillators.
+(function () {
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return; // no Web Audio support -- the visual wave still works fine on its own
+
+  // Wave-order, not reading order -- see .wordmark span's --i above
+  // (each letter's wave step, independent of where it sits in
+  // "PlinkPlonk" itself). Swoop E-G-C, leap to B, back down through
+  // A-D, a big jump to the high E, then a descending E-D-C landing on
+  // the tonic an octave up. Exactly 10 notes: 2 C/D/E each (second
+  // occurrence an octave up), 1 each of F/G/A/B.
+  var NOTE_HZ = [
+    329.63, // E4 -- i    (--i:0)
+    392.0,  // G4 -- k    (--i:1)
+    261.63, // C4 -- P    (--i:2)
+    349.23, // F4 -- n    (--i:3)
+    493.88, // B4 -- l    (--i:4)
+    440.0,  // A4 -- P    (--i:5)
+    293.66, // D4 -- l    (--i:6)
+    659.25, // E5 -- k, octave up (--i:7)
+    587.33, // D5 -- n, octave up (--i:8)
+    523.25  // C5 -- o, octave up, tonic landing (--i:9)
+  ];
+  var BASE_DELAY_S = 1.0;
+  var STAGGER_S = 0.16;
+  var NOTE_DURATION_S = 0.5;
+  var CHORD_DURATION_S = 1.2;
+
+  var ctx = new AudioCtx();
+
+  function playNote(freq, startTime, duration, peakGain) {
+    duration = duration || NOTE_DURATION_S;
+    peakGain = peakGain || 0.15;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = "triangle"; // soft/toy-like, not a harsh square/saw
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.05);
+  }
+
+  // Schedules the whole melody + landing chord starting `delay`
+  // seconds from whenever this actually runs -- called either
+  // immediately below (if audio is already allowed to play) or from
+  // the first-gesture handler further down. Deliberately NOT just
+  // scheduled once up front at page load with a fixed 1s delay: if
+  // the browser's autoplay policy has the context suspended, its
+  // clock stays frozen at that original schedule until a user gesture
+  // resumes it -- by then the *visual* wave (which isn't gated by any
+  // permission) has usually already finished, so the melody would
+  // start playing well after the colors it's supposed to track. This
+  // way, whenever playback actually becomes possible, it starts
+  // (near-)immediately rather than replaying a stale schedule.
+  // The CSS wave (@keyframes wordmark-wave, 20%/80% { letter-color })
+  // doesn't reach full color until 20% into its 0.8s cycle -- a note
+  // starting at the same instant the wave animation *begins* is
+  // therefore audibly ahead of when its letter actually looks colored.
+  // Direct feedback 2026-09-02: shift every note onset by that same
+  // 20%-of-0.8s gap so the ear and eye land together.
+  var VISUAL_PEAK_OFFSET_S = 0.8 * 0.2;
+
+  function scheduleMelody(delay) {
+    var now = ctx.currentTime;
+    NOTE_HZ.forEach(function (freq, i) {
+      // Last note (i=9, the C5 landing) rings for the same longer
+      // duration as the chord notes layered under it below, so the
+      // root doesn't cut off while E5/G5 are still sustaining.
+      var duration = i === NOTE_HZ.length - 1 ? CHORD_DURATION_S : NOTE_DURATION_S;
+      playNote(freq, now + delay + VISUAL_PEAK_OFFSET_S + i * STAGGER_S, duration);
+    });
+
+    // Final note (index 9) harmonized into a full C major chord
+    // instead of staying a bare tone, so the melody resolves rather
+    // than trails off. E5 reuses a pitch already heard at index 7;
+    // G5 is new, the one place a note plays without a corresponding
+    // letter flash.
+    var landingTime = now + delay + VISUAL_PEAK_OFFSET_S + 9 * STAGGER_S;
+    playNote(659.25, landingTime, CHORD_DURATION_S, 0.09); // E5
+    playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
+  }
+
+  // Starts BOTH the visual reveal/wave (by adding .play, see the CSS
+  // above) and the melody together, from whatever moment this actually
+  // runs -- the two can only stay in sync if something drives them
+  // both from the same trigger, rather than the visual running
+  // unconditionally on load while audio waits on its own gesture.
+  function startShow() {
+    var wordmark = document.querySelector(".wordmark");
+    if (wordmark) wordmark.classList.add("play");
+    scheduleMelody(BASE_DELAY_S);
+  }
+
+  if (ctx.state === "suspended") {
+    // Audio blocked until a user gesture -- wait for the first one
+    // (a click, or the first keypress from typing a song letter) and
+    // start the whole show at that moment, instead of running the
+    // visual on load and leaving audio to catch up late.
+    var resume = function () {
+      ctx.resume().then(startShow);
+      window.removeEventListener("pointerdown", resume);
+      window.removeEventListener("keydown", resume);
+    };
+    window.addEventListener("pointerdown", resume, { once: true });
+    window.addEventListener("keydown", resume, { once: true });
+  } else {
+    // Already allowed (e.g. a repeat visit -- browsers grant sites an
+    // autoplay allowance once you've interacted with them before) --
+    // nothing to wait for, start immediately.
+    startShow();
+  }
+})();
+</script>
 <script src="add-your-own-song.js"></script>
 </body>
 </html>
