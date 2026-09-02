@@ -156,6 +156,16 @@ Once enabled, `systemctl status chromacade.service` / `journalctl -u chromacade.
 
 Separately, still open per `docs/open-questions.md`'s "Future / stretch" section: full read-only root + overlay-fs, and the dedicated non-root service user mentioned above. Do those *before* depending on this unit for unattended live use, not as part of a basic rebuild.
 
+**A third service, `song-editor.service`, added 2026-08-27/28** for the web-based song composer (Add Your Own Song page) -- backs `song_editor_server.py`'s `/api/songs` save endpoint, see that file's own docstring for the full design. Unlike the two above, this one is deliberately **not** root -- it never touches GPIO/audio hardware, only the filesystem (`user-songs/`) and a `127.0.0.1`-only HTTP socket, so it runs as the checkout owner (`User=plink` in the tracked unit file, same per-device caveat as `chromacade.service`'s paths). Standard library only, no new pip/apt dependency to install for it.
+
+```bash
+sudo cp ~/ChromaCade/song-editor.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now song-editor.service
+```
+
+Verify: `curl -s -X POST http://127.0.0.1:8765/api/songs -H "Content-Type: application/json" -d '{"name":"Test","score":[["C4",1]]}'` should return `{"ok": true, "file": "test.py"}` and create `user-songs/test.py` -- delete that test file afterward, it's not a real song. Needs `web/Caddyfile` deployed (see §9 below) for the browser-facing `/api/*` route to actually reach this service; hitting `127.0.0.1:8765` directly (as above) only proves the backend itself is up, not the full path from a browser.
+
 ## 9. Parent's-guide web page (Caddy)
 
 Serves `web/` (the Quickstart/Parental-Settings/Add-a-Song pages) on port 80. Not installed as part of §4's apt packages since it's a separate concern (static docs, not the instrument app) — set up here instead, verified live on `plinkplonk` 2026-08-24.
@@ -191,3 +201,5 @@ sudo systemctl restart caddy
 systemctl is-active caddy   # should be "active"
 curl -s http://localhost/ | head -5   # should be the Quickstart Guide's <title>, not Caddy's default placeholder page
 ```
+
+**`/api/*` reverse-proxies to `song-editor.service`, added 2026-08-27/28** (see §8 above) -- the tracked Caddyfile now `handle`s `/api/*` as a `reverse_proxy 127.0.0.1:8765` before falling through to the static `file_server` for everything else, same-origin from the browser's perspective so no CORS setup needed. Verify the full path (not just the backend directly, which §8's curl already checks): `curl -s -X POST http://localhost/api/songs -H "Content-Type: application/json" -d '{"name":"Proxy Test","score":[["C4",1]]}'` should succeed the same way, through port 80 this time -- if this fails but §8's direct-to-8765 check passed, the problem is in Caddy's routing/the reverse-proxy config, not the backend itself. Delete `user-songs/proxy-test.py` afterward, same as §8's test file.
