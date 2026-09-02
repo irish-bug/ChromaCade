@@ -63,7 +63,13 @@
     cursor: pointer;
     color: #222;
   }
-  .rest-btn { background: #8882; color: inherit; border-style: dashed; }
+  /* Solid white, not the previous translucent #8882 (~13% opacity --
+     barely visible next to the vividly-colored note buttons, and its
+     `color: inherit` text made it worse in dark mode). Fixed color
+     regardless of page theme, matching how the note buttons are also
+     fixed colors rather than adapting to light/dark -- direct
+     feedback 2026-09-02. */
+  .rest-btn { background: #fff; color: #222; border-style: dashed; }
   .palette button[draggable], .rest-btn[draggable] { cursor: grab; }
 
   .staff {
@@ -118,7 +124,8 @@
     box-sizing: border-box;
   }
   .note-token.selected { outline: 3px solid #1e40af; outline-offset: 1px; }
-  .note-token.rest-token { background: #8882; color: inherit; border-style: dashed; }
+  /* Same fix as .rest-btn above -- solid white, not translucent. */
+  .note-token.rest-token { background: #fff; color: #222; border-style: dashed; }
 
   .toolbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
   .toolbar button { padding: 0.4rem 0.8rem; border-radius: 0.4rem; border: 1px solid #8886; background: transparent; color: inherit; cursor: pointer; }
