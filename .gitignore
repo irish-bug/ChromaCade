@@ -261,3 +261,22 @@ audio/songs/
 # not song content, safe to publish.
 user-songs/*
 !user-songs/README.md
+
+# Local font files for future OpenSCAD wordmark-emboss work (floated
+# 2026-08-31, not started) -- Fredoka's TTFs, not needed by anything
+# tracked yet.
+Fredoka/
+
+# Personal reference photos, not case-model assets (unlike e.g.
+# enclosure/fan-dimensions.jpg or hardware/speaker_specs.jpeg, which
+# ARE tracked and stay that way -- this rule is deliberately
+# filename-specific, not a blanket enclosure/*.jpg or hardware/*.jpg,
+# so it doesn't swallow those).
+enclosure/Screenshot 2026-08-24*.png
+hardware/partial_cabling_layout.jpg
+
+# Superseded thin-wall experiment leftovers (plonk/thinner-walls-
+# experiment, deleted 2026-09-02 -- see case-design.md's "Real failure
+# this caught" note) -- kept locally, not published.
+enclosure/chromacade-blank-side-thinner-designed.scad
+enclosure/fixed_thinner.stl
