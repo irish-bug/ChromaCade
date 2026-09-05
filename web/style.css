@@ -44,7 +44,7 @@ h1 {
    animation without needing its own theme handling. */
 .wordmark {
   font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.2em;
   -webkit-text-stroke: 2pt #fff;
   text-stroke: 2pt #fff;
 }
