@@ -78,11 +78,26 @@ li { margin: 0.3rem 0; }
 
 /* Site-wide sidebar nav, shared by every page under web/ -- stacks
    above the content on narrow (phone) viewports, becomes a true left
-   sidebar once there's room, per "a side section" request 2026-08-17. */
+   sidebar once there's room, per "a side section" request 2026-08-17.
+
+   Also carries the KEYCAP hex palette (from docs/color-palette.md, not
+   led_ring.py's NOTE_COLORS -- the ring's values are deliberately dim,
+   max channel 88/255, for LED legibility, and would read as
+   near-black on a page; the keycap set is "what the letter's physical
+   button actually looks like," the more natural reference for a
+   screen) -- moved here from the composer page's own <style> 2026-09-05
+   so the wordmark's --letter-color on ALL 3 pages can reference the
+   same var(--c)/var(--d)/etc. the composer's note-letter buttons use,
+   instead of duplicating a second, different set of colors (the
+   wordmark previously used doubled LED-ring RGB values). Keep in sync
+   with docs/color-palette.md if it's ever retuned -- every consumer
+   picks it up automatically since there's only one copy now. */
 .page {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  --c: #ad2f44; --d: #fda869; --e: #f0d678;
+  --f: #cae3ca; --g: #7dbaf4; --a: #a495d6; --b: #e9bec7;
 }
 .site-nav {
   display: flex;

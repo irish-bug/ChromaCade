@@ -10,17 +10,10 @@
 <link rel="stylesheet" href="style.css">
 <style>
   /* Composer-specific styles, kept out of the shared style.css since
-     no other page needs them. Colors below are the KEYCAP hex palette
-     from docs/color-palette.md, not led_ring.py's NOTE_COLORS -- the
-     ring's values are deliberately dim (max channel 88/255) for LED
-     legibility and would read as near-black on a page; the keycap
-     set is "what the letter's physical button actually looks like,"
-     the more natural reference for a screen. Keep both in sync with
-     their respective source-of-truth files if either is retuned. */
-  .letter-colors {
-    --c: #ad2f44; --d: #fda869; --e: #f0d678;
-    --f: #cae3ca; --g: #7dbaf4; --a: #a495d6; --b: #e9bec7;
-  }
+     no other page needs them. The KEYCAP hex palette (--c/--d/etc.,
+     used below by both the palette buttons and the wordmark) now
+     lives on style.css's shared .page rule instead of a
+     composer-only .letter-colors class -- see that rule's comment. */
 
   .composer { margin-top: 1rem; }
 
@@ -249,7 +242,7 @@
 </style>
 </head>
 <body>
-<div class="page letter-colors">
+<div class="page">
 <nav class="site-nav" aria-label="Site sections">
   <a href="index.html">Quickstart Guide</a>
   <a href="parental-settings.html">Parental Settings</a>
@@ -257,7 +250,7 @@
 </nav>
 <div class="content">
 
-<h1 class="composer-title"><span class="wordmark" aria-label="Plink Plonk!"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span> <span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span>!</span> Composer</h1>
+<h1 class="composer-title"><span class="wordmark" aria-label="Plink Plonk!"><span style="--letter-color:var(--c); --i:2">P</span><span style="--letter-color:var(--d); --i:6">l</span><span style="--letter-color:var(--e); --i:0">i</span><span style="--letter-color:var(--f); --i:3">n</span><span style="--letter-color:var(--g); --i:1">k</span> <span style="--letter-color:var(--a); --i:5">P</span><span style="--letter-color:var(--b); --i:4">l</span><span style="--letter-color:var(--c); --i:9">o</span><span style="--letter-color:var(--d); --i:8">n</span><span style="--letter-color:var(--e); --i:7">k</span>!</span> Composer</h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and
