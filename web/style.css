@@ -45,8 +45,8 @@ h1 {
 .wordmark {
   font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
   letter-spacing: 0.2em;
-  -webkit-text-stroke: 2pt #fff;
-  text-stroke: 2pt #fff;
+  -webkit-text-stroke: 1.5pt #fff;
+  text-stroke: 1.5pt #fff;
 }
 h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin-top: 1.5rem; }
