@@ -186,19 +186,22 @@
      in sync there so this page's animated wordmark matches the plain
      "Plink Plonk!" heading on the other 2 pages) -- this class only
      adds the layout this page's heading specifically needs (wordmark
-     + "Composer" as a wrapping flex row). align-items: baseline, not
-     center -- Luckiest Guy (the wordmark) and Fredoka ("Composer")
-     have different font metrics at the same font-size, so centering
-     by box height left "Composer" visibly floating relative to the
-     wordmark; aligning by text baseline instead (direct feedback
-     2026-09-05: "raise the baseline of Composer to match") is the
-     robust fix, not a hand-tuned pixel offset that would need
-     re-tuning if either font's metrics change. */
+     + "Composer" as a wrapping flex row), plus font-family below so
+     "Composer" matches the wordmark's Luckiest Guy instead of the
+     plain Fredoka the bare h1 rule would otherwise give it -- direct
+     request 2026-09-05. align-items: baseline (not center) predates
+     this and was originally needed because Luckiest Guy and Fredoka
+     have different font metrics at the same font-size; now that both
+     words share one font it's no longer strictly required (same-font
+     same-size text centers and baseline-aligns the same way), but
+     baseline is still the more correct choice in general and costs
+     nothing to keep, so it stays rather than reverting to center. */
   .composer-title {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
     gap: 0.5rem;
+    font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
   }
   /* Font and outline now come from style.css's shared .wordmark rule
      (kept in sync there so the plain "Plink Plonk!" on the other 2
