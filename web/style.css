@@ -42,11 +42,26 @@ h1 {
    surrounding color. text-stroke is a fill-independent outline, so it
    stays constant white through the composer page's color-wave
    animation without needing its own theme handling. */
+/* --wm-c/--wm-d/etc. are a DELIBERATELY DARKER variant of the note
+   letters' colors, for wordmark use only -- NOT the same variables as
+   --c/--d/etc. (defined on .page above), and that's intentional, not
+   an inconsistency with the "match the note buttons" work 2026-09-05.
+   docs/color-palette.md documents --c/--d/etc. as photo-sampled,
+   measured from unit #1's actual physical keycaps -- darkening those
+   directly (direct request 2026-09-05) would also darken the
+   composer's real C/D/E/F/G/A/B buttons (they share that source) and
+   make the CSS stop matching the physical hardware it's meant to
+   represent. The wordmark doesn't have that constraint -- it's
+   decorative, not a reference for real keycap color -- so it gets its
+   own darker set instead, hand-picked to keep the same hue per letter
+   while reading as a richer, more saturated version of it. */
 .wordmark {
   font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
   letter-spacing: 0.2em;
   -webkit-text-stroke: 1.5pt #fff;
   text-stroke: 1.5pt #fff;
+  --wm-c: #7a1f31; --wm-d: #b8651e; --wm-e: #b8910f;
+  --wm-f: #4a7d52; --wm-g: #1f5a94; --wm-a: #5a3f96; --wm-b: #a04a60;
 }
 /* The "!"'s own thing -- unlike the letters (which land on one color
    and hold, see the composer page's own <style> for that half of the
@@ -57,20 +72,29 @@ h1 {
    this one small rule is all they need. The composer page's own
    <style> adds a gate on top of this so the cycle doesn't start until
    .play is added (matching the letters' wait-for-first-gesture
-   behavior) -- see that file. prefers-reduced-motion below turns the
-   infinite cycle into the flat fallback color explicitly asked for
-   ("if it can't cycle, we'll use the green shade") -- an unending
-   color-cycling animation is exactly the kind of motion that setting
-   is meant to suppress. */
+   behavior) -- see that file.
+
+   Paired same-value keyframe stops (e.g. "0%, 14.2857%" both -wm-c)
+   make each color hold flat across its whole segment, then a second
+   rule at that exact same percentage starts the next color -- an
+   abrupt cut, not a blend, direct feedback 2026-09-05 replacing the
+   original smooth linear interpolation between stops. The loop-back
+   from the last segment's --wm-b to the next iteration's --wm-c at
+   the 100%/0% seam is abrupt for free, with no special-casing needed
+   -- animations don't interpolate across a restart.
+
+   prefers-reduced-motion below turns the infinite cycle into the flat
+   fallback color explicitly asked for ("if it can't cycle, we'll use
+   the green shade") -- an unending animation, abrupt or not, is
+   exactly the kind of motion that setting is meant to suppress. */
 @keyframes exclaim-cycle {
-  0%     { color: var(--c); }
-  14.29% { color: var(--d); }
-  28.57% { color: var(--e); }
-  42.86% { color: var(--f); }
-  57.14% { color: var(--g); }
-  71.43% { color: var(--a); }
-  85.71% { color: var(--b); }
-  100%   { color: var(--c); }
+  0%,     14.2857% { color: var(--wm-c); }
+  14.2857%, 28.5714% { color: var(--wm-d); }
+  28.5714%, 42.8571% { color: var(--wm-e); }
+  42.8571%, 57.1429% { color: var(--wm-f); }
+  57.1429%, 71.4286% { color: var(--wm-g); }
+  71.4286%, 85.7143% { color: var(--wm-a); }
+  85.7143%, 100%     { color: var(--wm-b); }
 }
 .wordmark .exclaim {
   animation: exclaim-cycle 4s linear infinite;
@@ -78,7 +102,7 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .wordmark .exclaim {
     animation: none;
-    color: var(--f);
+    color: var(--wm-f);
   }
 }
 h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
