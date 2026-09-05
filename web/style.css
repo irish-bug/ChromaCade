@@ -42,6 +42,21 @@ h1 {
    surrounding color. text-stroke is a fill-independent outline, so it
    stays constant white through the composer page's color-wave
    animation without needing its own theme handling. */
+/* Self-hosted, not loaded via Google Fonts like Fredoka -- OpenDyslexic
+   isn't on Google Fonts. SIL OFL-licensed (same license family as
+   Fredoka/Luckiest Guy), which explicitly permits this kind of
+   bundling; web/fonts/OFL.txt is the license text carried alongside
+   it per that license's own redistribution requirement. Direct
+   request 2026-09-05, swapped in for comparison against Luckiest Guy
+   -- see that font's own comment below on .wordmark for why Luckiest
+   Guy was chosen over Creative Block BB in the first place; this is a
+   separate, later comparison, not a re-litigation of that decision. */
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("fonts/OpenDyslexic-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
 /* --wm-c/--wm-d/etc. are a DELIBERATELY DARKER variant of the note
    letters' colors, for wordmark use only -- NOT the same variables as
    --c/--d/etc. (defined on .page above), and that's intentional, not
@@ -56,7 +71,7 @@ h1 {
    own darker set instead, hand-picked to keep the same hue per letter
    while reading as a richer, more saturated version of it. */
 .wordmark {
-  font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
+  font-family: "OpenDyslexic", ui-rounded, "Segoe UI", sans-serif;
   letter-spacing: 0.2em;
   -webkit-text-stroke: 1.5pt #fff;
   text-stroke: 1.5pt #fff;
