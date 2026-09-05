@@ -239,6 +239,28 @@
       color: var(--letter-color);
     }
   }
+  /* The "!" (style.css's .exclaim, shared with the 2 plain pages)
+     cycles forever once running -- held back here until .play, same
+     wait-for-first-gesture gate as the letters, instead of cycling
+     immediately on page load before anything else has happened. */
+  .wordmark:not(.play) .exclaim {
+    animation: none;
+    color: var(--wm-base);
+  }
+  /* Re-asserts style.css's exclaim-cycle at higher specificity than
+     .wordmark.play span above -- without this, that broader "every
+     span" rule (2 classes + an element selector) would silently beat
+     the shared 2-class .wordmark .exclaim rule and give the "!" the
+     letters' colorize-and-hold animation instead of its own cycle. */
+  .wordmark.play .exclaim {
+    animation: exclaim-cycle 4s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wordmark.play .exclaim {
+      animation: none;
+      color: var(--f);
+    }
+  }
 </style>
 </head>
 <body>
@@ -250,7 +272,7 @@
 </nav>
 <div class="content">
 
-<h1 class="composer-title"><span class="wordmark" aria-label="Plink Plonk!"><span style="--letter-color:var(--c); --i:2">P</span><span style="--letter-color:var(--d); --i:6">l</span><span style="--letter-color:var(--e); --i:0">i</span><span style="--letter-color:var(--f); --i:3">n</span><span style="--letter-color:var(--g); --i:1">k</span> <span style="--letter-color:var(--a); --i:5">P</span><span style="--letter-color:var(--b); --i:4">l</span><span style="--letter-color:var(--c); --i:9">o</span><span style="--letter-color:var(--d); --i:8">n</span><span style="--letter-color:var(--e); --i:7">k</span>!</span> Composer</h1>
+<h1 class="composer-title"><span class="wordmark" aria-label="Plink Plonk!"><span style="--letter-color:var(--c); --i:2">P</span><span style="--letter-color:var(--d); --i:6">l</span><span style="--letter-color:var(--e); --i:0">i</span><span style="--letter-color:var(--f); --i:3">n</span><span style="--letter-color:var(--g); --i:1">k</span> <span style="--letter-color:var(--a); --i:5">P</span><span style="--letter-color:var(--b); --i:4">l</span><span style="--letter-color:var(--c); --i:9">o</span><span style="--letter-color:var(--d); --i:8">n</span><span style="--letter-color:var(--e); --i:7">k</span><span class="exclaim">!</span></span> Composer</h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and

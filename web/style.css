@@ -48,6 +48,39 @@ h1 {
   -webkit-text-stroke: 1.5pt #fff;
   text-stroke: 1.5pt #fff;
 }
+/* The "!"'s own thing -- unlike the letters (which land on one color
+   and hold, see the composer page's own <style> for that half of the
+   design), the exclamation point just keeps cycling through the same
+   7 note colors forever, direct request 2026-09-05. Lives here (not
+   composer-only) so it also applies to the 2 plain pages' static
+   wordmark, which have no animation infrastructure of their own --
+   this one small rule is all they need. The composer page's own
+   <style> adds a gate on top of this so the cycle doesn't start until
+   .play is added (matching the letters' wait-for-first-gesture
+   behavior) -- see that file. prefers-reduced-motion below turns the
+   infinite cycle into the flat fallback color explicitly asked for
+   ("if it can't cycle, we'll use the green shade") -- an unending
+   color-cycling animation is exactly the kind of motion that setting
+   is meant to suppress. */
+@keyframes exclaim-cycle {
+  0%     { color: var(--c); }
+  14.29% { color: var(--d); }
+  28.57% { color: var(--e); }
+  42.86% { color: var(--f); }
+  57.14% { color: var(--g); }
+  71.43% { color: var(--a); }
+  85.71% { color: var(--b); }
+  100%   { color: var(--c); }
+}
+.wordmark .exclaim {
+  animation: exclaim-cycle 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wordmark .exclaim {
+    animation: none;
+    color: var(--f);
+  }
+}
 h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin-top: 1.5rem; }
 .badge {
