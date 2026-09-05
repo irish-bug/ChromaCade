@@ -267,6 +267,13 @@ user-songs/*
 # tracked yet.
 Fredoka/
 
+# Personal custom soundfont builds (baritone uke mic/piezo, started
+# 2026-09-04) -- experimental .sf2 instrument files built in Polyphone
+# and copied to plink for real-hardware listening tests, not finished
+# assets ready to commit. Not wired into audio_engine.py's FONTS list
+# yet either (still hardcoded to the single GM soundfont).
+audio/*.sf2
+
 # Personal reference photos, not case-model assets (unlike e.g.
 # enclosure/fan-dimensions.jpg or hardware/speaker_specs.jpeg, which
 # ARE tracked and stay that way -- this rule is deliberately

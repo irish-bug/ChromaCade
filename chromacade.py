@@ -136,7 +136,7 @@ from tutor_mode import (
     miss_feedback,
     play_demo,
 )
-from tutor_songs import PROMPTS, SCORES, SONGS, TutorSession
+from tutor_songs import CHORD_SONGS, PROMPTS, SCORES, SONGS, TutorSession, chord_cue_letter, refresh_user_songs, target_label
 
 OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 # Simon-only now (2026-08-17) -- Tutor plays in whichever font was
@@ -193,21 +193,39 @@ def resolve_simon_source(source_name):
     return pool_source(SONGS[source_name])
 
 
+def cue_ring_for(ring, step):
+    """Shows a target step on the ring, via tutor_songs.py's
+    chord_cue_letter() -- see that function's docstring for why this
+    is a placeholder, not a settled chord-display design."""
+    ring.show(chord_cue_letter(step))
+
+
 def play_simon_sequence(audio, ring, sequence, oled=None):
     """Blocking playthrough of the current round's sequence-so-far --
     same blocking-call style as tutor_mode.py's play_demo(), see that
     module's docstring and this module's assumptions list for why.
     No SCORES-style rhythm data for Simon (song/number/random sources
     are all bare letters, no duration), so this just uses a fixed
-    on/gap timing rather than DEFAULT_TEMPO-based beats."""
+    on/gap timing rather than DEFAULT_TEMPO-based beats.
+
+    Each step is a frozenset of letters (size 1 for an ordinary note,
+    more for a chord -- see simon_sequences.py/tutor_songs.py), not a
+    bare letter -- a chord step strikes all its letters together (list
+    order off the frozenset, so not a fixed order, but this project
+    doesn't need sample-accurate simultaneity for it to read as a
+    chord) and releases them together, same pattern as
+    tutor_mode.py's play_demo()."""
     audio.octave = 4
-    for letter in sequence:
-        ring.show(letter)
+    for step in sequence:
+        letters = sorted(step)
+        for letter in letters:
+            ring.show(letter)  # last letter wins -- same placeholder as play_demo(), see that function's docstring
+            audio.note_on(letter)
         if oled:
             oled.show_lines(["Watch..."])
-        audio.note_on(letter)
         time.sleep(SIMON_NOTE_SECONDS)
-        audio.note_off(letter)
+        for letter in letters:
+            audio.note_off(letter)
         ring.clear()
         time.sleep(SIMON_GAP_SECONDS)
 
@@ -217,11 +235,19 @@ def main():
     ring = LedRing()
     strip = LedStrip()
     oled = OledDisplay()
-    menu = Menu(list(SONGS.keys()), SIMON_SOURCES)
+    menu = Menu(list(SONGS.keys()), SIMON_SOURCES, chord_songs=CHORD_SONGS)
     pools = build_pools()
 
     app = {"state": "play"}  # "play"|"menu"|"tutor_demo"|"tutor_active"|"simon_demo"|"simon_active"
     held = []
+    # Separate from `held` above (play mode's own bookkeeping, feeds
+    # update_ring()/update_play_oled()'s "most recently held" display
+    # logic) -- this one exists purely so tutor_active/simon_active can
+    # tell TutorSession.press()/SimonSession.press() the full set of
+    # letters currently down, for chord matching (added 2026-09-02).
+    # Kept independent rather than reusing `held` so chord-matching
+    # bookkeeping can never leak into Play mode's own display state.
+    matching_held = []
     play_state = {"bend": 0.0, "shown": None, "shown_base": None, "volume_percent": 0.0}
     tutor = {"session": None, "song_name": None}
     simon = {"session": None, "source_name": None, "saved_font_index": None}
@@ -392,15 +418,22 @@ def main():
             tutor["session"] = None
             _offer_continue("tutor")
         else:
-            print(f"CUE     {session.target}")
-            ring.show(session.target)
-            lines = ["Match the color:", session.target]
+            label = target_label(session.target)
+            print(f"CUE     {label}")
+            cue_ring_for(ring, session.target)
+            lines = ["Match the color:", label]
             prompt = PROMPTS.get(tutor["song_name"], {}).get(session.index)
             if prompt:
                 lines.append(prompt)
             oled.show_lines(lines)
 
     def start_tutor(song_name):
+        # Cleared here too, not just menu_enter() -- _continue_tutor()
+        # reaches this directly from tutor_await_continue, skipping
+        # "menu" entirely, so a stray still-held note from finishing
+        # the previous song could otherwise leak into this one's chord
+        # matching.
+        matching_held.clear()
         tutor["song_name"] = song_name
         app["state"] = "tutor_demo"
         oled.show_lines(["Get ready...", song_name])
@@ -475,6 +508,7 @@ def main():
         oled.show_lines([f"Round {session.round_number}", "Your turn!"])
 
     def start_simon(source_name):
+        matching_held.clear()  # see start_tutor()'s identical comment -- _continue_simon() reaches here directly too
         simon["saved_font_index"] = audio.font_index
         audio.font_change(TUTOR_FONT_INDEX - audio.font_index)
         simon["source_name"] = source_name
@@ -569,19 +603,38 @@ def main():
         elif state == "tutor_active":
             session = tutor["session"]
             audio.note_on(letter)
-            if session.press(letter):
-                print(f"MATCH   {letter}")
+            if letter not in matching_held:
+                matching_held.append(letter)
+            matched_step = session.target  # capture before press() advances index
+            # press() now returns "match"/"pending"/"miss"/"already_complete"
+            # (was a plain bool) -- "pending" (holding fewer notes than a
+            # chord target needs) must be a true no-op, not treated as a
+            # miss. Fixed 2026-09-02: every note of a chord pressed one at
+            # a time was firing miss feedback before the rest of the chord
+            # joined it, since the old bool version had no way to express
+            # "not judged yet" separately from "wrong."
+            result = session.press(matching_held)
+            if result == "match":
+                print(f"MATCH   {target_label(matched_step)}")
                 _background(show_tutor_target)
-            else:
-                print(f"MISS    {letter} (wanted {session.target})")
+            elif result == "miss":
+                print(f"MISS    {letter} (wanted {target_label(session.target)})")
                 _background(miss_feedback, strip, session.target, pools["tutor_error"].next())
+            # "pending" -- still building toward the target, no feedback
+            # yet. "already_complete" shouldn't happen in practice (this
+            # state transitions away once show_tutor_target() sees
+            # is_complete()), and isn't a miss either if it somehow did.
         elif state == "simon_active":
             session = simon["session"]
             audio.note_on(letter)
             ring.show(letter)  # requested 2026-08-15 -- press feedback, same as Play/Tutor
-            result = session.press(letter)
+            if letter not in matching_held:
+                matching_held.append(letter)
+            # Same "pending" no-op as tutor_active above -- falls through
+            # every branch below untouched, which is exactly right.
+            result = session.press(matching_held)
             if result == "wrong":
-                print(f"SIMON   wrong (pressed {letter}, wanted {session.sequence[session.input_index]})")
+                print(f"SIMON   wrong (pressed {letter}, wanted {target_label(session.sequence[session.input_index])})")
                 _background(_simon_handle_wrong)
             elif result == "continue":
                 print(f"SIMON   {letter} ok")
@@ -620,8 +673,12 @@ def main():
             _request_display_refresh()  # see note_on()'s comment above
         elif state == "tutor_active":
             audio.note_off(letter)
+            if letter in matching_held:
+                matching_held.remove(letter)
         elif state == "simon_active":
             audio.note_off(letter)
+            if letter in matching_held:
+                matching_held.remove(letter)
             # `state` was captured at the top of this call, so a
             # release delayed behind a blocking play_simon_round()
             # (started by this same press) will see whatever state is
@@ -706,6 +763,7 @@ def main():
             system_action(action)
 
     def menu_enter():
+        nonlocal menu
         # *_await_continue included alongside the actively-playing
         # states -- a parent using the menu gesture to jump straight to
         # a different song instead of pressing CONTINUE_LETTER/
@@ -726,8 +784,27 @@ def main():
         # guarantees a clean slate on every entry into the menu.
         audio.all_notes_off()
         held.clear()
+        matching_held.clear()
         play_state["shown"] = None
         play_state["shown_base"] = None
+        # Re-scan user-songs/ and rebuild the menu's song list every
+        # time the menu gesture fires -- added 2026-09-02, direct
+        # feedback: a song saved through the web composer while
+        # chromacade.service is already running never showed up
+        # without a full service restart (SONGS/CHORD_SONGS were only
+        # ever computed once, at process start). refresh_user_songs()
+        # mutates SCORES/SONGS/CHORD_SONGS in place, so this file's
+        # own already-imported SONGS/CHORD_SONGS reflect the update
+        # immediately -- only SIMON_SOURCES (a plain list, not one of
+        # those mutated objects) and the Menu object itself (built
+        # once from a snapshot of the song list) need rebuilding here.
+        # Recreating `menu` rather than patching it in place is safe:
+        # menu.enter() below resets stage to "mode" regardless, so
+        # there's no meaningful state to lose.
+        refresh_user_songs()
+        global SIMON_SOURCES
+        SIMON_SOURCES = ["Random"] + list(FAMOUS_NUMBERS.keys()) + list(SONGS.keys())
+        menu = Menu(list(SONGS.keys()), SIMON_SOURCES, chord_songs=CHORD_SONGS)
         app["state"] = "menu"
         menu.enter()
         ring.clear()

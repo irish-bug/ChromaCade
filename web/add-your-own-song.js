@@ -37,13 +37,52 @@ let notes = [];
 let pen = { octave: 4, accidental: 0, duration: 1 };
 let selectedIndex = null;
 
+// --- Chords, added 2026-09-02 -- see song_editor_server.py's
+// validate_score() for the wire format this exports to: a chord is
+// [[name1, name2, ...], duration], 2-7 notes at distinct letters
+// (ChromaCadeAudio can only hold one instance of each of the 7
+// letters sounding at once, hence the 7 cap). A note's chordId links
+// it to the other members of its chord (null for an ordinary note);
+// members are always kept contiguous in `notes` so beatOffsets()/
+// toScore() can group them by a simple adjacency scan rather than
+// needing a separate index structure.
+const MAX_CHORD_SIZE = 7;
+let chordMode = false;
+let activeChordId = null;
+let nextChordId = 1;
+
 function noteName(note) {
   if (note.letter === null) return null;
   return `${note.letter}${ACCIDENTAL_WIRE[String(note.accidental)]}${note.octave}`;
 }
 
+// Runs `notes` as a sequence of groups -- a lone ordinary note is its
+// own group of size 1, a chord is every contiguous note sharing the
+// same non-null chordId. Shared by beatOffsets() (where each group
+// occupies one beat position) and toScore() (where each group becomes
+// one score entry) so the two can never disagree about grouping.
+function noteGroups() {
+  const groups = [];
+  let i = 0;
+  while (i < notes.length) {
+    const id = notes[i].chordId;
+    let j = i + 1;
+    if (id !== null) {
+      while (j < notes.length && notes[j].chordId === id) j++;
+    }
+    groups.push(notes.slice(i, j));
+    i = j;
+  }
+  return groups;
+}
+
 function toScore() {
-  return notes.map((n) => [noteName(n), n.duration]);
+  return noteGroups().map((group) => {
+    if (group.length > 1) {
+      return [group.map(noteName), group[0].duration];
+    }
+    return [noteName(group[0]), group[0].duration];
+  });
 }
 
 function clampOctave(o) {
@@ -53,9 +92,9 @@ function clampOctave(o) {
 function makeNote(letter, overridePen) {
   const p = overridePen || pen;
   if (letter === null || letter === "") {
-    return { letter: null, octave: null, accidental: 0, duration: p.duration };
+    return { letter: null, octave: null, accidental: 0, duration: p.duration, chordId: null };
   }
-  return { letter, octave: p.octave, accidental: p.accidental, duration: p.duration };
+  return { letter, octave: p.octave, accidental: p.accidental, duration: p.duration, chordId: null };
 }
 
 function insertNote(index, letter) {
@@ -66,6 +105,59 @@ function insertNote(index, letter) {
 
 function appendNote(letter) {
   insertNote(notes.length, letter);
+}
+
+// Chord-aware placement -- routes every letter-placement path (palette
+// click, keyboard typing, drag-drop) through here so "Build chord"
+// behaves the same regardless of how a note gets added. A rest, or
+// chord mode being off, always behaves exactly like appendNote() did
+// before chords existed (and ends whatever chord was in progress -- a
+// rest can't be part of a chord, it's silence, not a simultaneous
+// note). While chord mode is on, each letter stacks onto the active
+// chord group (started fresh on the first letter after toggling on)
+// instead of advancing to a new beat position -- a letter already in
+// the active chord is silently ignored rather than producing an
+// invalid duplicate-letter chord (see song_editor_server.py's
+// validate_score(), which rejects that).
+function placeLetter(letter) {
+  if (!chordMode || letter === null) {
+    activeChordId = null;
+    appendNote(letter);
+    return;
+  }
+  if (activeChordId === null) {
+    const note = makeNote(letter);
+    note.chordId = nextChordId++;
+    activeChordId = note.chordId;
+    notes.push(note);
+    selectedIndex = null;
+    render();
+    return;
+  }
+  const group = notes.filter((n) => n.chordId === activeChordId);
+  if (group.length >= MAX_CHORD_SIZE) return; // ChromaCadeAudio can't hold more than 7 letters at once
+  if (group.some((n) => n.letter === letter)) return; // already in this chord
+  let insertAt = notes.length;
+  for (let i = notes.length - 1; i >= 0; i--) {
+    if (notes[i].chordId === activeChordId) {
+      insertAt = i + 1;
+      break;
+    }
+  }
+  const note = makeNote(letter);
+  note.chordId = activeChordId;
+  notes.splice(insertAt, 0, note);
+  selectedIndex = null;
+  render();
+}
+
+function setChordMode(on) {
+  chordMode = on;
+  activeChordId = null; // toggling either way ends whatever chord was in progress
+  const btn = document.getElementById("chord-btn");
+  btn.setAttribute("aria-pressed", String(chordMode));
+  btn.textContent = chordMode ? "Building chord… (click to finish)" : "Build chord";
+  document.getElementById("chord-hint").style.display = chordMode ? "block" : "none";
 }
 
 function undoLast() {
@@ -116,6 +208,7 @@ function clearAll() {
   disarmClear();
   notes = [];
   selectedIndex = null;
+  if (chordMode) setChordMode(false);
   render();
 }
 
@@ -125,11 +218,16 @@ function clearAll() {
 // style width-by-duration both work using one shared coordinate
 // system across all 8 lanes.
 function beatOffsets() {
+  // One offset per note in `notes` (same order/length as that array,
+  // so renderStaff()'s notes.forEach((note, i) => ...) can still index
+  // straight into it) -- but every member of a chord group gets the
+  // SAME offset, and the cursor only advances once per group (by the
+  // group's own shared duration), not once per note.
   const offsets = [];
   let cursor = 0;
-  for (const note of notes) {
-    offsets.push(cursor);
-    cursor += note.duration;
+  for (const group of noteGroups()) {
+    for (const _note of group) offsets.push(cursor);
+    cursor += group[0].duration;
   }
   return { offsets, total: cursor };
 }
@@ -175,10 +273,26 @@ function renderStaff() {
   }
 
   const { offsets, total } = beatOffsets();
+  // Map each note index to its group (a chord's members, or a lone
+  // note as its own group of 1) so rendering can tell a real chord
+  // (size > 1 -- gets the .chorded outline + a "part of a chord"
+  // tooltip) apart from an ordinary note or a leftover 1-member
+  // "chord" (e.g. after deleting the rest of its group -- toScore()
+  // already treats that as a plain note, rendering should read the
+  // same way).
+  const groupOf = [];
+  noteGroups().forEach((group) => {
+    for (const note of group) groupOf.push(group);
+  });
   notes.forEach((note, i) => {
+    const group = groupOf[i];
+    const isChorded = group.length > 1;
     const token = document.createElement("div");
     token.className =
-      "note-token" + (note.letter === null ? " rest-token" : "") + (i === selectedIndex ? " selected" : "");
+      "note-token" +
+      (note.letter === null ? " rest-token" : "") +
+      (i === selectedIndex ? " selected" : "") +
+      (isChorded ? " chorded" : "");
     token.style.left = `${offsets[i] * PX_PER_BEAT}px`;
     token.style.width = `${Math.max(note.duration * PX_PER_BEAT - 4, 22)}px`;
     if (note.letter !== null) {
@@ -187,7 +301,9 @@ function renderStaff() {
     } else {
       token.textContent = "rest";
     }
-    token.title = `Note ${i + 1} of ${notes.length} -- click to edit`;
+    token.title = isChorded
+      ? `Part of a chord: ${group.map((n) => n.letter).join("+")} -- click to edit`
+      : `Note ${i + 1} of ${notes.length} -- click to edit`;
     token.addEventListener("click", () => selectNote(i));
     tracks[note.letter === null ? "" : note.letter].appendChild(token);
   });
@@ -203,7 +319,15 @@ function renderStaff() {
 function onDrop(e) {
   e.preventDefault();
   const letter = e.dataTransfer.getData("text/letter");
-  insertNote(indexAtX(e.offsetX), letter === "" ? null : letter);
+  const resolvedLetter = letter === "" ? null : letter;
+  if (chordMode) {
+    // Chord mode ignores drop position -- every letter stacks onto
+    // the active chord's shared beat position regardless of where on
+    // the staff it was dropped, same as a palette click would.
+    placeLetter(resolvedLetter);
+    return;
+  }
+  insertNote(indexAtX(e.offsetX), resolvedLetter);
 }
 
 function renderPenControls() {
@@ -231,6 +355,28 @@ function selectNote(i) {
   render();
 }
 
+// "Repeat" -- duplicates whatever's selected (a lone note, or every
+// member of its chord if it's part of one) and appends the copy to
+// the end of the song, preserving each note's own letter/octave/
+// accidental/duration exactly. Added 2026-09-02, direct feedback:
+// building the same chord over and over by hand was tedious. The
+// duplicate becomes the new selection so the editor panel opens
+// straight onto it, ready to adjust duration/octave/accidental before
+// moving on -- deliberately does NOT try to bulk-transpose the whole
+// copied chord at once, just makes the existing per-note editor
+// controls available on freshly-placed notes instead of requiring
+// re-entry from scratch.
+function repeatSelected() {
+  if (selectedIndex === null) return;
+  const note = notes[selectedIndex];
+  const group = note.chordId === null ? [note] : notes.filter((n) => n.chordId === note.chordId);
+  const newChordId = group.length > 1 ? nextChordId++ : null;
+  const copies = group.map((n) => ({ ...n, chordId: newChordId }));
+  notes.push(...copies);
+  selectedIndex = notes.length - copies.length;
+  render();
+}
+
 function renderEditor() {
   const panel = document.getElementById("editor-panel");
   if (selectedIndex === null) {
@@ -240,7 +386,11 @@ function renderEditor() {
   const note = notes[selectedIndex];
   const isRest = note.letter === null;
   panel.classList.add("open");
-  document.getElementById("editor-position").textContent = `${selectedIndex + 1} of ${notes.length}`;
+  const group = note.chordId === null ? null : notes.filter((n) => n.chordId === note.chordId);
+  document.getElementById("editor-position").textContent =
+    group && group.length > 1
+      ? `chord ${group.map((n) => n.letter).join("+")} (${selectedIndex + 1} of ${notes.length})`
+      : `${selectedIndex + 1} of ${notes.length}`;
   document.getElementById("editor-octave-value").textContent = isRest ? "—" : note.octave;
   document.getElementById("editor-duration").value = note.duration;
   for (const id of ["editor-octave-down", "editor-octave-up", "editor-flat", "editor-natural", "editor-sharp"]) {
@@ -262,12 +412,12 @@ document.addEventListener("keydown", (e) => {
   const letter = e.key.toUpperCase();
   if (LETTERS.includes(letter)) {
     e.preventDefault();
-    appendNote(letter);
+    placeLetter(letter);
   }
 });
 
 document.querySelectorAll(".palette button").forEach((btn) => {
-  btn.addEventListener("click", () => appendNote(btn.dataset.letter === "" ? null : btn.dataset.letter));
+  btn.addEventListener("click", () => placeLetter(btn.dataset.letter === "" ? null : btn.dataset.letter));
   btn.addEventListener("dragstart", (e) => {
     e.dataTransfer.setData("text/letter", btn.dataset.letter);
     e.dataTransfer.effectAllowed = "copy";
@@ -294,6 +444,7 @@ document.getElementById("duration-input").addEventListener("change", (e) => {
   e.target.value = pen.duration;
 });
 
+document.getElementById("chord-btn").addEventListener("click", () => setChordMode(!chordMode));
 document.getElementById("undo-btn").addEventListener("click", undoLast);
 document.getElementById("clear-btn").addEventListener("click", clearAll);
 
@@ -321,9 +472,22 @@ document.getElementById("editor-sharp").addEventListener("click", () => {
 });
 document.getElementById("editor-duration").addEventListener("change", (e) => {
   const v = parseFloat(e.target.value);
-  notes[selectedIndex].duration = v > 0 ? v : notes[selectedIndex].duration;
+  const note = notes[selectedIndex];
+  const newDuration = v > 0 ? v : note.duration;
+  // A chord's members must share one duration -- toScore() reads only
+  // the group's first member -- so editing any one member has to
+  // update every sibling too, or the change would silently not apply
+  // to what actually gets saved.
+  if (note.chordId !== null) {
+    for (const n of notes) {
+      if (n.chordId === note.chordId) n.duration = newDuration;
+    }
+  } else {
+    note.duration = newDuration;
+  }
   render();
 });
+document.getElementById("editor-repeat").addEventListener("click", repeatSelected);
 document.getElementById("editor-delete").addEventListener("click", () => {
   notes.splice(selectedIndex, 1);
   selectedIndex = null;
@@ -355,7 +519,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
       data = { ok: false, error: `Unexpected response (HTTP ${res.status})` };
     }
     if (data.ok) {
-      statusEl.textContent = `Saved! "${name}" is ready in Tutor and Simon.`;
+      statusEl.textContent = `Saved! "${name}" will show up in Tutor and Simon next time the menu opens on the device.`;
       statusEl.className = "save-status ok";
     } else {
       statusEl.textContent = data.error || "Something went wrong.";

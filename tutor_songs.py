@@ -13,21 +13,28 @@ phases, both driven from the same song data (see tutor_mode.py):
      advancing, no penalty on a miss (TutorSession below).
 
 SCORES is the source of truth: each song is a list of
-(note_name, duration_in_beats) pairs. note_name uses the same
-"C4"/"F#4"/"Bb3" scientific-pitch-notation style as
-audio/play_melody.py's note_to_midi() (parsed the same way here, via
-parse_note_name() below, just split into (letter, octave, accidental)
-instead of a combined MIDI number -- that lets the demo phase drive
-ChromaCadeAudio's letter-based note_on()/note_off() directly instead
-of duplicating a second FluidSynth pipeline). None = rest. Duration is
-in beats, independent of tempo -- tutor_mode.py's --tempo flag sets
-the actual pace, same convention as play_melody.py.
+(note_field, duration_in_beats) pairs. note_field is one of:
+  - None -- a rest.
+  - a single note name, e.g. "C4"/"F#4"/"Bb3" -- scientific-pitch-
+    notation style, same as audio/play_melody.py's note_to_midi()
+    (parsed the same way here, via parse_note_name() below, just split
+    into (letter, octave, accidental) instead of a combined MIDI
+    number -- that lets the demo phase drive ChromaCadeAudio's letter-
+    based note_on()/note_off() directly instead of duplicating a
+    second FluidSynth pipeline).
+  - a CHORD -- a list of 2+ note names played together, e.g.
+    ["C4", "E4", "G4"] -- added 2026-09-02, see _letters_in() below.
+Duration is in beats, independent of tempo -- tutor_mode.py's --tempo
+flag sets the actual pace, same convention as play_melody.py.
 
-SONGS (bare letter sequences, no octave/rhythm) is derived from SCORES
-below, not hand-duplicated, so the demo and the matching game can't
-drift apart. This is also *why* letter-only matching in TutorSession
-is correct, not just simpler: the color cue represents the note's
-pitch *class* (chroma), and octave equivalence is one of this
+SONGS (bare letter-SET sequences, no octave/rhythm) is derived from
+SCORES below, not hand-duplicated, so the demo and the matching game
+can't drift apart. Each step is a frozenset of letters -- {"C"} for an
+ordinary note, {"C","E","G"} for a chord -- never a bare string, so
+TutorSession/SimonSession only ever deal with one shape regardless of
+whether a given step is a chord. This is also *why* letter-only
+matching is correct, not just simpler: the color cue represents each
+note's pitch *class* (chroma), and octave equivalence is one of this
 project's core teaching goals (see CLAUDE.md) -- pressing that color's
 button in any octave should count as a match, not just the exact
 octave the demo happened to play it in.
@@ -96,6 +103,28 @@ def load_user_songs(directory=USER_SONGS_DIR):
     return scores, prompts
 
 
+def target_label(step):
+    """A frozenset of letters -> a readable string for the OLED/
+    console -- "C" for an ordinary note, "C+E+G" (sorted, so it's
+    stable/testable) for a chord. Shared by chromacade.py and
+    tutor_mode.py's standalone main() so both display chord targets
+    the same way."""
+    return "+".join(sorted(step))
+
+
+def chord_cue_letter(step):
+    """Which single letter to show on the ring/strip for a step that
+    might be a chord -- the LAST letter in sorted order. This is a
+    placeholder, not a design decision: real multi-color chord cueing
+    is still an explicitly open project question (open-questions.md's
+    "Chord color behavior" entry, led_ring.py's module docstring) --
+    reusing this single value everywhere a chord needs *a* color (the
+    ring cue while waiting, the strip's miss-reminder flash, the
+    strike-through during demo playback) keeps that placeholder
+    consistent rather than inventing a different one in each place."""
+    return sorted(step)[-1]
+
+
 def parse_note_name(name):
     """'F#5' -> ('F', 5, 1); 'Bb3' -> ('B', 3, -1); 'C4' -> ('C', 4, 0).
     Accidental is -1/0/1 (flat/natural/sharp), matching audio_engine.py's
@@ -107,6 +136,23 @@ def parse_note_name(name):
     letter, accidental_char, octave = m.groups()
     accidental = {"#": 1, "b": -1, None: 0}[accidental_char]
     return letter.upper(), int(octave), accidental
+
+
+def _letters_in(note_field):
+    """None -> frozenset(); 'C4' -> frozenset({'C'});
+    ['C4','E4','G4'] -> frozenset({'C','E','G'}) -- collapses a single
+    SCORE step (rest / single note / chord) down to the set of letters
+    it needs matched, octave/accidental dropped same as everywhere
+    else in this module. A chord is just "more than one letter at
+    this step" to every consumer of this -- there's no separate chord
+    type flowing through TutorSession/SimonSession, only ever
+    frozensets, so a plain note is indistinguishable from a
+    single-note "chord" once it gets here."""
+    if note_field is None:
+        return frozenset()
+    if isinstance(note_field, list):
+        return frozenset(parse_note_name(n)[0] for n in note_field)
+    return frozenset({parse_note_name(note_field)[0]})
 
 
 def _score(letters, octave, rhythm):
@@ -197,15 +243,40 @@ SCORES = {
 _USER_SCORES, _USER_PROMPTS = load_user_songs()
 SCORES.update(_USER_SCORES)
 
-# Bare letter sequences for the color-matching phase -- derived from
-# SCORES (see module docstring for why octave/duration are dropped
-# deliberately, and why deriving rather than hand-duplicating matters).
-# Runs after the user-songs merge above so personal songs get the same
+def _derive_songs(scores):
+    """SCORES -> SONGS (bare letter-SET sequences, see module
+    docstring). Pulled into its own function, not just inlined at
+    import time, so refresh_user_songs() below can recompute this
+    after picking up newly-saved songs without duplicating the
+    derivation logic."""
+    return {
+        name: [_letters_in(note) for note, _duration in score if note is not None]
+        for name, score in scores.items()
+    }
+
+
+def _derive_chord_songs(songs):
+    """Which songs contain at least one chord step (a multi-letter
+    frozenset in SONGS) -- added 2026-09-02 so menu.py can separate
+    "Notes only" from "Chord songs" in the Tutor song list instead of
+    mixing them in one flat list. Derived the same way SONGS is (from
+    the data, not hand-maintained), so a song can't drift out of the
+    right bucket if its SCORE changes."""
+    return {name for name, steps in songs.items() if any(len(step) > 1 for step in steps)}
+
+
+# Bare letter-set sequences for the color-matching phase -- derived
+# from SCORES, not hand-duplicated (see module docstring). Runs after
+# the user-songs merge above so personal songs get the same
 # derivation, not just the bundled ones.
-SONGS = {
-    name: [parse_note_name(note)[0] for note, _duration in score if note is not None]
-    for name, score in SCORES.items()
-}
+SONGS = _derive_songs(SCORES)
+
+# A plain (mutable) set, not frozen -- refresh_user_songs() below
+# updates it in place via clear()+update() so an already-imported
+# reference (chromacade.py's `from tutor_songs import CHORD_SONGS`)
+# sees the refresh too. A reassignment here (CHORD_SONGS = ...) would
+# only ever rebind *this* module's own name, not anyone else's.
+CHORD_SONGS = _derive_chord_songs(SONGS)
 
 # Optional instructional prompts shown alongside the color-matching
 # target in Tutor mode -- Simon mode (which also draws from SONGS as
@@ -228,17 +299,54 @@ PROMPTS = {
 PROMPTS.update(_USER_PROMPTS)
 
 
+def refresh_user_songs(directory=USER_SONGS_DIR):
+    """Re-scans user-songs/ and merges any new/changed songs into
+    SCORES/SONGS/CHORD_SONGS/PROMPTS *in place* -- added 2026-09-02 so
+    a long-running process (chromacade.service) can pick up a song
+    saved through the web composer without needing a restart (it only
+    ever scanned user-songs/ once, at import time, before this).
+    Mutates the existing dict/set objects (via .update()/.clear()+
+    .update(), never reassignment) rather than rebinding new ones, so
+    an already-imported reference in another module (chromacade.py's
+    `from tutor_songs import SCORES, SONGS, CHORD_SONGS`) sees the
+    update automatically -- a plain `SCORES = ...` here would only
+    ever rebind *this* module's own name, leaving every other module's
+    reference pointing at the stale object. Bundled songs are
+    untouched (nothing here can remove or change one, only add/update
+    user ones) -- see load_user_songs()'s own docstring for the
+    same-name-collision-overwrites behavior this inherits.
+
+    Returns the updated SONGS dict for convenience -- chromacade.py
+    needs it to also refresh Menu/SIMON_SOURCES, which live outside
+    this module and can't be mutated from here."""
+    user_scores, user_prompts = load_user_songs(directory)
+    SCORES.update(user_scores)
+    SONGS.clear()
+    SONGS.update(_derive_songs(SCORES))
+    CHORD_SONGS.clear()
+    CHORD_SONGS.update(_derive_chord_songs(SONGS))
+    PROMPTS.update(user_prompts)
+    return SONGS
+
+
 class TutorSession:
     def __init__(self, song):
+        """song: a sequence of steps, each step a frozenset of letters
+        (see SONGS above) -- a plain note is just a frozenset of size
+        1, there's no separate chord type. Accepts a bare list of
+        single-character letters too (each wrapped as its own
+        frozenset) so a raw hand-built letter sequence still works,
+        not just something that went through SONGS' own derivation."""
         if not song:
-            raise ValueError("song must be a non-empty sequence of letters")
-        self.song = list(song)
+            raise ValueError("song must be a non-empty sequence of note-sets")
+        self.song = [s if isinstance(s, frozenset) else frozenset({s}) for s in song]
         self.index = 0
 
     @property
     def target(self):
-        """The letter the child should press next, or None once the
-        song is complete."""
+        """The frozenset of letters the child should hold next (size 1
+        for an ordinary note, more for a chord), or None once the song
+        is complete."""
         if self.is_complete():
             return None
         return self.song[self.index]
@@ -246,18 +354,52 @@ class TutorSession:
     def is_complete(self):
         return self.index >= len(self.song)
 
-    def press(self, letter):
-        """Register a note-button press. Returns True if it matched the
-        current target and the sequence advanced, False otherwise (wrong
-        note, or the song is already complete) -- caller decides what,
-        if anything, to do differently on a miss (Tutor mode: nothing,
-        just don't advance)."""
+    def press(self, held_letters):
+        """Register the current set of note letters actually held
+        (any octave/accidental, already collapsed to bare letters --
+        call this again on every press while the held set is
+        changing, e.g. while a chord is being built up one finger at a
+        time). Returns one of:
+        "match"            -- held_letters now covers every letter the
+                               current target needs -- a SUPERSET
+                               match, not exact equality, so holding an
+                               extra stray note alongside a correct
+                               chord isn't penalized, same forgiving
+                               spirit as this module's existing
+                               octave/accidental-agnostic matching.
+                               Advances.
+        "pending"          -- held_letters doesn't have enough notes
+                               yet to possibly satisfy the target (a
+                               3-note chord target with only 1 or 2
+                               notes held so far) -- NOT a miss, just
+                               not judged yet. Doesn't advance; caller
+                               should give no feedback at all and keep
+                               waiting for more presses, not flag this
+                               as wrong. Direct bug report 2026-09-02:
+                               without this, every single note of a
+                               chord pressed one at a time fired a miss
+                               before the later notes joined it, making
+                               non-simultaneous chord entry basically
+                               unusable.
+        "miss"             -- held_letters already has at least as
+                               many notes as the target needs, but
+                               doesn't cover it -- a genuine wrong
+                               chord. Doesn't advance; caller decides
+                               what, if anything, to do differently
+                               (Tutor mode: feedback, but no penalty,
+                               target stays the same).
+        "already_complete" -- press() called after the song is already
+                               complete."""
         if self.is_complete():
-            return False
-        if letter == self.song[self.index]:
+            return "already_complete"
+        target = self.song[self.index]
+        held = frozenset(held_letters)
+        if target <= held:
             self.index += 1
-            return True
-        return False
+            return "match"
+        if len(held) < len(target):
+            return "pending"
+        return "miss"
 
     def reset(self):
         self.index = 0
