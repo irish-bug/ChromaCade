@@ -6,7 +6,7 @@
 <title>PlinkPlonk Add Your Own Song</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Luckiest+Guy&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   /* Composer-specific styles, kept out of the shared style.css since
@@ -197,12 +197,15 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  /* Italic + letter-spacing now come from style.css's shared
-     .wordmark rule (kept in sync there so the plain "PlinkPlonk" on
-     the other 2 pages matches this animated one exactly) -- this page
-     just adds --wm-base, the animated version's theme-aware fill
-     color, which the plain static wordmark on the other pages doesn't
-     need (it just takes the surrounding text color). */
+  /* Font and outline now come from style.css's shared .wordmark rule
+     (kept in sync there so the plain "PlinkPlonk" on the other 2
+     pages matches this animated one exactly) -- this page just adds
+     --wm-base, the animated version's theme-aware fill color, which
+     the plain static wordmark on the other pages doesn't need (it
+     just takes the surrounding text color). The white text-stroke
+     outline is unaffected by the color wave below, since stroke and
+     fill are independent in text-stroke -- it stays white while
+     `color` animates through each letter's --letter-color. */
   .wordmark {
     --wm-base: #2b2730;
   }
