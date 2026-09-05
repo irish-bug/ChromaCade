@@ -57,6 +57,16 @@ h1 {
    while reading as a richer, more saturated version of it. */
 .wordmark {
   font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
+  /* Google only ships Luckiest Guy at weight 400 (confirmed via its
+     actual @font-face response) -- the shared h1 rule below requests
+     700, which has no real match, so browsers synthesize a fake bold
+     on top of an already-heavy display face. Overriding back to 400
+     here avoids that distortion; found 2026-09-05 when "Composer"
+     (add-your-own-song.html's .composer-title, same mismatch, no
+     stroke/spacing to mask it) rendered visibly "puffier"/bloated --
+     the wordmark had the identical faux-bold the whole time, just
+     hidden inside its own already-thick stroke + wide tracking. */
+  font-weight: 400;
   letter-spacing: 0.2em;
   -webkit-text-stroke: 1.5pt #fff;
   text-stroke: 1.5pt #fff;
