@@ -142,7 +142,7 @@ OLED_THROTTLE_SECONDS = 1 / 15  # see module docstring's assumptions list
 # Simon-only now (2026-08-17) -- Tutor plays in whichever font was
 # already selected, see start_tutor()/module docstring's assumptions
 # list for why the two modes diverge here.
-TUTOR_FONT_INDEX = next(i for i, (program, _name) in enumerate(FONTS) if program == TUTOR_PROGRAM)
+TUTOR_FONT_INDEX = next(i for i, (_source, _program, name) in enumerate(FONTS) if name == "Toy Piano")
 ACCIDENTAL_SYMBOLS = {-1: "b", 0: "", 1: "#"}
 
 SIMON_SOURCES = ["Random"] + list(FAMOUS_NUMBERS.keys()) + list(SONGS.keys())
