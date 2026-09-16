@@ -75,15 +75,29 @@ def slugify(name):
     return slug
 
 
+MAX_CHORD_SIZE = 7  # ChromaCadeAudio.playing is keyed by letter (audio_engine.py) -- at most one
+                     # instance of each of the 7 letters can sound at once, so a chord can't
+                     # need more simultaneous distinct letters than that regardless of octave.
+
+
 def validate_score(score):
     """Checks a composed note list is well-formed before it's ever
-    written to disk: a non-empty list of [note_name_or_None, duration]
-    pairs, each note_name parseable by tutor_songs.py's own
+    written to disk: a non-empty list of [note_field, duration] pairs,
+    each duration a positive number. note_field is null (rest), a
+    single note name parseable by tutor_songs.py's own
     parse_note_name() (so a bad note can never reach SCORE and break
-    Tutor/Simon later), each duration a positive number. Raises
-    ValueError with a specific, position-referencing message on the
-    first problem found -- returns the score unchanged (as a list of
-    tuples, matching SCORE's own type) if it's clean."""
+    Tutor/Simon later), or a CHORD -- a list of 2+ note names, each
+    itself parseable, added 2026-09-02 (see tutor_songs.py's module
+    docstring for the same format on the reading side). A chord's
+    notes must resolve to distinct letters -- ChromaCadeAudio can only
+    hold one instance of each of the 7 letters sounding at once
+    (self.playing is keyed by letter, not by letter+octave), so e.g.
+    ["C4","C5"] would silently drop one note at playback rather than
+    actually sounding as a 2-note chord; rejected here instead, before
+    it ever reaches a file. Raises ValueError with a specific,
+    position-referencing message on the first problem found -- returns
+    the score unchanged (as a list of tuples, matching SCORE's own
+    type, note_field either a string/None or a list) if it's clean."""
     if not isinstance(score, list) or not score:
         raise ValueError("score must be a non-empty list")
     if len(score) > MAX_SCORE_LENGTH:
@@ -92,14 +106,29 @@ def validate_score(score):
     for i, entry in enumerate(score):
         if not isinstance(entry, (list, tuple)) or len(entry) != 2:
             raise ValueError(f"score[{i}] must be a [note_name, duration] pair, got {entry!r}")
-        note_name, duration = entry
-        if note_name is not None:
-            if not isinstance(note_name, str):
-                raise ValueError(f"score[{i}]: note_name must be a string or null, got {note_name!r}")
-            parse_note_name(note_name)  # raises its own ValueError on a bad name
+        note_field, duration = entry
+        if note_field is None:
+            pass
+        elif isinstance(note_field, str):
+            parse_note_name(note_field)  # raises its own ValueError on a bad name
+        elif isinstance(note_field, list):
+            if len(note_field) < 2:
+                raise ValueError(f"score[{i}]: a chord needs at least 2 notes, got {note_field!r}")
+            if len(note_field) > MAX_CHORD_SIZE:
+                raise ValueError(f"score[{i}]: chord has {len(note_field)} notes, over the {MAX_CHORD_SIZE} limit")
+            letters = []
+            for chord_note in note_field:
+                if not isinstance(chord_note, str):
+                    raise ValueError(f"score[{i}]: chord note must be a string, got {chord_note!r}")
+                letter, _octave, _accidental = parse_note_name(chord_note)  # raises on a bad name
+                letters.append(letter)
+            if len(set(letters)) != len(letters):
+                raise ValueError(f"score[{i}]: chord notes must be distinct letters, got {note_field!r}")
+        else:
+            raise ValueError(f"score[{i}]: note_name must be a string, a chord list, or null, got {note_field!r}")
         if not isinstance(duration, (int, float)) or isinstance(duration, bool) or duration <= 0:
             raise ValueError(f"score[{i}]: duration must be a positive number, got {duration!r}")
-        cleaned.append((note_name, duration))
+        cleaned.append((note_field, duration))
     return cleaned
 
 

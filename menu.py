@@ -37,18 +37,60 @@ CONFIRM_OPTIONS = ["No", "Yes"]  # "No" first/default -- see module docstring
 SYSTEM_ACTIONS = {"Power Off": "poweroff", "Reboot": "reboot"}
 
 
+def _grouped_with_headers(items, in_advanced_group, notes_header, advanced_header):
+    """Splits `items` into two groups by in_advanced_group(item), and
+    interleaves two non-selectable header entries -- but only if BOTH
+    groups are non-empty. If everything (or nothing) is in the
+    advanced group, there's nothing to usefully separate, so this
+    returns a plain flat list instead -- no header clutter for a
+    Tutor song list that doesn't have any chord songs yet, which is
+    the common case until someone actually composes one.
+
+    Returns a list of (display_text, item_or_None) pairs -- None marks
+    a header, never selectable (see Menu.rotate()'s "song" stage,
+    which skips over these so its index can never land on one)."""
+    plain = [item for item in items if not in_advanced_group(item)]
+    advanced = [item for item in items if in_advanced_group(item)]
+    if not plain or not advanced:
+        return [(item, item) for item in items]
+    entries = [(notes_header, None)]
+    entries += [(item, item) for item in plain]
+    entries.append((advanced_header, None))
+    entries += [(item, item) for item in advanced]
+    return entries
+
+
+def _first_selectable(display):
+    for i, (_text, item) in enumerate(display):
+        if item is not None:
+            return i
+    raise ValueError("display has no selectable items")  # unreachable given Menu's own non-empty check
+
+
 class Menu:
-    def __init__(self, songs, simon_sources):
+    def __init__(self, songs, simon_sources, chord_songs=frozenset()):
+        """chord_songs: names (a subset of `songs`) that should be
+        grouped under a "-- Chord songs --" header, separate from
+        everything else under "-- Notes only --" -- added 2026-09-02,
+        direct instruction, so a song needing multiple buttons held
+        together reads as visually distinct from an ordinary one
+        before a child/parent picks it. Optional and defaults to
+        empty so every existing caller (and every existing test) keeps
+        working unchanged -- an empty/all set collapses to the same
+        flat list Menu has always shown, see _grouped_with_headers()."""
         if not songs:
             raise ValueError("songs must be non-empty")
         if not simon_sources:
             raise ValueError("simon_sources must be non-empty")
         self.songs = list(songs)
         self.simon_sources = list(simon_sources)
+        self._song_display = _grouped_with_headers(
+            self.songs, lambda s: s in chord_songs, "-- Notes only --", "-- Chord songs --"
+        )
         self.active = False
         self.stage = "mode"  # "mode" | "song" | "simon" | "confirm"
         self.mode_index = 0
-        self.song_index = 0
+        self.song_index = _first_selectable(self._song_display)
         self.simon_index = 0
         self.confirm_index = 0
         self.confirm_label = None
@@ -72,7 +114,7 @@ class Menu:
 
     @property
     def highlighted_song(self):
-        return self.songs[self.song_index]
+        return self._song_display[self.song_index][1]
 
     @property
     def highlighted_simon_source(self):
@@ -92,7 +134,18 @@ class Menu:
         if self.stage == "mode":
             self.mode_index = (self.mode_index + delta) % len(MODES)
         elif self.stage == "song":
-            self.song_index = (self.song_index + delta) % len(self.songs)
+            # One step at a time (not a single modulo jump by delta),
+            # each step skipping over any non-selectable header entry
+            # (see _grouped_with_headers()) -- so song_index can never
+            # land on one, however many steps a single rotate() covers.
+            n = len(self._song_display)
+            step = 1 if delta >= 0 else -1
+            index = self.song_index
+            for _ in range(abs(delta)):
+                index = (index + step) % n
+                while self._song_display[index][1] is None:
+                    index = (index + step) % n
+            self.song_index = index
         elif self.stage == "simon":
             self.simon_index = (self.simon_index + delta) % len(self.simon_sources)
         else:
@@ -114,7 +167,7 @@ class Menu:
                 return ("play",)  # internal result identifier unchanged, only the display name is "Explore" now
             if mode == "Tutor":
                 self.stage = "song"
-                self.song_index = 0
+                self.song_index = _first_selectable(self._song_display)
                 return None
             if mode == "Simon":
                 self.stage = "simon"
@@ -160,7 +213,11 @@ class Menu:
         if self.stage == "mode":
             header, items, index = "Select mode:", MODES, self.mode_index
         elif self.stage == "song":
-            header, items, index = "Select song:", self.songs, self.song_index
+            # Display text, not self.songs directly -- includes the
+            # "-- Notes only --"/"-- Chord songs --" header lines when
+            # there's a real split to show (see _grouped_with_headers()).
+            song_display_texts = [text for text, _item in self._song_display]
+            header, items, index = "Select song:", song_display_texts, self.song_index
         elif self.stage == "simon":
             header, items, index = "Select sequence:", self.simon_sources, self.simon_index
         else:

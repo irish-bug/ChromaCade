@@ -210,6 +210,116 @@ def test_display_lines_every_song_reachable_via_scroll():
         menu.rotate(1)
 
 
+# --- Chord songs: "-- Notes only --" / "-- Chord songs --" grouping,
+# added 2026-09-02. chord_songs defaults to empty (every test above
+# this point never passes it) specifically so those all keep proving
+# the flat-list behavior is unchanged when there's nothing to
+# separate -- see _grouped_with_headers()'s own docstring.
+
+MIXED_SONGS = ["Hot Cross Buns", "Chord Song A", "Twinkle", "Chord Song B"]
+MIXED_CHORD_SONGS = {"Chord Song A", "Chord Song B"}
+
+
+def test_no_headers_when_chord_songs_empty():
+    menu = Menu(SONGS, SIMON_SOURCES, chord_songs=frozenset())
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    lines = menu.display_lines()
+    assert not any(line.strip().startswith("--") for line in lines)
+
+
+def test_no_headers_when_every_song_has_chords():
+    # One group empty (nothing left to call "Notes only") -- same as
+    # the empty case, nothing to usefully separate.
+    menu = Menu(SONGS, SIMON_SOURCES, chord_songs=set(SONGS))
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    lines = menu.display_lines()
+    assert not any(line.strip().startswith("--") for line in lines)
+
+
+def test_mixed_songs_get_both_headers():
+    menu = Menu(MIXED_SONGS, SIMON_SOURCES, chord_songs=MIXED_CHORD_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    texts = [text for text, _item in menu._song_display]
+    assert "-- Notes only --" in texts
+    assert "-- Chord songs --" in texts
+    # Notes-only songs come first, chord songs after -- and each real
+    # song still appears exactly once.
+    notes_idx = texts.index("-- Notes only --")
+    chords_idx = texts.index("-- Chord songs --")
+    assert notes_idx < chords_idx
+    assert set(MIXED_SONGS) - MIXED_CHORD_SONGS == {
+        texts[i] for i in range(notes_idx + 1, chords_idx)
+    }
+    assert MIXED_CHORD_SONGS == set(texts[chords_idx + 1 :])
+
+
+def test_entering_song_stage_lands_on_a_real_song_not_a_header():
+    menu = Menu(MIXED_SONGS, SIMON_SOURCES, chord_songs=MIXED_CHORD_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    assert menu.highlighted_song is not None
+    assert not menu.highlighted_song.startswith("--")
+    assert menu.highlighted_song not in MIXED_CHORD_SONGS  # first group is "Notes only"
+
+
+def test_rotate_skips_over_header_lines():
+    menu = Menu(MIXED_SONGS, SIMON_SOURCES, chord_songs=MIXED_CHORD_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    seen = [menu.highlighted_song]
+    for _ in range(len(MIXED_SONGS) - 1):
+        menu.rotate(1)
+        seen.append(menu.highlighted_song)
+    assert None not in seen
+    assert set(seen) == set(MIXED_SONGS)  # every real song visited, no header ever highlighted
+
+
+def test_rotate_backward_wraps_past_headers_to_last_chord_song():
+    menu = Menu(MIXED_SONGS, SIMON_SOURCES, chord_songs=MIXED_CHORD_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    menu.rotate(-1)
+    assert menu.highlighted_song == "Chord Song B"  # last item overall, wrapping backward from the first
+
+
+def test_select_chord_song_after_navigating_past_header():
+    menu = Menu(MIXED_SONGS, SIMON_SOURCES, chord_songs=MIXED_CHORD_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    for _ in range(3):  # Hot Cross Buns -> Twinkle -> Chord Song A -> Chord Song B
+        menu.rotate(1)
+    result = menu.select()
+    assert result == ("tutor", "Chord Song B")
+
+
+def test_display_lines_headers_never_get_the_highlight_marker():
+    menu = Menu(MIXED_SONGS, SIMON_SOURCES, chord_songs=MIXED_CHORD_SONGS)
+    menu.enter()
+    menu.rotate(1)
+    menu.select()
+    # Navigation order is grouped (notes-only songs first, in their
+    # relative order, then chord songs), not MIXED_SONGS' own order --
+    # see test_mixed_songs_get_both_headers.
+    navigation_order = ["Hot Cross Buns", "Twinkle", "Chord Song A", "Chord Song B"]
+    for song in navigation_order:
+        lines = menu.display_lines(max_lines=10)
+        marked = [line for line in lines if line.startswith(">")]
+        assert len(marked) == 1
+        assert song in marked[0]
+        assert not marked[0].strip(">").strip().startswith("--")
+        menu.rotate(1)
+
+
 def test_display_lines_short_list_unaffected_by_scroll_logic():
     menu = Menu(SONGS, SIMON_SOURCES)  # only 2 songs, module-level fixture
     menu.enter()

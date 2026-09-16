@@ -21,6 +21,100 @@ h1 {
   letter-spacing: 0.02em;
   margin-bottom: 0.25rem;
 }
+/* The "PlinkPlonk" wordmark's own emphasis -- its own display font
+   plus a white outline, set apart from the rest of the heading (a
+   badge, or "Composer" on the add-your-own-song page, both stay in
+   the plain Fredoka from the h1 rule above). Shared here so
+   index.html/parental-settings.html's plain heading matches the
+   composer page's animated wordmark exactly. Direct request
+   2026-09-05: wanted Creative Block BB (Blambot) -- its free license
+   explicitly excludes webfont/embedding use, so Luckiest Guy (Google
+   Fonts, OFL-licensed, same bold hand-lettered-comic spirit) stands in
+   instead. Replaced the previous italic + wide-tracking emphasis
+   (2026-09-02) outright rather than layering it on top of the new
+   font -- Luckiest Guy is already a heavy, wide-set display face, and
+   browsers fake italics on fonts with no real italic style by
+   skewing, which looks bad on chunky glyphs like this. The composer
+   page's own <style> block still owns --wm-base (the animated
+   version's theme-aware fill color) and the reveal/wave keyframes --
+   those are specific to that page's letter-by-letter animation, not
+   needed here where the word is just static text taking the
+   surrounding color. text-stroke is a fill-independent outline, so it
+   stays constant white through the composer page's color-wave
+   animation without needing its own theme handling. */
+/* --wm-c/--wm-d/etc. are a DELIBERATELY DARKER variant of the note
+   letters' colors, for wordmark use only -- NOT the same variables as
+   --c/--d/etc. (defined on .page above), and that's intentional, not
+   an inconsistency with the "match the note buttons" work 2026-09-05.
+   docs/color-palette.md documents --c/--d/etc. as photo-sampled,
+   measured from unit #1's actual physical keycaps -- darkening those
+   directly (direct request 2026-09-05) would also darken the
+   composer's real C/D/E/F/G/A/B buttons (they share that source) and
+   make the CSS stop matching the physical hardware it's meant to
+   represent. The wordmark doesn't have that constraint -- it's
+   decorative, not a reference for real keycap color -- so it gets its
+   own darker set instead, hand-picked to keep the same hue per letter
+   while reading as a richer, more saturated version of it. */
+.wordmark {
+  font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
+  /* Google only ships Luckiest Guy at weight 400 (confirmed via its
+     actual @font-face response) -- the shared h1 rule below requests
+     700, which has no real match, so browsers synthesize a fake bold
+     on top of an already-heavy display face. Overriding back to 400
+     here avoids that distortion; found 2026-09-05 when "Composer"
+     (add-your-own-song.html's .composer-title, same mismatch, no
+     stroke/spacing to mask it) rendered visibly "puffier"/bloated --
+     the wordmark had the identical faux-bold the whole time, just
+     hidden inside its own already-thick stroke + wide tracking. */
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  -webkit-text-stroke: 1.5pt #fff;
+  text-stroke: 1.5pt #fff;
+  --wm-c: #7a1f31; --wm-d: #b8651e; --wm-e: #b8910f;
+  --wm-f: #4a7d52; --wm-g: #1f5a94; --wm-a: #5a3f96; --wm-b: #a04a60;
+}
+/* The "!"'s own thing -- unlike the letters (which land on one color
+   and hold, see the composer page's own <style> for that half of the
+   design), the exclamation point just keeps cycling through the same
+   7 note colors forever, direct request 2026-09-05. Lives here (not
+   composer-only) so it also applies to the 2 plain pages' static
+   wordmark, which have no animation infrastructure of their own --
+   this one small rule is all they need. The composer page's own
+   <style> adds a gate on top of this so the cycle doesn't start until
+   .play is added (matching the letters' wait-for-first-gesture
+   behavior) -- see that file.
+
+   Paired same-value keyframe stops (e.g. "0%, 14.2857%" both -wm-c)
+   make each color hold flat across its whole segment, then a second
+   rule at that exact same percentage starts the next color -- an
+   abrupt cut, not a blend, direct feedback 2026-09-05 replacing the
+   original smooth linear interpolation between stops. The loop-back
+   from the last segment's --wm-b to the next iteration's --wm-c at
+   the 100%/0% seam is abrupt for free, with no special-casing needed
+   -- animations don't interpolate across a restart.
+
+   prefers-reduced-motion below turns the infinite cycle into the flat
+   fallback color explicitly asked for ("if it can't cycle, we'll use
+   the green shade") -- an unending animation, abrupt or not, is
+   exactly the kind of motion that setting is meant to suppress. */
+@keyframes exclaim-cycle {
+  0%,     14.2857% { color: var(--wm-c); }
+  14.2857%, 28.5714% { color: var(--wm-d); }
+  28.5714%, 42.8571% { color: var(--wm-e); }
+  42.8571%, 57.1429% { color: var(--wm-f); }
+  57.1429%, 71.4286% { color: var(--wm-g); }
+  71.4286%, 85.7143% { color: var(--wm-a); }
+  85.7143%, 100%     { color: var(--wm-b); }
+}
+.wordmark .exclaim {
+  animation: exclaim-cycle 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wordmark .exclaim {
+    animation: none;
+    color: var(--wm-f);
+  }
+}
 h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 2px solid currentColor; padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin-top: 1.5rem; }
 .badge {
@@ -51,11 +145,26 @@ li { margin: 0.3rem 0; }
 
 /* Site-wide sidebar nav, shared by every page under web/ -- stacks
    above the content on narrow (phone) viewports, becomes a true left
-   sidebar once there's room, per "a side section" request 2026-08-17. */
+   sidebar once there's room, per "a side section" request 2026-08-17.
+
+   Also carries the KEYCAP hex palette (from docs/color-palette.md, not
+   led_ring.py's NOTE_COLORS -- the ring's values are deliberately dim,
+   max channel 88/255, for LED legibility, and would read as
+   near-black on a page; the keycap set is "what the letter's physical
+   button actually looks like," the more natural reference for a
+   screen) -- moved here from the composer page's own <style> 2026-09-05
+   so the wordmark's --letter-color on ALL 3 pages can reference the
+   same var(--c)/var(--d)/etc. the composer's note-letter buttons use,
+   instead of duplicating a second, different set of colors (the
+   wordmark previously used doubled LED-ring RGB values). Keep in sync
+   with docs/color-palette.md if it's ever retuned -- every consumer
+   picks it up automatically since there's only one copy now. */
 .page {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  --c: #ad2f44; --d: #fda869; --e: #f0d678;
+  --f: #cae3ca; --g: #7dbaf4; --a: #a495d6; --b: #e9bec7;
 }
 .site-nav {
   display: flex;

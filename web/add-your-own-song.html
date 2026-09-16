@@ -6,21 +6,14 @@
 <title>PlinkPlonk Add Your Own Song</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Luckiest+Guy&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   /* Composer-specific styles, kept out of the shared style.css since
-     no other page needs them. Colors below are the KEYCAP hex palette
-     from docs/color-palette.md, not led_ring.py's NOTE_COLORS -- the
-     ring's values are deliberately dim (max channel 88/255) for LED
-     legibility and would read as near-black on a page; the keycap
-     set is "what the letter's physical button actually looks like,"
-     the more natural reference for a screen. Keep both in sync with
-     their respective source-of-truth files if either is retuned. */
-  .letter-colors {
-    --c: #ad2f44; --d: #fda869; --e: #f0d678;
-    --f: #cae3ca; --g: #7dbaf4; --a: #a495d6; --b: #e9bec7;
-  }
+     no other page needs them. The KEYCAP hex palette (--c/--d/etc.,
+     used below by both the palette buttons and the wordmark) now
+     lives on style.css's shared .page rule instead of a
+     composer-only .letter-colors class -- see that rule's comment. */
 
   .composer { margin-top: 1rem; }
 
@@ -131,6 +124,14 @@
   .toolbar button { padding: 0.4rem 0.8rem; border-radius: 0.4rem; border: 1px solid #8886; background: transparent; color: inherit; cursor: pointer; }
   .toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
   .toolbar button.armed { border-color: #b91c1c; color: #b91c1c; font-weight: 700; }
+  .toolbar button[aria-pressed="true"] { background: #1e40af; border-color: #1e40af; color: #fff; font-weight: 700; }
+  /* Chord members share a beat position (see beatOffsets() in the JS)
+     -- this outline is the only visual cue tying them together across
+     lanes, so it needs to read clearly even next to a note's own
+     letter-colored background. Purple, not the same blue as
+     .selected below, so a selected chord note doesn't read as just a
+     thicker version of the same outline. */
+  .note-token.chorded { outline: 2px solid #7c3aed; outline-offset: 1px; }
 
   .editor-panel {
     border: 1px solid #8884;
@@ -157,17 +158,20 @@
   .save-status.error { color: #b91c1c; }
   .save-status.ok { color: #15803d; }
 
-  /* PlinkPlonk wordmark: on load, each letter fades in, in melody-wave
+  /* Plink Plonk! wordmark: the whole word is visible from the start,
+     in its resting color (--wm-base below) -- no letter-by-letter
+     fade-in anymore. Once JS adds .play (see the script below), each
+     letter turns from --wm-base to its real LED color in melody-wave
      order (not left-to-right reading order -- see --i on each span
-     below), then once the whole word is visible, a second pass in
-     that same order briefly flashes each letter to its real LED color
-     before settling back to its resting color for good. The stroke
-     never changes, only the fill (color) animates, so at rest the
-     word reads as plain text -- the color wave is a one-time
-     flourish, not the resting state, since a fully colored wordmark
-     tested as too hard to read. Ported from the "ChromaCade Composer"
-     design artifact, 2026-09-02 -- see that artifact for the fuller
-     design rationale/iteration history.
+     below) and STAYS that color -- unlike the previous version, there
+     is no revert back to --wm-base afterward. Direct feedback
+     2026-09-05: colorize-and-hold reads better than the old
+     flash-then-revert pulse, and matches "Add Your Own Song"'s theme
+     of the word gradually becoming what it describes. The space and
+     "!" are plain text, not wrapped in a colored span -- they're not
+     musical letters, so they just sit in --wm-base throughout. Ported
+     from the "ChromaCade Composer" design artifact, 2026-09-02 -- see
+     that artifact for the earlier reveal+flash iteration's rationale.
 
      Resting/stroke color is theme-aware (--wm-base below), not a flat
      white like the artifact used -- that artifact had its own dark
@@ -180,62 +184,96 @@
      dark pill behind the wordmark instead. */
   /* Font/size/spacing now come from style.css's shared h1 rule (kept
      in sync there so this page's animated wordmark matches the plain
-     "PlinkPlonk" heading on the other 2 pages) -- this class only
+     "Plink Plonk!" heading on the other 2 pages) -- this class only
      adds the layout this page's heading specifically needs (wordmark
-     + "Composer" as a wrapping flex row). */
+     + "Composer" as a wrapping flex row), plus font-family/font-weight
+     below so "Composer" matches the wordmark's Luckiest Guy instead of
+     the plain Fredoka the bare h1 rule would otherwise give it --
+     direct request 2026-09-05. align-items: baseline (not center)
+     predates this and was originally needed because Luckiest Guy and
+     Fredoka have different font metrics at the same font-size; now
+     that both words share one font it's no longer strictly required
+     (same-font same-size text centers and baseline-aligns the same
+     way), but baseline is still the more correct choice in general and
+     costs nothing to keep, so it stays rather than reverting to
+     center. font-weight: 400 overrides the inherited h1 700 -- Google
+     only serves Luckiest Guy at 400, so requesting 700 made browsers
+     synthesize a fake bold, which is what actually caused "Composer"
+     to look "puffier": style.css's .wordmark rule has the identical
+     fix, needed for the exact same reason. */
   .composer-title {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     flex-wrap: wrap;
     gap: 0.5rem;
+    font-family: "Luckiest Guy", ui-rounded, "Segoe UI", sans-serif;
+    font-weight: 400;
   }
+  /* Font and outline now come from style.css's shared .wordmark rule
+     (kept in sync there so the plain "Plink Plonk!" on the other 2
+     pages matches this animated one exactly) -- this page just adds
+     --wm-base, the animated version's theme-aware fill color, which
+     the plain static wordmark on the other pages doesn't need (it
+     just takes the surrounding text color). The white text-stroke
+     outline is unaffected by the colorize animation below, since
+     stroke and fill are independent in text-stroke -- it stays white
+     while `color` animates from --wm-base to each letter's
+     --letter-color. */
   .wordmark {
     --wm-base: #2b2730;
-    font-style: italic;
-    letter-spacing: 0.15em;
   }
   @media (prefers-color-scheme: dark) {
     .wordmark { --wm-base: #fff; }
   }
-  @keyframes wordmark-reveal {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  @keyframes wordmark-colorize {
+    from { color: var(--wm-base); }
+    to { color: var(--letter-color); }
   }
-  @keyframes wordmark-wave {
-    0%, 100% { color: var(--wm-base); }
-    20%, 80% { color: var(--letter-color); }
-  }
-  /* Plain and fully visible by default -- NOT animating on page load.
-     The reveal+wave sequence only runs once JS adds .play to .wordmark
-     (see the script below), gated on the exact same trigger as the
-     melody (autoplay-allowed immediately, or the first click/keypress
-     otherwise) so the two can never drift apart the way they did when
-     the visual ran unconditionally on load while audio waited for a
-     gesture -- direct feedback 2026-09-02. */
   .wordmark span {
     display: inline-block;
-    opacity: 1;
     color: var(--wm-base);
-    -webkit-text-stroke: 2px var(--wm-base);
-    paint-order: stroke fill;
   }
+  /* forwards fill-mode holds the final (colored) keyframe rather than
+     reverting -- the whole point of the 2026-09-05 redesign. Gated on
+     .play, added by JS below on the exact same trigger as the melody
+     (autoplay-allowed immediately, or the first click/keypress
+     otherwise) so the two can never drift apart -- direct feedback
+     2026-09-02. */
   .wordmark.play span {
-    opacity: 0;
-    animation:
-      wordmark-reveal 0.15s ease-out calc(var(--i) * 0.16s) forwards,
-      wordmark-wave 0.8s ease-in-out calc(1s + var(--i) * 0.16s) forwards;
+    animation: wordmark-colorize 0.25s ease-in-out calc(1s + var(--i) * 0.16s) forwards;
   }
   @media (prefers-reduced-motion: reduce) {
     .wordmark.play span {
       animation: none;
-      opacity: 1;
-      color: var(--wm-base);
+      color: var(--letter-color);
+    }
+  }
+  /* The "!" (style.css's .exclaim, shared with the 2 plain pages)
+     cycles forever once running -- held back here until .play, same
+     wait-for-first-gesture gate as the letters, instead of cycling
+     immediately on page load before anything else has happened. */
+  .wordmark:not(.play) .exclaim {
+    animation: none;
+    color: var(--wm-base);
+  }
+  /* Re-asserts style.css's exclaim-cycle at higher specificity than
+     .wordmark.play span above -- without this, that broader "every
+     span" rule (2 classes + an element selector) would silently beat
+     the shared 2-class .wordmark .exclaim rule and give the "!" the
+     letters' colorize-and-hold animation instead of its own cycle. */
+  .wordmark.play .exclaim {
+    animation: exclaim-cycle 4s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wordmark.play .exclaim {
+      animation: none;
+      color: var(--f);
     }
   }
 </style>
 </head>
 <body>
-<div class="page letter-colors">
+<div class="page">
 <nav class="site-nav" aria-label="Site sections">
   <a href="index.html">Quickstart Guide</a>
   <a href="parental-settings.html">Parental Settings</a>
@@ -243,7 +281,7 @@
 </nav>
 <div class="content">
 
-<h1 class="composer-title"><span class="wordmark" aria-label="PlinkPlonk"><span style="--letter-color:rgb(176,0,0); --i:2">P</span><span style="--letter-color:rgb(176,30,0); --i:6">l</span><span style="--letter-color:rgb(176,110,0); --i:0">i</span><span style="--letter-color:rgb(0,176,0); --i:3">n</span><span style="--letter-color:rgb(0,0,176); --i:1">k</span><span style="--letter-color:rgb(80,0,176); --i:5">P</span><span style="--letter-color:rgb(176,0,70); --i:4">l</span><span style="--letter-color:rgb(176,0,0); --i:9">o</span><span style="--letter-color:rgb(176,30,0); --i:8">n</span><span style="--letter-color:rgb(176,110,0); --i:7">k</span></span> Composer</h1>
+<h1 class="composer-title"><span class="wordmark" aria-label="Plink Plonk!"><span style="--letter-color:var(--wm-c); --i:2">P</span><span style="--letter-color:var(--wm-d); --i:6">l</span><span style="--letter-color:var(--wm-e); --i:0">i</span><span style="--letter-color:var(--wm-f); --i:3">n</span><span style="--letter-color:var(--wm-g); --i:1">k</span> <span style="--letter-color:var(--wm-a); --i:5">P</span><span style="--letter-color:var(--wm-b); --i:4">l</span><span style="--letter-color:var(--wm-c); --i:9">o</span><span style="--letter-color:var(--wm-d); --i:8">n</span><span style="--letter-color:var(--wm-e); --i:7">k</span><span class="exclaim">!</span></span> Composer</h1>
 <h2>Add Your Own Song</h2>
 <p>
   Build a song here, then save it -- it shows up in both Tutor mode's song list and
@@ -290,10 +328,14 @@
 </div>
 
 <div class="toolbar">
+  <button type="button" id="chord-btn" aria-pressed="false">Build chord</button>
   <button type="button" id="undo-btn" disabled>&#8630; Undo last note</button>
   <button type="button" id="clear-btn" disabled>Clear all</button>
   <span id="note-count" style="font-size:0.85rem; opacity:0.8;">0 notes</span>
 </div>
+<p id="chord-hint" class="soon" style="display:none; margin-top:-0.5rem; margin-bottom:0.75rem;">
+  Building a chord -- add up to 7 different letters, they'll stack together. Click "Build chord" again when done.
+</p>
 
 <div class="staff" id="staff" aria-label="Your song, low notes at the bottom">
   <!-- 8 lanes (B..C, then Rest) built by JS below -->
@@ -316,6 +358,7 @@
     <label for="editor-duration">Duration (beats)</label>
     <input type="number" id="editor-duration" min="0.25" step="0.25">
   </div>
+  <button type="button" id="editor-repeat">Repeat</button>
   <button type="button" id="editor-delete" style="color:#b91c1c;">Delete this note</button>
   <button type="button" id="editor-close">Done</button>
 </div>
@@ -332,7 +375,7 @@
 </div>
 <script>
 "use strict";
-// PlinkPlonk's own secret jingle -- the word's letters map, via the
+// Plink Plonk!'s own secret jingle -- the word's letters map, via the
 // same C-D-E-F-G-A-B note-color cycle the wordmark wave above uses,
 // to C D E F G A B C D E. Ported from the "ChromaCade Composer"
 // design artifact 2026-09-02, pacing/notes confirmed live on
@@ -348,7 +391,7 @@
 
   // Wave-order, not reading order -- see .wordmark span's --i above
   // (each letter's wave step, independent of where it sits in
-  // "PlinkPlonk" itself). Swoop E-G-C, leap to B, back down through
+  // "Plink Plonk!" itself). Swoop E-G-C, leap to B, back down through
   // A-D, a big jump to the high E, then a descending E-D-C landing on
   // the tonic an octave up. Exactly 10 notes: 2 C/D/E each (second
   // occurrence an octave up), 1 each of F/G/A/B.
@@ -399,13 +442,13 @@
   // start playing well after the colors it's supposed to track. This
   // way, whenever playback actually becomes possible, it starts
   // (near-)immediately rather than replaying a stale schedule.
-  // The CSS wave (@keyframes wordmark-wave, 20%/80% { letter-color })
-  // doesn't reach full color until 20% into its 0.8s cycle -- a note
-  // starting at the same instant the wave animation *begins* is
-  // therefore audibly ahead of when its letter actually looks colored.
-  // Direct feedback 2026-09-02: shift every note onset by that same
-  // 20%-of-0.8s gap so the ear and eye land together.
-  var VISUAL_PEAK_OFFSET_S = 0.8 * 0.2;
+  // No compensating visual-peak offset needed anymore (there was one
+  // here through 2026-09-02, removed 2026-09-05): that was to line up
+  // a note's onset with the *peak* of a flash-then-revert color pulse
+  // 20% into its cycle. The redesigned colorize animation is one-way
+  // (--wm-base to --letter-color, held) starting immediately at the
+  // scheduled time, so a note's onset and its letter's color change
+  // beginning are already the same moment.
 
   function scheduleMelody(delay) {
     var now = ctx.currentTime;
@@ -414,20 +457,20 @@
       // duration as the chord notes layered under it below, so the
       // root doesn't cut off while E5/G5 are still sustaining.
       var duration = i === NOTE_HZ.length - 1 ? CHORD_DURATION_S : NOTE_DURATION_S;
-      playNote(freq, now + delay + VISUAL_PEAK_OFFSET_S + i * STAGGER_S, duration);
+      playNote(freq, now + delay + i * STAGGER_S, duration);
     });
 
     // Final note (index 9) harmonized into a full C major chord
     // instead of staying a bare tone, so the melody resolves rather
     // than trails off. E5 reuses a pitch already heard at index 7;
     // G5 is new, the one place a note plays without a corresponding
-    // letter flash.
-    var landingTime = now + delay + VISUAL_PEAK_OFFSET_S + 9 * STAGGER_S;
+    // letter turning color.
+    var landingTime = now + delay + 9 * STAGGER_S;
     playNote(659.25, landingTime, CHORD_DURATION_S, 0.09); // E5
     playNote(783.99, landingTime, CHORD_DURATION_S, 0.09); // G5
   }
 
-  // Starts BOTH the visual reveal/wave (by adding .play, see the CSS
+  // Starts BOTH the visual colorize wave (by adding .play, see the CSS
   // above) and the melody together, from whatever moment this actually
   // runs -- the two can only stay in sync if something drives them
   // both from the same trigger, rather than the visual running
