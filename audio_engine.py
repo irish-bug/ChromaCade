@@ -12,8 +12,14 @@ FONTS/font_index_change() for the curated instrument list + font
 encoder cycling). DEFAULT_PROGRAM is FONTS[0] -- Toy Piano as of
 2026-08-16, the real day-to-day default now that the device is in
 actual use (any other voice is one encoder click away regardless).
+
+As of 2026-09-16, FONTS mixes two soundfonts: the stock GM font
+(SOUNDFONT_PATH) and a repo-bundled custom one (CUSTOM_SOUNDFONT_PATH,
+currently just a mic'd baritone ukulele) -- see FONTS' own comment and
+ChromaCadeAudio.__init__ for how sources/sfids/filtering work.
 """
 
+import os
 import threading
 
 try:
@@ -22,6 +28,13 @@ except ImportError:
     fluidsynth = None
 
 SOUNDFONT_PATH = "/usr/share/sounds/sf2/FluidR3_GM.sf2"
+
+# Repo-bundled custom instrument soundfonts, layered on top of the
+# stock GM font above -- see FONTS' "gm"/"custom" source tags below.
+# Same _REPO_ROOT-relative pattern as sound_pools.py's NOPES_DIR/etc,
+# since this file also lives at the repo root.
+_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+CUSTOM_SOUNDFONT_PATH = os.path.join(_REPO_ROOT, "audio", "bari-uke-mic.sf2")
 
 # MIDI velocity for every note -- there's no pressure/velocity-sensing
 # input on this build (buttons are just on/off), so there's no
@@ -216,30 +229,46 @@ def volume_midi_value(volume_fraction, ceiling=VOLUME_CEILING, gamma=VOLUME_CURV
     return max(0, min(127, val))
 
 
-# Curated font list -- (GM program number, OLED display name), chosen
-# via live listening tests 2026-08-15. Display name sometimes differs
-# from the GM patch name (Celesta reads better to a toddler as "Toy
-# Piano"). List order is the cycling order the font encoder steps
-# through. Toy Piano kept first (2026-08-16) so DEFAULT_PROGRAM below
-# is the real day-to-day default, not just a leftover interim testing
-# voice -- Organ's constant-volume sustain was useful while every
-# *other* control was still being bring-up-tested, but Toy Piano is
-# the better default now that the device is in actual use.
+# Curated font list -- (soundfont source key, program number within
+# that soundfont's own bank 0, OLED display name), chosen via live
+# listening tests 2026-08-15. Display name sometimes differs from the
+# GM patch name (Celesta reads better to a toddler as "Toy Piano").
+# List order is the cycling order the font encoder steps through. Toy
+# Piano kept first (2026-08-16) so DEFAULT_PROGRAM below is the real
+# day-to-day default, not just a leftover interim testing voice --
+# Organ's constant-volume sustain was useful while every *other*
+# control was still being bring-up-tested, but Toy Piano is the better
+# default now that the device is in actual use.
+#
+# "custom" entries (added 2026-09-16) are looked up in
+# CUSTOM_SOUNDFONT_PATH, not SOUNDFONT_PATH -- program_select() takes
+# an explicit sfid, so a "custom" program number is free to reuse a
+# number GM already uses (bari-uke-mic.sf2's one preset is bank
+# 0/program 0, same slot as GM's "Piano" here, and that's fine, they're
+# different loaded soundfonts). Append new "custom" entries at the end
+# of this list, don't insert them in the middle: ChromaCadeAudio.fonts
+# drops any entry whose source failed to load (see __init__), and
+# chromacade.py's TUTOR_FONT_INDEX is a fixed index into this list
+# (Toy Piano, position 0) that needs to stay valid whether or not the
+# custom soundfont is present -- true as long as filtering only ever
+# removes entries after it, never before.
 FONTS = [
-    (8, "Toy Piano"),
-    (19, "Organ"),
-    (0, "Piano"),
-    (79, "Ocarina"),
-    (114, "Steel Drums"),
-    (117, "Melodic Tom"),
-    (40, "Violin"),
-    (29, "Overdrive"),
-    (13, "Xylophone"),
-    (9, "Glockenspiel"),
-    (80, "Synth"),
+    ("gm", 8, "Toy Piano"),
+    ("gm", 19, "Organ"),
+    ("gm", 0, "Piano"),
+    ("gm", 79, "Ocarina"),
+    ("gm", 114, "Steel Drums"),
+    ("gm", 117, "Melodic Tom"),
+    ("gm", 40, "Violin"),
+    ("gm", 29, "Overdrive"),
+    ("gm", 13, "Xylophone"),
+    ("gm", 9, "Glockenspiel"),
+    ("gm", 80, "Synth"),
+    ("custom", 0, "Baritone Uke"),
 ]
 
-DEFAULT_PROGRAM = FONTS[0][0]
+DEFAULT_FONT_SOURCE = FONTS[0][0]
+DEFAULT_PROGRAM = FONTS[0][1]
 
 
 def font_index_change(current_index, delta, num_fonts):
@@ -250,8 +279,19 @@ def font_index_change(current_index, delta, num_fonts):
     return (current_index + delta) % num_fonts
 
 
+def available_fonts(loaded_sources):
+    """Filters FONTS down to entries whose source soundfont actually
+    loaded. Pulled out as its own pure function (rather than inlined in
+    ChromaCadeAudio.__init__) so this filtering is unit-testable
+    without real FluidSynth/hardware, matching this module's own
+    testable-function/thin-hardware-wrapper split (see module
+    docstring). loaded_sources is any container supporting `in` (a
+    dict's keys view, a set, ...)."""
+    return [f for f in FONTS if f[0] in loaded_sources]
+
+
 class ChromaCadeAudio:
-    def __init__(self, gain=4.5, program=DEFAULT_PROGRAM):
+    def __init__(self, gain=4.5, source=DEFAULT_FONT_SOURCE, program=DEFAULT_PROGRAM):
         if fluidsynth is None:
             raise ImportError(
                 "pyfluidsynth not installed -- pip3 install pyfluidsynth --break-system-packages"
@@ -284,13 +324,41 @@ class ChromaCadeAudio:
         # open-questions.md / fluidsynth_test.py for why this check matters.
         if self.sfid == -1:
             raise RuntimeError(f"Failed to load soundfont at {SOUNDFONT_PATH}")
-        self.fs.program_select(0, self.sfid, 0, program)
+        self.sfids = {"gm": self.sfid}
 
-        # Find program's position in FONTS so font_change() cycles from
-        # the right place; falls back to 0 if a non-curated program was
-        # passed in directly (e.g. a one-off test).
+        # Custom soundfont(s) are optional, unlike the GM font above --
+        # these are still-experimental, not-yet-finished personal
+        # assets (only the mic'd baritone uke exists so far; a piezo
+        # version and an eventual combined trimmed font are still
+        # pending, see custom-soundfont-baritone-uke project notes), so
+        # a missing/corrupt file here shouldn't take down ALL note
+        # playback the way a missing GM font does. Falls back to
+        # skipping its FONTS entries (available_fonts() below) with a
+        # printed warning instead of raising.
+        custom_sfid = self.fs.sfload(CUSTOM_SOUNDFONT_PATH)
+        if custom_sfid == -1:
+            print(
+                f"ChromaCadeAudio: custom soundfont unavailable at "
+                f"{CUSTOM_SOUNDFONT_PATH}, skipping its FONTS entries"
+            )
+        else:
+            self.sfids["custom"] = custom_sfid
+
+        self.fonts = available_fonts(self.sfids.keys())
+
+        self.fs.program_select(0, self.sfids[source], 0, program)
+
+        # Find (source, program)'s position in self.fonts so
+        # font_change() cycles from the right place; falls back to 0 if
+        # a non-curated program was passed in directly (e.g. a one-off
+        # test).
         self.font_index = next(
-            (i for i, (prog, _) in enumerate(FONTS) if prog == program), 0
+            (
+                i
+                for i, (src, prog, _) in enumerate(self.fonts)
+                if src == source and prog == program
+            ),
+            0,
         )
 
         self.octave = 4
@@ -356,14 +424,14 @@ class ChromaCadeAudio:
         instructive, delightful pattern already established for the
         other controls, not just a "next press" effect."""
         with self._lock:
-            self.font_index = font_index_change(self.font_index, delta, len(FONTS))
-            program = FONTS[self.font_index][0]
-            self.fs.program_select(0, self.sfid, 0, program)
+            self.font_index = font_index_change(self.font_index, delta, len(self.fonts))
+            source, program, _ = self.fonts[self.font_index]
+            self.fs.program_select(0, self.sfids[source], 0, program)
             self._retrigger_held()
 
     @property
     def font_name(self):
-        return FONTS[self.font_index][1]
+        return self.fonts[self.font_index][2]
 
     def set_pitch_bend(self, bend_fraction):
         """MIDI pitch bend is inherently a whole-channel effect, not

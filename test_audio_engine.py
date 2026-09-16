@@ -4,6 +4,7 @@ from audio_engine import (
     FONTS,
     NOTE_SEMITONES,
     VOLUME_CEILING,
+    available_fonts,
     bent_letter,
     clamp_octave,
     font_index_change,
@@ -254,10 +255,29 @@ def test_font_index_change_wraps_past_the_start():
 
 
 def test_fonts_list_has_no_duplicate_display_names():
-    names = [name for _, name in FONTS]
+    names = [name for _, _, name in FONTS]
     assert len(names) == len(set(names))
 
 
-def test_fonts_list_has_no_duplicate_gm_programs():
-    programs = [program for program, _ in FONTS]
-    assert len(programs) == len(set(programs))
+def test_fonts_list_has_no_duplicate_programs_within_each_source():
+    """Program numbers only need to be unique within a soundfont's own
+    space, not globally -- program_select() resolves by explicit sfid,
+    not by program number alone, so e.g. a "custom" entry is free to
+    reuse a program number a "gm" entry already uses."""
+    programs_by_source = {}
+    for source, program, _name in FONTS:
+        programs_by_source.setdefault(source, []).append(program)
+    for source, programs in programs_by_source.items():
+        assert len(programs) == len(set(programs)), source
+
+
+def test_available_fonts_filters_out_missing_sources():
+    result = available_fonts({"gm"})
+    assert result
+    assert all(source == "gm" for source, _, _ in result)
+    assert len(result) < len(FONTS)
+
+
+def test_available_fonts_keeps_everything_when_all_sources_loaded():
+    all_sources = {source for source, _, _ in FONTS}
+    assert available_fonts(all_sources) == FONTS

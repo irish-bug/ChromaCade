@@ -146,7 +146,7 @@ def miss_feedback(strip, target_step, sound_path):
 # Piano has a percussive attack/decay, so repeats stay audibly separate.
 # Confirmed live 2026-08-15. Scoped to tutor_mode.py only -- play.py's
 # default is a separate, general-play preference, not touched here.
-TUTOR_PROGRAM = next(program for program, name in FONTS if name == "Toy Piano")
+TUTOR_PROGRAM = next(program for _source, program, name in FONTS if name == "Toy Piano")
 
 
 def play_demo(audio, ring, score, seconds_per_beat, oled=None):

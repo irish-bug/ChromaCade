@@ -272,7 +272,14 @@ Fredoka/
 # and copied to plink for real-hardware listening tests, not finished
 # assets ready to commit. Not wired into audio_engine.py's FONTS list
 # yet either (still hardcoded to the single GM soundfont).
+#
+# bari-uke-mic.sf2 is the exception: the mic'd baritone uke instrument
+# is tuned/looped and confirmed working (see docs/open-questions.md),
+# so it's tracked ahead of the piezo version and the eventual combined
+# trimmed font -- committed now specifically so it survives even
+# though it's not wired into audio_engine.py yet.
 audio/*.sf2
+!audio/bari-uke-mic.sf2
 
 # Personal reference photos, not case-model assets (unlike e.g.
 # enclosure/fan-dimensions.jpg or hardware/speaker_specs.jpeg, which
